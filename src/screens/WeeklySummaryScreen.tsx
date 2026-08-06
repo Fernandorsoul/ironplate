@@ -1,89 +1,52 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../constants/theme';
 import { useApp } from '../context/AppContext';
+import { WeeklySummary } from '../types';
 
 export default function WeeklySummaryScreen({ navigation }: any) {
   const { getWeeklySummary, targetMacros, dailyLogs } = useApp();
-  const summary = getWeeklySummary();
-
-  const getAdherenceColor = (pct: number) => {
-    if (pct >= 80) return COLORS.success;
-    if (pct >= 50) return COLORS.warning;
-    return COLORS.error;
-  };
-
-  const last7Days = dailyLogs.slice(-7).reverse();
+  const summary: WeeklySummary | null = getWeeklySummary();
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backButton}>← Voltar</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>Resumo Semanal</Text>
-        <View style={{ width: 50 }} />
-      </View>
-
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Averages Card */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Médias da Semana</Text>
-          <View style={styles.macroRow}>
-            <View style={styles.macroItem}>
-              <Text style={[styles.macroValue, { color: COLORS.calories }]}>{summary.avgCalories}</Text>
-              <Text style={styles.macroLabel}>kcal</Text>
-              <Text style={styles.macroTarget}>meta: {targetMacros?.calories || 0}</Text>
+      <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+        <Text style={styles.backButtonText}>Back</Text>
+      </TouchableOpacity>
+      {summary && (
+        <>
+          <View style={styles.averagesCard}>
+            <Text style={styles.cardTitle}>Averages</Text>
+            <View style={styles.row}>
+              <Text style={[styles.label, styles.protein]}>Protein: {summary.avgProtein.toFixed(2)}g</Text>
+              <Text style={[styles.label, styles.carbs]}>Carbs: {summary.avgCarbs.toFixed(2)}g</Text>
             </View>
-            <View style={styles.macroItem}>
-              <Text style={[styles.macroValue, { color: COLORS.protein }]}>{summary.avgProtein}g</Text>
-              <Text style={styles.macroLabel}>Proteína</Text>
-              <Text style={styles.macroTarget}>meta: {targetMacros?.protein || 0}g</Text>
-            </View>
-            <View style={styles.macroItem}>
-              <Text style={[styles.macroValue, { color: COLORS.carbs }]}>{summary.avgCarbs}g</Text>
-              <Text style={styles.macroLabel}>Carbs</Text>
-              <Text style={styles.macroTarget}>meta: {targetMacros?.carbs || 0}g</Text>
-            </View>
-            <View style={styles.macroItem}>
-              <Text style={[styles.macroValue, { color: COLORS.fat }]}>{summary.avgFat}g</Text>
-              <Text style={styles.macroLabel}>Gordura</Text>
-              <Text style={styles.macroTarget}>meta: {targetMacros?.fat || 0}g</Text>
+            <View style={styles.row}>
+              <Text style={[styles.label, styles.fat]}>Fat: {summary.avgFat.toFixed(2)}g</Text>
+              <Text style={[styles.label, styles.calories]}>Calories: {summary.avgCalories.toFixed(2)}</Text>
             </View>
           </View>
-        </View>
-
-        {/* Adherence Card */}
-        <View style={[styles.card, { borderLeftColor: getAdherenceColor(summary.adherencePercent), borderLeftWidth: 4 }]}>
-          <Text style={styles.cardTitle}>Aderência</Text>
-          <Text style={[styles.adherenceValue, { color: getAdherenceColor(summary.adherencePercent) }]}>
-            {summary.adherencePercent}%
-          </Text>
-          <Text style={styles.adherenceSubtext}>
-            {summary.daysTracked} de 7 dias registrados
-          </Text>
-        </View>
-
-        {/* Daily Breakdown */}
-        <Text style={styles.sectionTitle}>Detalhamento Diário</Text>
-        {last7Days.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>Nenhum registro nos últimos 7 dias</Text>
-          </View>
-        ) : (
-          last7Days.map((log, index) => (
-            <View key={index} style={styles.dayRow}>
-              <Text style={styles.dayDate}>{new Date(log.date).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' })}</Text>
-              <Text style={styles.dayCalories}>{log.totalMacros.calories} kcal</Text>
-              <Text style={styles.dayMacros}>
-                P:{log.totalMacros.protein}g C:{log.totalMacros.carbs}g G:{log.totalMacros.fat}g
+          <View style={styles.adherenceCard}>
+            <Text style={styles.cardTitle}>Adherence</Text>
+            <View style={styles.row}>
+              <Text style={styles.label}>Days Tracked: {summary.daysTracked}</Text>
+              <Text style={[styles.label, summary.adherencePercent >= 80 ? styles.success : summary.adherencePercent >= 50 ? styles.warning : styles.error]}>
+                Adherence: {summary.adherencePercent.toFixed(2)}%
               </Text>
             </View>
-          ))
-        )}
-
-        <View style={{ height: 100 }} />
-      </ScrollView>
+          </View>
+          <ScrollView style={styles.dailyBreakdownList}>
+            {dailyLogs.map((log, index) => (
+              <View key={index} style={styles.logItem}>
+                <Text style={styles.date}>{new Date(log.date).toLocaleDateString('pt-BR')}</Text>
+                <Text style={[styles.label, styles.protein]}>Protein: {log.totalMacros.protein.toFixed(2)}g</Text>
+                <Text style={[styles.label, styles.carbs]}>Carbs: {log.totalMacros.carbs.toFixed(2)}g</Text>
+                <Text style={[styles.label, styles.fat]}>Fat: {log.totalMacros.fat.toFixed(2)}g</Text>
+                <Text style={[styles.label, styles.calories]}>Calories: {log.totalMacros.calories.toFixed(2)}</Text>
+              </View>
+            ))}
+          </ScrollView>
+        </>
+      )}
     </View>
   );
 }
@@ -94,104 +57,78 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
     padding: SPACING.md,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: SPACING.xl,
-    marginBottom: SPACING.lg,
-  },
   backButton: {
-    color: COLORS.primary,
+    position: 'absolute',
+    top: SPACING.xl,
+    left: SPACING.sm,
+    zIndex: 10,
+  },
+  backButtonText: {
+    color: COLORS.textSecondary,
     fontSize: FONT_SIZE.md,
   },
-  title: {
+  averagesCard: {
+    backgroundColor: COLORS.surface,
+    padding: SPACING.lg,
+    borderRadius: BORDER_RADIUS.md,
+    marginBottom: SPACING.xl,
+  },
+  adherenceCard: {
+    backgroundColor: COLORS.surface,
+    padding: SPACING.lg,
+    borderRadius: BORDER_RADIUS.md,
+    marginBottom: SPACING.xl,
+  },
+  cardTitle: {
     fontSize: FONT_SIZE.lg,
     fontWeight: 'bold',
     color: COLORS.text,
-  },
-  card: {
-    backgroundColor: COLORS.surface,
-    borderRadius: BORDER_RADIUS.lg,
-    padding: SPACING.lg,
-    marginBottom: SPACING.md,
-  },
-  cardTitle: {
-    fontSize: FONT_SIZE.md,
-    fontWeight: 'bold',
-    color: COLORS.text,
-    marginBottom: SPACING.md,
-  },
-  macroRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  macroItem: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  macroValue: {
-    fontSize: FONT_SIZE.xl,
-    fontWeight: 'bold',
-  },
-  macroLabel: {
-    fontSize: FONT_SIZE.xs,
-    color: COLORS.textSecondary,
-    marginTop: SPACING.xs,
-  },
-  macroTarget: {
-    fontSize: FONT_SIZE.xs,
-    color: COLORS.textMuted,
-    marginTop: SPACING.xs,
-  },
-  adherenceValue: {
-    fontSize: FONT_SIZE.hero,
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
-  adherenceSubtext: {
-    fontSize: FONT_SIZE.sm,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-    marginTop: SPACING.sm,
-  },
-  sectionTitle: {
-    fontSize: FONT_SIZE.md,
-    fontWeight: 'bold',
-    color: COLORS.text,
-    marginBottom: SPACING.md,
-    marginTop: SPACING.md,
-  },
-  dayRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: COLORS.surface,
-    borderRadius: BORDER_RADIUS.md,
-    padding: SPACING.md,
     marginBottom: SPACING.sm,
   },
-  dayDate: {
-    fontSize: FONT_SIZE.sm,
-    color: COLORS.textSecondary,
-    width: 80,
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginVertical: SPACING.xs,
   },
-  dayCalories: {
+  label: {
     fontSize: FONT_SIZE.md,
-    fontWeight: 'bold',
+    color: COLORS.textSecondary,
+  },
+  protein: {
+    color: COLORS.protein,
+  },
+  carbs: {
+    color: COLORS.carbs,
+  },
+  fat: {
+    color: COLORS.fat,
+  },
+  calories: {
     color: COLORS.calories,
   },
-  dayMacros: {
-    fontSize: FONT_SIZE.xs,
-    color: COLORS.textMuted,
+  success: {
+    color: COLORS.success,
   },
-  emptyState: {
-    backgroundColor: COLORS.surface,
-    borderRadius: BORDER_RADIUS.md,
-    padding: SPACING.lg,
-    alignItems: 'center',
+  warning: {
+    color: COLORS.warning,
   },
-  emptyText: {
-    color: COLORS.textSecondary,
+  error: {
+    color: COLORS.error,
+  },
+  dailyBreakdownList: {
+    flex: 1,
+  },
+  logItem: {
+    backgroundColor: COLORS.surfaceLight,
+    padding: SPACING.md,
+    borderRadius: BORDER_RADIUS.sm,
+    marginBottom: SPACING.xs,
+  },
+  date: {
+    fontSize: FONT_SIZE.lg,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    marginBottom: SPACING.xs,
   },
 });

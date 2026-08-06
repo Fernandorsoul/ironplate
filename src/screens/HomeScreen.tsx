@@ -5,7 +5,7 @@ import { useApp } from '../context/AppContext';
 import { getMacroPercentages } from '../utils/calculations';
 
 export default function HomeScreen({ navigation }: any) {
-  const { profile, targetMacros, todayLog, removeMealFromToday } = useApp();
+  const { profile, targetMacros, todayLog, removeMealFromToday, getWeeklySummary } = useApp();
 
   const currentMacros = todayLog?.totalMacros || { calories: 0, protein: 0, carbs: 0, fat: 0 };
   const percentages = targetMacros ? {
