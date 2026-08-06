@@ -15,6 +15,8 @@ import WeightScreen from './src/screens/WeightScreen';
 import MealPlanScreen from './src/screens/MealPlanScreen';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import AddFoodScreen from './src/screens/AddFoodScreen';
+
+import ProfileScreen from './src/screens/ProfileScreen';
 import EditMealPlanScreen from './src/screens/EditMealPlanScreen';
 import WeeklySummaryScreen from './src/screens/WeeklySummaryScreen';
 import EditMealScreen from './src/screens/EditMealScreen';
@@ -85,6 +87,8 @@ function AppNavigator() {
           <Stack.Screen name="AddMeal" component={AddMealScreen} />
           <Stack.Screen name="AddWorkout" component={AddWorkoutScreen} />
           <Stack.Screen name="AddFood" component={AddFoodScreen} />
+
+          <Stack.Screen name="Profile" component={ProfileScreen} />
           <Stack.Screen name="EditMealPlan" component={EditMealPlanScreen} />
           <Stack.Screen name="WeeklySummary" component={WeeklySummaryScreen} />
           <Stack.Screen name="EditMeal" component={EditMealScreen} />
