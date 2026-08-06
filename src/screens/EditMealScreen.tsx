@@ -6,219 +6,239 @@ import { useApp } from '../context/AppContext';
 import { calculatePortionMacros, sumMacros } from '../utils/calculations';
 import { Food, FoodPortion, Meal, MealTiming } from '../types';
 
-export default function EditMealScreen({ route, navigation }: any) {
-  const { meal } = route.params;
-  const { addMealToToday, removeMealFromToday, customFoods } = useApp();
+const EditMealScreen = ({ route, navigation }: any) => {
+  const { meal: initialMeal } = route.params;
+  const [name, setName] = useState(initialMeal.name);
+  const [timing, setTiming] = useState<MealTiming>(initialMeal.timing);
+  const [selectedFoods, setSelectedFoods] = useState<FoodPortion[]>(initialMeal.foods);
 
-  const [mealName, setMealName] = useState(meal.name);
-  const [timing, setTiming] = useState<MealTiming>(meal.timing);
-  const [selectedFoods, setSelectedFoods] = useState<{ food: Food; grams: number }[]>(
-    meal.foods.map((f: FoodPortion) => ({ food: f.food, grams: f.grams }))
-  );
-  const [searchQuery, setSearchQuery] = useState('');
-
-  const allFoods = [...FOOD_DATABASE, ...customFoods];
-  const filteredFoods = allFoods.filter((food: Food) =>
-    food.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const addFood = (food: Food) => {
-    setSelectedFoods(prev => [...prev, { food, grams: 100 }]);
-  };
-
-  const removeFood = (index: number) => {
-    setSelectedFoods(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const updateGrams = (index: number, grams: string) => {
-    const numGrams = parseInt(grams) || 0;
-    setSelectedFoods(prev =>
-      prev.map((item, i) => i === index ? { ...item, grams: numGrams } : item)
-    );
-  };
-
-  const totalMacros = sumMacros(
-    selectedFoods.map(item => calculatePortionMacros(item.food, item.grams))
-  );
-
-  const handleSave = async () => {
-    if (!mealName.trim()) {
-      Alert.alert('Erro', 'Digite o nome da refeição');
+  const handleSave = () => {
+    if (!name) {
+      Alert.alert('Erro', 'Nome da refeiÃ§Ã£o Ã© obrigatÃ³rio');
       return;
     }
     if (selectedFoods.length === 0) {
-      Alert.alert('Erro', 'Adicione pelo menos um alimento');
+      Alert.alert('Erro', 'Selecione pelo menos um alimento');
       return;
     }
 
-    const updatedMeal: Meal = {
-      id: meal.id,
-      name: mealName,
+    const newMeal: Meal = {
+      id: initialMeal.id,
+      name,
       timing,
-      foods: selectedFoods.map(item => ({
-        food: item.food,
-        grams: item.grams,
-        macros: calculatePortionMacros(item.food, item.grams),
-      })),
-      totalMacros,
-      time: meal.time,
+      foods: selectedFoods,
+      totalMacros: sumMacros(selectedFoods.map(item => calculatePortionMacros(item.food, item.grams))),
     };
 
-    await removeMealFromToday(meal.id);
-    await addMealToToday(updatedMeal);
+    useApp().removeMealFromToday(initialMeal.id);
+    useApp().addMealToToday(newMeal);
     navigation.goBack();
+  };
+
+  const handleAddFood = (food: Food) => {
+    setSelectedFoods([...selectedFoods, { food, grams: 100, macros: calculatePortionMacros(food, 100) }]);
+  };
+
+  const handleRemoveFood = (index: number) => {
+    const newSelectedFoods = [...selectedFoods];
+    newSelectedFoods.splice(index, 1);
+    setSelectedFoods(newSelectedFoods);
   };
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backButton}>← Voltar</Text>
+          <Text style={styles.headerText}>â† Voltar</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>Editar Refeição</Text>
+        <Text style={[styles.headerText, styles.centerHeader]}>Editar RefeiÃ§Ã£o</Text>
         <TouchableOpacity onPress={handleSave}>
-          <Text style={styles.saveButton}>Salvar</Text>
+          <Text style={styles.headerText}>Salvar</Text>
         </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
-        <TextInput
-          style={styles.input}
-          placeholder="Nome da refeição"
-          placeholderTextColor={COLORS.textMuted}
-          value={mealName}
-          onChangeText={setMealName}
-        />
+      <TextInput
+        value={name}
+        onChangeText={setName}
+        placeholder="Nome da refeiÃ§Ã£o"
+        style={styles.input}
+      />
 
-        <Text style={styles.sectionTitle}>Timing</Text>
-        <View style={styles.timingGrid}>
-          {(Object.keys(MEAL_TIMING_LABELS) as MealTiming[]).map(t => (
-            <TouchableOpacity
-              key={t}
-              style={[styles.timingButton, timing === t && styles.timingButtonActive]}
-              onPress={() => setTiming(t)}
-            >
-              <Text style={[styles.timingText, timing === t && styles.timingTextActive]}>
-                {MEAL_TIMING_LABELS[t]}
-              </Text>
+      {Object.keys(MEAL_TIMING_LABELS).map(key => (
+        <TouchableOpacity key={key} onPress={() => setTiming(key as MealTiming)}>
+          <Text style={[styles.timingButton, timing === key && styles.timingButtonActive]}>
+            {MEAL_TIMING_LABELS[key]}
+          </Text>
+        </TouchableOpacity>
+      ))}
+
+      <ScrollView contentContainerStyle={styles.foodList}>
+        {selectedFoods.map((item, index) => (
+          <View key={index} style={styles.foodItem}>
+            <Text style={styles.foodName}>{item.food.name}</Text>
+            <TextInput
+              value={item.grams.toString()}
+              onChangeText={(text) => {
+                const grams = Math.round(parseFloat(text));
+                if (!isNaN(grams)) {
+                  setSelectedFoods(
+                    selectedFoods.map((foodItem, i) =>
+                      i === index ? { ...foodItem, grams, macros: calculatePortionMacros(foodItem.food, grams) } : foodItem
+                    )
+                  );
+                }
+              }}
+              keyboardType="numeric"
+              style={styles.gramsInput}
+            />
+            <Text style={styles.portionCalories}>{Math.round(item.macros.calories)} cal</Text>
+            <TouchableOpacity onPress={() => handleRemoveFood(index)}>
+              <Text style={styles.removeButton}>X</Text>
+            </TouchableOpacity>
+          </View>
+        ))}
+      </ScrollView>
+
+      <View style={styles.totalMacrosCard}>
+        <Text style={styles.totalCalories}>{Math.round(sumMacros(selectedFoods.map(item => item.macros)).calories)} cal</Text>
+        <Text style={styles.totalProtein}>{Math.round(sumMacros(selectedFoods.map(item => item.macros)).protein)}g P</Text>
+        <Text style={styles.totalCarbs}>{Math.round(sumMacros(selectedFoods.map(item => item.macros)).carbs)}g C</Text>
+        <Text style={styles.totalFat}>{Math.round(sumMacros(selectedFoods.map(item => item.macros)).fat)}g G</Text>
+      </View>
+
+      <View style={styles.foodSearch}>
+        <TextInput
+          placeholder="Procurar alimento"
+          style={styles.searchInput}
+        />
+        <ScrollView contentContainerStyle={styles.searchResults}>
+          {FOOD_DATABASE.map(food => (
+            <TouchableOpacity key={food.id} onPress={() => handleAddFood(food)}>
+              <Text style={styles.searchResult}>{food.name}</Text>
             </TouchableOpacity>
           ))}
-        </View>
-
-        <Text style={styles.sectionTitle}>Alimentos ({selectedFoods.length})</Text>
-        {selectedFoods.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>Nenhum alimento selecionado</Text>
-          </View>
-        ) : (
-          selectedFoods.map((item, index) => (
-            <View key={index} style={styles.foodItem}>
-              <View style={styles.foodInfo}>
-                <Text style={styles.foodName}>{item.food.name}</Text>
-                <Text style={styles.foodMacros}>
-                  {Math.round(calculatePortionMacros(item.food, item.grams).calories)} kcal
-                </Text>
-              </View>
-              <View style={styles.foodActions}>
-                <TextInput
-                  style={styles.gramsInput}
-                  keyboardType="numeric"
-                  value={item.grams.toString()}
-                  onChangeText={(g) => updateGrams(index, g)}
-                />
-                <Text style={styles.gramsLabel}>g</Text>
-                <TouchableOpacity onPress={() => removeFood(index)}>
-                  <Text style={styles.removeButton}>✕</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ))
-        )}
-
-        {selectedFoods.length > 0 && (
-          <View style={styles.totalCard}>
-            <Text style={styles.totalTitle}>Total</Text>
-            <View style={styles.totalMacros}>
-              <Text style={[styles.totalMacro, { color: COLORS.calories }]}>{Math.round(totalMacros.calories)} kcal</Text>
-              <Text style={[styles.totalMacro, { color: COLORS.protein }]}>P: {Math.round(totalMacros.protein)}g</Text>
-              <Text style={[styles.totalMacro, { color: COLORS.carbs }]}>C: {Math.round(totalMacros.carbs)}g</Text>
-              <Text style={[styles.totalMacro, { color: COLORS.fat }]}>G: {Math.round(totalMacros.fat)}g</Text>
-            </View>
-          </View>
-        )}
-
-        <Text style={styles.sectionTitle}>Buscar Alimento</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Buscar alimento..."
-          placeholderTextColor={COLORS.textMuted}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-
-        {filteredFoods.map((food: Food) => (
-          <TouchableOpacity key={food.id} style={styles.foodOption} onPress={() => addFood(food)}>
-            <View>
-              <Text style={styles.foodOptionName}>{food.name}</Text>
-              <Text style={styles.foodOptionCategory}>{food.category}</Text>
-            </View>
-            <Text style={styles.foodOptionMacros}>{food.macros.calories} kcal/100g</Text>
-          </TouchableOpacity>
-        ))}
-
-        <View style={{ height: 100 }} />
-      </ScrollView>
+        </ScrollView>
+      </View>
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background, padding: SPACING.md },
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+    padding: SPACING.md,
+  },
   header: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    marginTop: SPACING.xl, marginBottom: SPACING.lg,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: SPACING.xl,
   },
-  backButton: { color: COLORS.primary, fontSize: FONT_SIZE.md },
-  title: { fontSize: FONT_SIZE.lg, fontWeight: 'bold', color: COLORS.text },
-  saveButton: { color: COLORS.primary, fontSize: FONT_SIZE.md, fontWeight: 'bold' },
+  headerText: {
+    fontSize: FONT_SIZE.lg,
+    color: COLORS.text,
+  },
+  centerHeader: {
+    textAlign: 'center',
+  },
   input: {
-    backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.md,
-    padding: SPACING.md, color: COLORS.text, fontSize: FONT_SIZE.md, marginBottom: SPACING.md,
+    height: 40,
+    borderColor: COLORS.border,
+    borderWidth: 1,
+    borderRadius: BORDER_RADIUS.md,
+    paddingHorizontal: SPACING.sm,
+    marginBottom: SPACING.md,
   },
-  sectionTitle: { fontSize: FONT_SIZE.md, fontWeight: 'bold', color: COLORS.text, marginBottom: SPACING.md, marginTop: SPACING.md },
-  timingGrid: { flexDirection: 'row', gap: SPACING.sm },
   timingButton: {
-    flex: 1, backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.md,
-    padding: SPACING.md, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border,
+    paddingVertical: SPACING.xs,
+    paddingHorizontal: SPACING.sm,
+    backgroundColor: COLORS.surfaceLight,
+    borderRadius: BORDER_RADIUS.md,
+    marginRight: SPACING.sm,
   },
-  timingButtonActive: { borderColor: COLORS.primary, backgroundColor: COLORS.surfaceLight },
-  timingText: { color: COLORS.textSecondary, fontSize: FONT_SIZE.sm },
-  timingTextActive: { color: COLORS.primary, fontWeight: 'bold' },
-  emptyState: { backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.md, padding: SPACING.lg, alignItems: 'center' },
-  emptyText: { color: COLORS.textSecondary },
+  timingButtonActive: {
+    backgroundColor: COLORS.primary,
+  },
+  foodList: {
+    marginBottom: SPACING.lg,
+  },
   foodItem: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.md, padding: SPACING.md, marginBottom: SPACING.sm,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: SPACING.xs,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.borderLight,
   },
-  foodInfo: { flex: 1 },
-  foodName: { color: COLORS.text, fontSize: FONT_SIZE.md, fontWeight: '600' },
-  foodMacros: { color: COLORS.textSecondary, fontSize: FONT_SIZE.sm, marginTop: SPACING.xs },
-  foodActions: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
+  foodName: {
+    fontSize: FONT_SIZE.md,
+    color: COLORS.text,
+  },
   gramsInput: {
-    backgroundColor: COLORS.surfaceLight, borderRadius: BORDER_RADIUS.sm,
-    padding: SPACING.sm, width: 60, textAlign: 'center', color: COLORS.text, fontSize: FONT_SIZE.md,
+    width: 60,
+    height: 32,
+    borderColor: COLORS.border,
+    borderWidth: 1,
+    borderRadius: BORDER_RADIUS.sm,
+    textAlign: 'center',
+    marginRight: SPACING.sm,
   },
-  gramsLabel: { color: COLORS.textSecondary, fontSize: FONT_SIZE.sm },
-  removeButton: { color: COLORS.error, fontSize: FONT_SIZE.lg, padding: SPACING.sm },
-  totalCard: { backgroundColor: COLORS.surfaceLight, borderRadius: BORDER_RADIUS.md, padding: SPACING.md, marginTop: SPACING.md },
-  totalTitle: { color: COLORS.text, fontSize: FONT_SIZE.md, fontWeight: 'bold', marginBottom: SPACING.sm },
-  totalMacros: { flexDirection: 'row', justifyContent: 'space-between' },
-  totalMacro: { fontSize: FONT_SIZE.md, fontWeight: '600' },
-  foodOption: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.md, padding: SPACING.md, marginBottom: SPACING.sm,
+  portionCalories: {
+    fontSize: FONT_SIZE.md,
+    color: COLORS.textSecondary,
   },
-  foodOptionName: { color: COLORS.text, fontSize: FONT_SIZE.md, fontWeight: '600' },
-  foodOptionCategory: { color: COLORS.textSecondary, fontSize: FONT_SIZE.sm, marginTop: SPACING.xs },
-  foodOptionMacros: { color: COLORS.textSecondary, fontSize: FONT_SIZE.sm },
+  removeButton: {
+    fontSize: FONT_SIZE.lg,
+    color: COLORS.error,
+  },
+  totalMacrosCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: SPACING.xs,
+    backgroundColor: COLORS.surfaceLight,
+    borderRadius: BORDER_RADIUS.md,
+    marginBottom: SPACING.lg,
+  },
+  totalCalories: {
+    fontSize: FONT_SIZE.md,
+    color: COLORS.calories,
+  },
+  totalProtein: {
+    fontSize: FONT_SIZE.md,
+    color: COLORS.protein,
+  },
+  totalCarbs: {
+    fontSize: FONT_SIZE.md,
+    color: COLORS.carbs,
+  },
+  totalFat: {
+    fontSize: FONT_SIZE.md,
+    color: COLORS.fat,
+  },
+  foodSearch: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SPACING.lg,
+  },
+  searchInput: {
+    flex: 1,
+    height: 40,
+    borderColor: COLORS.border,
+    borderWidth: 1,
+    borderRadius: BORDER_RADIUS.md,
+    paddingHorizontal: SPACING.sm,
+    marginRight: SPACING.sm,
+  },
+  searchResults: {
+    maxHeight: 200,
+  },
+  searchResult: {
+    paddingVertical: SPACING.xs,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.borderLight,
+  },
 });
+
+export default EditMealScreen;
