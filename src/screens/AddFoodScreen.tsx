@@ -4,230 +4,129 @@ import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../constants/theme';
 import { useApp } from '../context/AppContext';
 import { Food } from '../types';
 
-const CATEGORIES = ['Proteína', 'Carboidrato', 'Gordura', 'Fruta', 'Verdura', 'Laticínio', 'Outro'];
-
-export default function AddFoodScreen({ navigation }: any) {
-  const { addCustomFood } = useApp();
+const AddFoodScreen = ({ navigation }: any) => {
   const [name, setName] = useState('');
-  const [category, setCategory] = useState('Outro');
-  const [calories, setCalories] = useState('');
-  const [protein, setProtein] = useState('');
-  const [carbs, setCarbs] = useState('');
-  const [fat, setFat] = useState('');
+  const [category, setCategory] = useState('');
+  const [calories, setCalories] = useState(0);
+  const [protein, setProtein] = useState(0);
+  const [carbs, setCarbs] = useState(0);
+  const [fat, setFat] = useState(0);
 
-  const handleSave = async () => {
-    if (!name.trim()) {
-      Alert.alert('Erro', 'Digite o nome do alimento');
-      return;
-    }
-    const c = parseFloat(calories) || 0;
-    const p = parseFloat(protein) || 0;
-    const cb = parseFloat(carbs) || 0;
-    const f = parseFloat(fat) || 0;
-    if (c === 0 && p === 0 && cb === 0 && f === 0) {
-      Alert.alert('Erro', 'Preencha pelo menos um valor nutricional');
+  const { addCustomFood } = useApp();
+
+  const saveFood = () => {
+    if (!name || (calories <= 0 && protein <= 0 && carbs <= 0 && fat <= 0)) {
+      Alert.alert('Erro', 'Nome não pode estar vazio e pelo menos um macronutriente deve ser maior que zero.');
       return;
     }
 
-    const food: Food = {
+    const newFood: Food = {
       id: `custom_${Date.now()}`,
-      name: name.trim(),
-      macros: { calories: c, protein: p, carbs: cb, fat: f },
-      category,
+      name,
+      macros: { calories, protein, carbs, fat },
+      category
     };
 
-    await addCustomFood(food);
-    navigation.goBack();
+    addCustomFood(newFood)
+      .then(() => navigation.goBack())
+      .catch(error => Alert.alert('Erro', error.message));
   };
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backButton}>← Voltar</Text>
+          <Text style={styles.headerText}>← Voltar</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>Novo Alimento</Text>
-        <TouchableOpacity onPress={handleSave}>
-          <Text style={styles.saveButton}>Salvar</Text>
+        <Text style={[styles.headerText, styles.centerHeader]}>Novo Alimento</Text>
+        <TouchableOpacity onPress={saveFood}>
+          <Text style={styles.headerText}>Salvar</Text>
         </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={styles.content}>
         <TextInput
-          style={styles.input}
-          placeholder="Nome do alimento"
-          placeholderTextColor={COLORS.textMuted}
           value={name}
           onChangeText={setName}
+          placeholder="Nome do alimento"
+          style={styles.input}
+          placeholderTextColor={COLORS.textSecondary}
         />
 
-        <Text style={styles.sectionTitle}>Categoria</Text>
         <View style={styles.categoryGrid}>
-          {CATEGORIES.map(cat => (
+          {['Proteína', 'Carboidrato', 'Gordura', 'Fruta', 'Verdura', 'Laticínio', 'Outro'].map(cat => (
             <TouchableOpacity
               key={cat}
-              style={[styles.categoryButton, category === cat && styles.categoryButtonActive]}
               onPress={() => setCategory(cat)}
+              style={[styles.categoryButton, category === cat && styles.selected]}
             >
-              <Text style={[styles.categoryText, category === cat && styles.categoryTextActive]}>{cat}</Text>
+              <Text style={styles.categoryButtonText}>{cat}</Text>
             </TouchableOpacity>
           ))}
         </View>
 
-        <Text style={styles.sectionTitle}>Macros por 100g</Text>
-        <View style={styles.macrosGrid}>
-          <View style={styles.macroField}>
-            <Text style={styles.macroLabel}>Calorias</Text>
-            <TextInput
-              style={styles.macroInput}
-              keyboardType="numeric"
-              placeholder="0"
-              placeholderTextColor={COLORS.textMuted}
-              value={calories}
-              onChangeText={setCalories}
-            />
-            <Text style={styles.macroUnit}>kcal</Text>
-          </View>
-          <View style={styles.macroField}>
-            <Text style={[styles.macroLabel, { color: COLORS.protein }]}>Proteína</Text>
-            <TextInput
-              style={styles.macroInput}
-              keyboardType="numeric"
-              placeholder="0"
-              placeholderTextColor={COLORS.textMuted}
-              value={protein}
-              onChangeText={setProtein}
-            />
-            <Text style={styles.macroUnit}>g</Text>
-          </View>
-          <View style={styles.macroField}>
-            <Text style={[styles.macroLabel, { color: COLORS.carbs }]}>Carbs</Text>
-            <TextInput
-              style={styles.macroInput}
-              keyboardType="numeric"
-              placeholder="0"
-              placeholderTextColor={COLORS.textMuted}
-              value={carbs}
-              onChangeText={setCarbs}
-            />
-            <Text style={styles.macroUnit}>g</Text>
-          </View>
-          <View style={styles.macroField}>
-            <Text style={[styles.macroLabel, { color: COLORS.fat }]}>Gordura</Text>
-            <TextInput
-              style={styles.macroInput}
-              keyboardType="numeric"
-              placeholder="0"
-              placeholderTextColor={COLORS.textMuted}
-              value={fat}
-              onChangeText={setFat}
-            />
-            <Text style={styles.macroUnit}>g</Text>
-          </View>
-        </View>
+        <TextInput
+          value={calories.toString()}
+          onChangeText={(text) => setCalories(Math.round(Number(text)) || 0)}
+          keyboardType="numeric"
+          placeholder="Calorias (kcal)"
+          style={styles.input}
+          placeholderTextColor={COLORS.textSecondary}
+        />
 
-        <View style={{ height: 100 }} />
+        <TextInput
+          value={protein.toString()}
+          onChangeText={(text) => setProtein(Math.round(Number(text)) || 0)}
+          keyboardType="numeric"
+          placeholder="Proteína (g)"
+          style={styles.input}
+          placeholderTextColor={COLORS.textSecondary}
+        />
+
+        <TextInput
+          value={carbs.toString()}
+          onChangeText={(text) => setCarbs(Math.round(Number(text)) || 0)}
+          keyboardType="numeric"
+          placeholder="Carboidratos (g)"
+          style={styles.input}
+          placeholderTextColor={COLORS.textSecondary}
+        />
+
+        <TextInput
+          value={fat.toString()}
+          onChangeText={(text) => setFat(Math.round(Number(text)) || 0)}
+          keyboardType="numeric"
+          placeholder="Gorduras (g)"
+          style={styles.input}
+          placeholderTextColor={COLORS.textSecondary}
+        />
       </ScrollView>
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-    padding: SPACING.md,
-  },
+  container: { flex: 1, backgroundColor: COLORS.background },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: SPACING.xl,
-    marginBottom: SPACING.lg,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    padding: SPACING.md, marginTop: SPACING.xl, borderBottomWidth: 1, borderBottomColor: COLORS.borderLight
   },
-  backButton: {
-    color: COLORS.primary,
-    fontSize: FONT_SIZE.md,
-  },
-  title: {
-    fontSize: FONT_SIZE.lg,
-    fontWeight: 'bold',
-    color: COLORS.text,
-  },
-  saveButton: {
-    color: COLORS.primary,
-    fontSize: FONT_SIZE.md,
-    fontWeight: 'bold',
-  },
+  headerText: { fontSize: FONT_SIZE.md, color: COLORS.text },
+  centerHeader: { textAlign: 'center' },
+  content: { padding: SPACING.md },
   input: {
-    backgroundColor: COLORS.surface,
-    borderRadius: BORDER_RADIUS.md,
-    padding: SPACING.md,
-    color: COLORS.text,
-    fontSize: FONT_SIZE.md,
-    marginBottom: SPACING.md,
+    height: 40, borderColor: COLORS.borderLight, borderWidth: 1,
+    borderRadius: BORDER_RADIUS.sm, paddingHorizontal: SPACING.sm,
+    marginBottom: SPACING.sm, color: COLORS.text
   },
-  sectionTitle: {
-    fontSize: FONT_SIZE.md,
-    fontWeight: 'bold',
-    color: COLORS.text,
-    marginBottom: SPACING.md,
-    marginTop: SPACING.md,
-  },
-  categoryGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: SPACING.sm,
-  },
+  categoryGrid: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: SPACING.md },
   categoryButton: {
-    backgroundColor: COLORS.surface,
-    borderRadius: BORDER_RADIUS.md,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    width: '48%', paddingVertical: SPACING.md, alignItems: 'center',
+    justifyContent: 'center', marginHorizontal: '1%', marginBottom: SPACING.sm,
+    backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.md
   },
-  categoryButtonActive: {
-    borderColor: COLORS.primary,
-    backgroundColor: COLORS.surfaceLight,
-  },
-  categoryText: {
-    color: COLORS.textSecondary,
-    fontSize: FONT_SIZE.sm,
-  },
-  categoryTextActive: {
-    color: COLORS.primary,
-    fontWeight: 'bold',
-  },
-  macrosGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: SPACING.sm,
-  },
-  macroField: {
-    width: '48%',
-    backgroundColor: COLORS.surface,
-    borderRadius: BORDER_RADIUS.md,
-    padding: SPACING.md,
-    alignItems: 'center',
-  },
-  macroLabel: {
-    fontSize: FONT_SIZE.xs,
-    color: COLORS.textSecondary,
-    marginBottom: SPACING.xs,
-  },
-  macroInput: {
-    backgroundColor: COLORS.surfaceLight,
-    borderRadius: BORDER_RADIUS.sm,
-    padding: SPACING.sm,
-    width: '100%',
-    textAlign: 'center',
-    color: COLORS.text,
-    fontSize: FONT_SIZE.lg,
-  },
-  macroUnit: {
-    fontSize: FONT_SIZE.xs,
-    color: COLORS.textMuted,
-    marginTop: SPACING.xs,
-  },
+  selected: { backgroundColor: COLORS.primary },
+  categoryButtonText: { fontSize: FONT_SIZE.sm, color: COLORS.textSecondary }
 });
+
+export default AddFoodScreen;
