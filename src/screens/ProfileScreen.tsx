@@ -22,32 +22,26 @@ export default function ProfileScreen({ navigation }: any) {
             <Text style={styles.profileGoal}>{profile.goal}</Text>
           </View>
 
-{targetMacros && (
 <View style={styles.cardsContainer}>
-  <View style={[styles.card, { backgroundColor: COLORS.primary }]} >
-    <Text style={styles.cardTitle}>Calorias</Text>
-    <Text style={styles.cardValue}>{Math.round(targetMacros.calories)}</Text>
+  <View style={styles.card}>
+    <Text style={[styles.cardTitle, { color: COLORS.calories }]}>Calorias</Text>
+    <Text style={styles.cardValue}>{Math.round(targetMacros?.calories || 0)}</Text>
   </View>
-  <View style={[styles.card, { backgroundColor: COLORS.protein }]} >
-    <Text style={styles.cardTitle}>Proteína</Text>
-    <Text style={styles.cardValue}>{Math.round(targetMacros.protein)}g</Text>
+  <View style={styles.card}>
+    <Text style={[styles.cardTitle, { color: COLORS.protein }]}>Proteína</Text>
+    <Text style={styles.cardValue}>{Math.round(targetMacros?.protein || 0)}g</Text>
   </View>
-  <View style={[styles.card, { backgroundColor: COLORS.carbs }]} >
-    <Text style={styles.cardTitle}>Carboidratos</Text>
-    <Text style={styles.cardValue}>{Math.round(targetMacros.carbs)}g</Text>
+  <View style={styles.card}>
+    <Text style={[styles.cardTitle, { color: COLORS.carbs }]}>Carboidratos</Text>
+    <Text style={styles.cardValue}>{Math.round(targetMacros?.carbs || 0)}g</Text>
   </View>
-  <View style={[styles.card, { backgroundColor: COLORS.fat }]} >
-    <Text style={styles.cardTitle}>Gordura</Text>
-    <Text style={styles.cardValue}>{Math.round(targetMacros.fat)}g</Text>
-  </View>
-  <View style={[styles.card, { backgroundColor: summary.adherencePercent >= 80 ? COLORS.success : summary.adherencePercent >= 50 ? COLORS.warning : COLORS.error }]} >
-    <Text style={styles.cardTitle}>Aderência</Text>
-    <Text style={styles.cardValue}>{Math.round(summary.adherencePercent)}%</Text>
+  <View style={styles.card}>
+    <Text style={[styles.cardTitle, { color: summary.adherencePercent >= 80 ? COLORS.success : summary.adherencePercent >= 50 ? COLORS.warning : COLORS.error }]}>Aderência</Text>
+    <Text style={styles.cardValue}>{Math.round(summary.adherencePercent || 0)}%</Text>
   </View>
 </View>
-)}
           <View style={styles.statsRow}>
-            <Text style={styles.statItem}>Último Peso: {weightHistory.length > 0 ? Math.round(weightHistory[weightHistory.length - 1].weight) : 'N/A'} kg</Text>
+            <Text style={styles.statItem}>Último Peso: {weightHistory.length > 0 ? Math.round(weightHistory[weightHistory.length - 1].weight) : '-'}</Text>
             <Text style={styles.statItem}>Altura: {profile.height} cm</Text>
             <Text style={styles.statItem}>Idade: {profile.age} anos</Text>
           </View>
@@ -67,51 +61,55 @@ const styles = StyleSheet.create({
   },
   backButton: {
     marginTop: SPACING.xl,
-    marginBottom: SPACING.md,
+    marginBottom: SPACING.lg,
   },
   backButtonText: {
-    fontSize: FONT_SIZE.lg,
+    fontSize: FONT_SIZE.md,
     color: COLORS.textSecondary,
   },
   header: {
     fontSize: FONT_SIZE.hero,
+    fontWeight: 'bold',
     textAlign: 'center',
     marginVertical: SPACING.xl,
-    color: COLORS.text,
   },
   profileCard: {
     backgroundColor: COLORS.surface,
-    padding: SPACING.md,
-    borderRadius: BORDER_RADIUS.lg,
-    marginBottom: SPACING.md,
+    padding: SPACING.lg,
+    borderRadius: BORDER_RADIUS.md,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.30,
+    shadowRadius: 4.65,
+    elevation: 4,
   },
   profileName: {
     fontSize: FONT_SIZE.lg,
     fontWeight: 'bold',
-    color: COLORS.text,
+    marginBottom: SPACING.md,
   },
   profileSport: {
     fontSize: FONT_SIZE.md,
     color: COLORS.textSecondary,
+    marginBottom: SPACING.sm,
   },
   profileGoal: {
     fontSize: FONT_SIZE.md,
-    color: COLORS.textMuted,
+    color: COLORS.textSecondary,
   },
   statsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: SPACING.md,
+    marginTop: SPACING.lg,
   },
   statItem: {
-    fontSize: FONT_SIZE.sm,
+    fontSize: FONT_SIZE.md,
     color: COLORS.textSecondary,
   },
   emptyState: {
-    fontSize: FONT_SIZE.lg,
+    fontSize: FONT_SIZE.md,
     textAlign: 'center',
     marginTop: SPACING.xl,
-    color: COLORS.textMuted,
   },
   cardsContainer: {
     flex: 1,
