@@ -15,6 +15,8 @@ interface AppContextType {
   addMealToToday: (meal: any) => Promise<void>;
   removeMealFromToday: (mealId: string) => Promise<void>;
   addWorkoutToToday: (workout: any) => Promise<void>;
+  removeWorkoutFromToday: (workoutId: string) => Promise<void>;
+  updateWorkoutInToday: (workoutId: string, updatedWorkout: any) => Promise<void>;
   setTodayWeight: (weight: number) => Promise<void>;
 
   // Meal plans
@@ -136,6 +138,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await updateTodayLog(log => ({ ...log, workouts: [...log.workouts, workout] }));
   };
 
+  const removeWorkoutFromToday = async (workoutId: string) => {
+    await updateTodayLog(log => ({
+      ...log,
+      workouts: log.workouts.filter((w: any) => w.id !== workoutId),
+    }));
+  };
+
+  const updateWorkoutInToday = async (workoutId: string, updatedWorkout: any) => {
+    await updateTodayLog(log => ({
+      ...log,
+      workouts: log.workouts.map((w: any) => w.id === workoutId ? updatedWorkout : w),
+    }));
+  };
+
   const setTodayWeight = async (weight: number) => {
     await updateTodayLog(log => ({ ...log, weight }));
     await addWeightEntry({ date: getTodayDate(), weight });
@@ -211,6 +227,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         addMealToToday,
         removeMealFromToday,
         addWorkoutToToday,
+        removeWorkoutFromToday,
+        updateWorkoutInToday,
         setTodayWeight,
         mealPlans,
         saveMealPlan,

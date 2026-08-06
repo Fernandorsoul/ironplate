@@ -19,6 +19,8 @@ import EditMealPlanScreen from './src/screens/EditMealPlanScreen';
 import WeeklySummaryScreen from './src/screens/WeeklySummaryScreen';
 import EditMealScreen from './src/screens/EditMealScreen';
 
+import WorkoutDetailScreen from './src/screens/WorkoutDetailScreen';
+
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
@@ -86,6 +88,8 @@ function AppNavigator() {
           <Stack.Screen name="EditMealPlan" component={EditMealPlanScreen} />
           <Stack.Screen name="WeeklySummary" component={WeeklySummaryScreen} />
           <Stack.Screen name="EditMeal" component={EditMealScreen} />
+
+          <Stack.Screen name="WorkoutDetail" component={WorkoutDetailScreen} />
         </>
       )}
     </Stack.Navigator>
