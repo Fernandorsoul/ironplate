@@ -1,0 +1,34 @@
+ticket_id: IRONPLATE-001
+stage: solution
+objective: >
+  Definir arquitetura para as 4 user stories P0 do IronPlate:
+  custom foods, gráfico Victory Native, edição de plano, delete de refeição.
+  Priorizar decisões de estado, navegação e padrões de componente.
+constraints:
+  - React Native (Expo ~57) já configurado
+  - TypeScript obrigatório
+  - AsyncStorage para persistência offline
+  - Victory Native já na dependência (v41.26.0)
+  - Context API para estado global
+  - Não introduzir novas dependências desnecessárias
+required_inputs:
+  - task-packet.yaml
+  - intake-brief.md
+  - refined-scope.md
+  - src/ (código existente completo)
+produced_artifacts:
+  - ADR-001-custom-foods-architecture.md
+  - ADR-002-chart-migration.md
+  - solution-outline.md
+risks:
+  - Victory Native v41 pode ter breaking changes com React Native 0.86
+  - Custom foods precisa de schema de migração se banco original mudar
+  - Edição de plano pode gerar estado inconsistente se macros não recalcular
+definition_of_done:
+  - Decisões arquiteturais documentadas como ADRs
+  - Solution outline com padrões de componente definidos
+  - Interfaces entre features identificadas
+  - Estratégia de teste rascunhada
+  - Próximo passo explícito para tech-lead
+next_agent: solution-architect
+status: ready

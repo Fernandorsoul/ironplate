@@ -1,0 +1,37 @@
+ticket_id: IRONPLATE-001
+agent_id: frontend-engineer
+stage: build
+summary: >
+  Implementadas 4 features P0 do IronPlate:
+  1. Custom Foods - banco de alimentos personalizados com AddFoodScreen
+  2. Victory Native Chart - gráfico de peso com CartesianChart/Line/Scatter
+  3. Editable Meal Plan - EditMealPlanScreen com add/remove refeições
+  4. Delete Meal - botão de remover refeição do log diário na HomeScreen
+artifacts:
+  - src/screens/AddFoodScreen.tsx (novo)
+  - src/screens/EditMealPlanScreen.tsx (novo)
+  - src/screens/WeightScreen.tsx (modificado - Victory Native)
+  - src/screens/HomeScreen.tsx (modificado - delete meal)
+  - src/screens/AddMealScreen.tsx (modificado - custom foods merge)
+  - src/screens/MealPlanScreen.tsx (modificado - edit button)
+  - src/context/AppContext.tsx (modificado - customFoods, removeMealFromToday)
+  - src/services/storage.ts (modificado - customFoods storage)
+  - App.tsx (modificado - rotas AddFood, EditMealPlan)
+  - refined-scope.md (novo)
+  - handoff-packet.yaml (novo)
+  - solution-outline.md (novo)
+  - ADR-001-custom-foods-architecture.md (novo)
+  - ADR-002-chart-migration.md (novo)
+checks:
+  - TypeScript compilation: OK (npx tsc --noEmit)
+  - All 4 features implemented
+  - Navigation routes configured
+  - Context/state updated
+  - Storage persistence configured
+residual_risks:
+  - Victory Native v41 pode ter edge cases em dispositivos reais
+  - Custom foods não tem edição (apenas criação)
+  - Meal plan editing é simplificado (sem drag-and-drop)
+recommendation: proceed
+next_agent: qa-strategist
+status: done

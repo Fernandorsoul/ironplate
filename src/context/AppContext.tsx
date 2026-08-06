@@ -1,0 +1,214 @@
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { UserProfile, DailyLog, MealPlan, WeightEntry, Macros, Food } from '../types';
+import { calculateMacros } from '../utils/calculations';
+import * as Storage from '../services/storage';
+
+interface AppContextType {
+  // User
+  profile: UserProfile | null;
+  setProfile: (profile: UserProfile) => Promise<void>;
+  targetMacros: Macros | null;
+
+  // Daily logs
+  dailyLogs: DailyLog[];
+  todayLog: DailyLog | null;
+  addMealToToday: (meal: any) => Promise<void>;
+  removeMealFromToday: (mealId: string) => Promise<void>;
+  addWorkoutToToday: (workout: any) => Promise<void>;
+  setTodayWeight: (weight: number) => Promise<void>;
+
+  // Meal plans
+  mealPlans: MealPlan[];
+  saveMealPlan: (plan: MealPlan) => Promise<void>;
+  deleteMealPlan: (id: string) => Promise<void>;
+
+  // Weight
+  weightHistory: WeightEntry[];
+  addWeightEntry: (entry: WeightEntry) => Promise<void>;
+
+  // Custom foods
+  customFoods: Food[];
+  addCustomFood: (food: Food) => Promise<void>;
+
+  // State
+  isLoading: boolean;
+  isOnboarded: boolean;
+}
+
+const AppContext = createContext<AppContextType | undefined>(undefined);
+
+export function AppProvider({ children }: { children: ReactNode }) {
+  const [profile, setProfileState] = useState<UserProfile | null>(null);
+  const [targetMacros, setTargetMacros] = useState<Macros | null>(null);
+  const [dailyLogs, setDailyLogs] = useState<DailyLog[]>([]);
+  const [mealPlans, setMealPlans] = useState<MealPlan[]>([]);
+  const [weightHistory, setWeightHistory] = useState<WeightEntry[]>([]);
+  const [customFoods, setCustomFoods] = useState<Food[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Load data on mount
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      const [savedProfile, savedLogs, savedPlans, savedWeight, savedCustomFoods] = await Promise.all([
+        Storage.loadUserProfile(),
+        Storage.loadDailyLogs(),
+        Storage.loadMealPlans(),
+        Storage.loadWeightHistory(),
+        Storage.loadCustomFoods(),
+      ]);
+
+      if (savedProfile) {
+        setProfileState(savedProfile);
+        setTargetMacros(calculateMacros(savedProfile));
+      }
+      setDailyLogs(savedLogs);
+      setMealPlans(savedPlans);
+      setWeightHistory(savedWeight);
+      setCustomFoods(savedCustomFoods);
+    } catch (error) {
+      console.error('Error loading data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const setProfile = async (newProfile: UserProfile) => {
+    setProfileState(newProfile);
+    setTargetMacros(calculateMacros(newProfile));
+    await Storage.saveUserProfile(newProfile);
+  };
+
+  const getTodayDate = () => new Date().toISOString().split('T')[0];
+
+  const getTodayLog = (): DailyLog => {
+    const today = getTodayDate();
+    const existing = dailyLogs.find(log => log.date === today);
+    if (existing) return existing;
+    return {
+      date: today,
+      meals: [],
+      workouts: [],
+      totalMacros: { calories: 0, protein: 0, carbs: 0, fat: 0 },
+    };
+  };
+
+  const updateTodayLog = async (updater: (log: DailyLog) => DailyLog) => {
+    const today = getTodayDate();
+    const todayLog = getTodayLog();
+    const updated = updater(todayLog);
+
+    const newLogs = dailyLogs.filter(log => log.date !== today);
+    newLogs.push(updated);
+
+    setDailyLogs(newLogs);
+    await Storage.saveDailyLogs(newLogs);
+  };
+
+  const addMealToToday = async (meal: any) => {
+    await updateTodayLog(log => ({
+      ...log,
+      meals: [...log.meals, meal],
+      totalMacros: {
+        calories: log.totalMacros.calories + meal.totalMacros.calories,
+        protein: log.totalMacros.protein + meal.totalMacros.protein,
+        carbs: log.totalMacros.carbs + meal.totalMacros.carbs,
+        fat: log.totalMacros.fat + meal.totalMacros.fat,
+      },
+    }));
+  };
+
+  const removeMealFromToday = async (mealId: string) => {
+    await updateTodayLog(log => {
+      const meal = log.meals.find(m => m.id === mealId);
+      if (!meal) return log;
+      return {
+        ...log,
+        meals: log.meals.filter(m => m.id !== mealId),
+        totalMacros: {
+          calories: log.totalMacros.calories - meal.totalMacros.calories,
+          protein: log.totalMacros.protein - meal.totalMacros.protein,
+          carbs: log.totalMacros.carbs - meal.totalMacros.carbs,
+          fat: log.totalMacros.fat - meal.totalMacros.fat,
+        },
+      };
+    });
+  };
+
+  const addWorkoutToToday = async (workout: any) => {
+    await updateTodayLog(log => ({
+      ...log,
+      workouts: [...log.workouts, workout],
+    }));
+  };
+
+  const setTodayWeight = async (weight: number) => {
+    await updateTodayLog(log => ({ ...log, weight }));
+    await addWeightEntry({ date: getTodayDate(), weight });
+  };
+
+  const saveMealPlan = async (plan: MealPlan) => {
+    const newPlans = mealPlans.filter(p => p.id !== plan.id);
+    newPlans.push(plan);
+    setMealPlans(newPlans);
+    await Storage.saveMealPlans(newPlans);
+  };
+
+  const deleteMealPlan = async (id: string) => {
+    const newPlans = mealPlans.filter(p => p.id !== id);
+    setMealPlans(newPlans);
+    await Storage.saveMealPlans(newPlans);
+  };
+
+  const addWeightEntry = async (entry: WeightEntry) => {
+    const newHistory = weightHistory.filter(e => e.date !== entry.date);
+    newHistory.push(entry);
+    newHistory.sort((a, b) => a.date.localeCompare(b.date));
+    setWeightHistory(newHistory);
+    await Storage.saveWeightHistory(newHistory);
+  };
+
+  const addCustomFood = async (food: Food) => {
+    const newFoods = [...customFoods, food];
+    setCustomFoods(newFoods);
+    await Storage.saveCustomFoods(newFoods);
+  };
+
+  return (
+    <AppContext.Provider
+      value={{
+        profile,
+        setProfile,
+        targetMacros,
+        dailyLogs,
+        todayLog: getTodayLog(),
+        addMealToToday,
+        removeMealFromToday,
+        addWorkoutToToday,
+        setTodayWeight,
+        mealPlans,
+        saveMealPlan,
+        deleteMealPlan,
+        weightHistory,
+        addWeightEntry,
+        customFoods,
+        addCustomFood,
+        isLoading,
+        isOnboarded: !!profile,
+      }}
+    >
+      {children}
+    </AppContext.Provider>
+  );
+}
+
+export function useApp() {
+  const context = useContext(AppContext);
+  if (!context) {
+    throw new Error('useApp must be used within AppProvider');
+  }
+  return context;
+}

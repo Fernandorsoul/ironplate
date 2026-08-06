@@ -1,0 +1,23 @@
+task_id: IRONPLATE-001
+stage: build
+objective: Implementar 4 features P0 do IronPlate
+requester: user
+priority: high
+constraints:
+  - React Native (Expo)
+  - TypeScript
+  - Offline-first
+  - Mobile iOS/Android
+inputs:
+  - user-request
+  - refined-scope.md
+  - solution-outline.md
+success_criteria:
+  - App funcional com 6 features principais
+  - Interface intuitiva para atletas
+  - Performance adequada para uso diário
+risks:
+  - Victory Native v41 API diferente da v3x (resolvido)
+  - Custom foods precisa de schema de migração se banco original mudar
+next_agent: qa-strategist
+status: done
