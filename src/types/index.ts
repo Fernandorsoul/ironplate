@@ -77,3 +77,12 @@ export interface WeightEntry {
   weight: number;
   bodyFat?: number;
 }
+
+export interface WeeklySummary {
+  avgCalories: number;
+  avgProtein: number;
+  avgCarbs: number;
+  avgFat: number;
+  daysTracked: number;
+  adherencePercent: number;
+}

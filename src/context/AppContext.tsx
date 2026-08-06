@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { UserProfile, DailyLog, MealPlan, WeightEntry, Macros, Food } from '../types';
+import { UserProfile, DailyLog, MealPlan, WeightEntry, Macros, Food, WeeklySummary } from '../types';
 import { calculateMacros } from '../utils/calculations';
 import * as Storage from '../services/storage';
 
@@ -29,6 +29,9 @@ interface AppContextType {
   // Custom foods
   customFoods: Food[];
   addCustomFood: (food: Food) => Promise<void>;
+
+  // Weekly summary
+  getWeeklySummary: () => WeeklySummary;
 
   // State
   isLoading: boolean;
@@ -177,6 +180,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await Storage.saveCustomFoods(newFoods);
   };
 
+  const getWeeklySummary = (): WeeklySummary => {
+    const last7Days = dailyLogs.slice(-7);
+    if (last7Days.length === 0) return { avgCalories: 0, avgProtein: 0, avgCarbs: 0, avgFat: 0, daysTracked: 0, adherencePercent: 0 };
+
+    let totalCal = 0, totalProt = 0, totalCarb = 0, totalFat = 0;
+    let adherenceCount = 0;
+
+    for (const log of last7Days) {
+      totalCal += log.totalMacros.calories;
+      totalProt += log.totalMacros.protein;
+      totalCarb += log.totalMacros.carbs;
+      totalFat += log.totalMacros.fat;
+      if (targetMacros && log.totalMacros.calories >= targetMacros.calories * 0.9) adherenceCount++;
+    }
+
+    const daysTracked = last7Days.length;
+    return {
+      avgCalories: Math.round(totalCal / daysTracked),
+      avgProtein: Math.round(totalProt / daysTracked),
+      avgCarbs: Math.round(totalCarb / daysTracked),
+      avgFat: Math.round(totalFat / daysTracked),
+      daysTracked,
+      adherencePercent: Math.round((adherenceCount / daysTracked) * 100),
+    };
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -196,6 +225,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         addWeightEntry,
         customFoods,
         addCustomFood,
+        getWeeklySummary,
         isLoading,
         isOnboarded: !!profile,
       }}
