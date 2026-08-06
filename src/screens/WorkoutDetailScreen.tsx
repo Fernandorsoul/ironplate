@@ -4,146 +4,111 @@ import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../constants/theme';
 import { useApp } from '../context/AppContext';
 import { Workout } from '../types';
 
-const WorkoutDetailScreen: React.FC<{ route: any; navigation: any }> = ({ route, navigation }) => {
-  const { updateWorkoutInToday } = useApp();
-  const [name, setName] = useState(route.params.workout.name);
-  const [type, setType] = useState<Workout['type']>(route.params.workout.type);
-  const [duration, setDuration] = useState<string>(route.params.workout.duration.toString());
-  const [intensity, setIntensity] = useState<Workout['intensity']>(route.params.workout.intensity);
+const WorkoutDetailScreen = ({ route, navigation }: any) => {
+  const { workout } = route.params;
+  const { dailyLogs, addWorkoutToToday, removeWorkoutFromToday } = useApp();
+  const [name, setName] = useState(workout.name);
+  const [type, setType] = useState<Workout['type']>(workout.type);
+  const [duration, setDuration] = useState<string>(workout.duration.toString());
+  const [intensity, setIntensity] = useState<Workout['intensity']>(workout.intensity);
 
   const handleSave = () => {
     if (!name || parseInt(duration) <= 0) {
-      Alert.alert('Erro', 'Nome do treino e duração devem ser preenchidos.');
+      Alert.alert('Erro', 'Nome do treino e duraÃ§Ã£o devem ser preenchidos.');
       return;
     }
 
-    const updatedWorkout: Workout = {
-      id: route.params.workout.id,
-      name,
-      type,
-      duration: parseInt(duration),
-      intensity,
-    };
+    const updatedWorkout: Workout = { ...workout, name, type, duration: parseInt(duration), intensity };
+    const newDailyLogs = dailyLogs.map(log => 
+      log.date === workout.time ? { ...log, workouts: log.workouts.filter(w => w.id !== workout.id).concat(updatedWorkout) } : log
+    );
 
-    updateWorkoutInToday(route.params.workout.id, updatedWorkout);
-    navigation.goBack();
+    addWorkoutToToday(updatedWorkout);
+    navigation.navigate('Home');
   };
-
-  const renderTypeButton = (label: string, value: Workout['type']) => (
-    <TouchableOpacity
-      style={[
-        styles.typeButton,
-        type === value && styles.selectedTypeButton,
-      ]}
-      onPress={() => setType(value)}
-    >
-      <Text style={styles.buttonText}>{label}</Text>
-    </TouchableOpacity>
-  );
-
-  const renderIntensityButton = (label: string, value: Workout['intensity']) => (
-    <TouchableOpacity
-      style={[
-        styles.intensityButton,
-        intensity === value && styles.selectedIntensityButton,
-      ]}
-      onPress={() => setIntensity(value)}
-    >
-      <Text style={styles.buttonText}>{label}</Text>
-    </TouchableOpacity>
-  );
 
   const renderTips = () => {
     switch (type) {
       case 'strength':
-        return (
-          <View style={styles.tipsCard}>
-            <Text style={styles.tipsText}>Treine com peso adequado para evitar lesões.</Text>
-          </View>
-        );
+        return <Text style={styles.tip}>Treine com pesos adequados para evitar lesÃµes.</Text>;
       case 'cardio':
-        return (
-          <View style={styles.tipsCard}>
-            <Text style={styles.tipsText}>Manter uma boa forma é crucial para o cardio.</Text>
-          </View>
-        );
+        return <Text style={styles.tip}>Manter uma boa forma Ã© crucial para o sucesso do treino cardio.</Text>;
       case 'bjj':
-        return (
-          <View style={styles.tipsCard}>
-            <Text style={styles.tipsText}>Pratique regularmente para melhorar suas técnicas.</Text>
-          </View>
-        );
+        return <Text style={styles.tip}>Pratique regularmente para melhorar suas habilidades.</Text>;
       case 'rest':
-        return (
-          <View style={styles.tipsCard}>
-            <Text style={styles.tipsText}>Descanse adequadamente para recuperação.</Text>
-          </View>
-        );
+        return <Text style={styles.tip}>Descanso adequado Ã© fundamental para a recuperaÃ§Ã£o e melhoria do desempenho.</Text>;
       default:
         return null;
     }
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <View style={styles.container}>
       <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-        <Text style={styles.backButtonText}>← Voltar</Text>
+        <Text style={styles.backButtonText}>â† Voltar</Text>
       </TouchableOpacity>
-
-      <Text style={styles.headerText}>Editar Treino</Text>
-
-      <TextInput
-        value={name}
-        onChangeText={setName}
-        placeholder="Nome do treino"
-        style={styles.input}
-      />
-
-      {renderTypeButton('Musculação', 'strength')}
-      {renderTypeButton('Cardio', 'cardio')}
-      {renderTypeButton('BJJ', 'bjj')}
-      {renderTypeButton('Descanso', 'rest')}
-
-      <TextInput
-        value={duration}
-        onChangeText={setDuration}
-        keyboardType="numeric"
-        placeholder="Duração (min)"
-        style={styles.input}
-      />
-
-      {renderIntensityButton('Leve', 'low')}
-      {renderIntensityButton('Moderado', 'medium')}
-      {renderIntensityButton('Intenso', 'high')}
-
-      {renderTips()}
-
+      <Text style={styles.header}>Editar Treino</Text>
+      <ScrollView contentContainerStyle={styles.formContainer}>
+        <TextInput
+          value={name}
+          onChangeText={setName}
+          placeholder="Nome do treino"
+          style={styles.input}
+        />
+        <View style={styles.buttonGroup}>
+          {['strength', 'cardio', 'bjj', 'rest'].map(t => (
+            <TouchableOpacity key={t} onPress={() => setType(t as Workout['type'])} style={[styles.button, type === t && styles.activeButton]}>
+              <Text style={[styles.buttonText, type === t && styles.activeButtonText]}>{t.charAt(0).toUpperCase() + t.slice(1)}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        <TextInput
+          value={duration}
+          onChangeText={setDuration}
+          keyboardType="numeric"
+          placeholder="DuraÃ§Ã£o (min)"
+          style={styles.input}
+        />
+        <View style={styles.buttonGroup}>
+          {['low', 'medium', 'high'].map(i => (
+            <TouchableOpacity key={i} onPress={() => setIntensity(i as Workout['intensity'])} style={[styles.button, intensity === i && styles.activeButton]}>
+              <Text style={[styles.buttonText, intensity === i && styles.activeButtonText]}>{i.charAt(0).toUpperCase() + i.slice(1)}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        {renderTips()}
+      </ScrollView>
       <TouchableOpacity onPress={handleSave} style={styles.saveButton}>
-        <Text style={styles.buttonText}>Salvar</Text>
+        <Text style={styles.saveButtonText}>Salvar</Text>
       </TouchableOpacity>
-    </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    padding: SPACING.md,
+    flex: 1,
     backgroundColor: COLORS.background,
+    padding: SPACING.md,
   },
   backButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: SPACING.xl,
+    marginTop: SPACING.xl,
+    marginBottom: SPACING.md,
   },
   backButtonText: {
-    fontSize: FONT_SIZE.md,
     color: COLORS.textSecondary,
+    fontSize: FONT_SIZE.sm,
   },
-  headerText: {
+  header: {
     fontSize: FONT_SIZE.xxl,
     fontWeight: 'bold',
     color: COLORS.text,
+    textAlign: 'center',
     marginTop: SPACING.xl,
+  },
+  formContainer: {
+    flexGrow: 1,
+    justifyContent: 'space-between',
   },
   input: {
     height: 40,
@@ -153,45 +118,43 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.sm,
     marginBottom: SPACING.md,
   },
-  typeButton: {
-    backgroundColor: COLORS.surfaceLight,
-    paddingVertical: SPACING.xs,
-    paddingHorizontal: SPACING.md,
-    marginRight: SPACING.sm,
-    borderRadius: BORDER_RADIUS.md,
-  },
-  selectedTypeButton: {
-    backgroundColor: COLORS.primary,
-  },
-  intensityButton: {
-    backgroundColor: COLORS.surfaceLight,
-    paddingVertical: SPACING.xs,
-    paddingHorizontal: SPACING.md,
-    marginRight: SPACING.sm,
-    borderRadius: BORDER_RADIUS.md,
-  },
-  selectedIntensityButton: {
-    backgroundColor: COLORS.accent,
-  },
-  tipsCard: {
-    backgroundColor: COLORS.surfaceLight,
-    padding: SPACING.md,
-    borderRadius: BORDER_RADIUS.md,
+  buttonGroup: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
     marginBottom: SPACING.md,
   },
-  tipsText: {
+  button: {
+    paddingVertical: SPACING.xs,
+    paddingHorizontal: SPACING.md,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  activeButton: {
+    backgroundColor: COLORS.primaryLight,
+  },
+  buttonText: {
     fontSize: FONT_SIZE.sm,
     color: COLORS.textSecondary,
   },
+  activeButtonText: {
+    color: COLORS.primaryDark,
+  },
+  tip: {
+    fontSize: FONT_SIZE.sm,
+    color: COLORS.textMuted,
+    marginBottom: SPACING.md,
+  },
   saveButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: COLORS.accent,
     paddingVertical: SPACING.xs,
     paddingHorizontal: SPACING.md,
     borderRadius: BORDER_RADIUS.md,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  buttonText: {
-    fontSize: FONT_SIZE.md,
-    fontWeight: 'bold',
+  saveButtonText: {
+    fontSize: FONT_SIZE.sm,
     color: COLORS.background,
   },
 });
