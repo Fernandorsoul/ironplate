@@ -1,10 +1,11 @@
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../constants/theme';
 import { useApp } from '../context/AppContext';
 
 export default function ProfileScreen({ navigation }: any) {
   const { profile, targetMacros, getWeeklySummary, weightHistory } = useApp();
+
   const summary = useMemo(() => getWeeklySummary(), [getWeeklySummary]);
 
   return (
@@ -13,48 +14,47 @@ export default function ProfileScreen({ navigation }: any) {
         <Text style={styles.backButtonText}>← Voltar</Text>
       </TouchableOpacity>
       <Text style={styles.header}>Meu Perfil</Text>
-      <View style={styles.profileCard}>
-        {profile ? (
-          <>
+      {profile ? (
+        <>
+          <View style={styles.profileCard}>
             <Text style={styles.profileName}>{profile.name}</Text>
             <Text style={styles.profileSport}>{profile.sport}</Text>
             <Text style={styles.profileGoal}>{profile.goal}</Text>
-          </>
-        ) : (
-          <Text style={styles.emptyState}>Carregando...</Text>
-        )}
-      </View>
+          </View>
 
-<View style={styles.macrosCard}>
-    {targetMacros ? (
-      <>
-        <Text style={[styles.statItem, { color: COLORS.calories }]}>Calorias: {Math.round(targetMacros.calories)}</Text>
-        <Text style={[styles.statItem, { color: COLORS.protein }]}>Proteína: {Math.round(targetMacros.protein)}g</Text>
-        <Text style={[styles.statItem, { color: COLORS.carbs }]}>Carboidratos: {Math.round(targetMacros.carbs)}g</Text>
-        <Text style={[styles.statItem, { color: COLORS.fat }]}>Gordura: {Math.round(targetMacros.fat)}g</Text>
-      </>
-    ) : (
-      <Text style={styles.emptyState}>Carregando...</Text>
-    )}
+{targetMacros && (
+<View style={styles.cardsContainer}>
+  <View style={[styles.card, { backgroundColor: COLORS.primary }]} >
+    <Text style={styles.cardTitle}>Calorias</Text>
+    <Text style={styles.cardValue}>{Math.round(targetMacros.calories)}</Text>
   </View>
-  <View style={styles.adherenceCard}>
-    {summary ? (
-      <Text style={[styles.statItem, summary.adherencePercent >= 80 ? { color: COLORS.success } : summary.adherencePercent >= 50 ? { color: COLORS.warning } : { color: COLORS.error }]}>Aderência: {Math.round(summary.adherencePercent)}%</Text>
-    ) : (
-      <Text style={styles.emptyState}>Carregando...</Text>
-    )}
+  <View style={[styles.card, { backgroundColor: COLORS.protein }]} >
+    <Text style={styles.cardTitle}>Proteína</Text>
+    <Text style={styles.cardValue}>{Math.round(targetMacros.protein)}g</Text>
   </View>
-      <View style={styles.statsRow}>
-        {weightHistory.length > 0 ? (
-          <Text style={styles.statItem}>
-            Último peso: {Math.round(weightHistory[weightHistory.length - 1].weight)} kg
-          </Text>
-        ) : (
-          <Text style={styles.emptyState}>Nenhum peso registrado</Text>
-        )}
-        <Text style={styles.statItem}>{profile?.height} cm</Text>
-        <Text style={styles.statItem}>{profile?.age} anos</Text>
-      </View>
+  <View style={[styles.card, { backgroundColor: COLORS.carbs }]} >
+    <Text style={styles.cardTitle}>Carboidratos</Text>
+    <Text style={styles.cardValue}>{Math.round(targetMacros.carbs)}g</Text>
+  </View>
+  <View style={[styles.card, { backgroundColor: COLORS.fat }]} >
+    <Text style={styles.cardTitle}>Gordura</Text>
+    <Text style={styles.cardValue}>{Math.round(targetMacros.fat)}g</Text>
+  </View>
+  <View style={[styles.card, { backgroundColor: summary.adherencePercent >= 80 ? COLORS.success : summary.adherencePercent >= 50 ? COLORS.warning : COLORS.error }]} >
+    <Text style={styles.cardTitle}>Aderência</Text>
+    <Text style={styles.cardValue}>{Math.round(summary.adherencePercent)}%</Text>
+  </View>
+</View>
+)}
+          <View style={styles.statsRow}>
+            <Text style={styles.statItem}>Último Peso: {weightHistory.length > 0 ? Math.round(weightHistory[weightHistory.length - 1].weight) : 'N/A'} kg</Text>
+            <Text style={styles.statItem}>Altura: {profile.height} cm</Text>
+            <Text style={styles.statItem}>Idade: {profile.age} anos</Text>
+          </View>
+        </>
+      ) : (
+        <Text style={styles.emptyState}>Carregando...</Text>
+      )}
     </View>
   );
 }
@@ -63,30 +63,31 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
+    padding: SPACING.md,
   },
   backButton: {
     marginTop: SPACING.xl,
-    marginLeft: SPACING.md,
+    marginBottom: SPACING.md,
   },
   backButtonText: {
-    fontSize: FONT_SIZE.md,
+    fontSize: FONT_SIZE.lg,
     color: COLORS.textSecondary,
   },
   header: {
-    marginTop: SPACING.xl,
-    textAlign: 'center',
     fontSize: FONT_SIZE.hero,
+    textAlign: 'center',
+    marginVertical: SPACING.xl,
     color: COLORS.text,
   },
   profileCard: {
-    padding: SPACING.md,
     backgroundColor: COLORS.surface,
-    borderRadius: BORDER_RADIUS.md,
-    marginHorizontal: SPACING.md,
-    marginTop: SPACING.lg,
+    padding: SPACING.md,
+    borderRadius: BORDER_RADIUS.lg,
+    marginBottom: SPACING.md,
   },
   profileName: {
-    fontSize: FONT_SIZE.xl,
+    fontSize: FONT_SIZE.lg,
+    fontWeight: 'bold',
     color: COLORS.text,
   },
   profileSport: {
@@ -99,22 +100,29 @@ const styles = StyleSheet.create({
   },
   statsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginHorizontal: SPACING.md,
-    marginTop: SPACING.lg,
+    justifyContent: 'space-between',
+    marginBottom: SPACING.md,
   },
   statItem: {
-    fontSize: FONT_SIZE.md,
+    fontSize: FONT_SIZE.sm,
     color: COLORS.textSecondary,
   },
   emptyState: {
-    fontSize: FONT_SIZE.md,
+    fontSize: FONT_SIZE.lg,
+    textAlign: 'center',
+    marginTop: SPACING.xl,
     color: COLORS.textMuted,
   },
-  macrosCard: {
-    backgroundColor: COLORS.surface, padding: SPACING.md, borderRadius: BORDER_RADIUS.md, marginVertical: SPACING.sm,
+  cardsContainer: {
+    flex: 1,
   },
-  adherenceCard: {
-    backgroundColor: COLORS.surface, padding: SPACING.md, borderRadius: BORDER_RADIUS.md, marginVertical: SPACING.sm,
+  card: {
+    flex: 1,
+  },
+  cardTitle: {
+    fontSize: FONT_SIZE.lg, fontWeight: 'bold', color: COLORS.text,
+  },
+  cardValue: {
+    fontSize: FONT_SIZE.lg, fontWeight: 'bold', color: COLORS.text,
   },
 });
