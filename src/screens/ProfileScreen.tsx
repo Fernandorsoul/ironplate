@@ -14,46 +14,46 @@ export default function ProfileScreen({ navigation }: any) {
       </TouchableOpacity>
       <Text style={styles.header}>Meu Perfil</Text>
       <View style={styles.profileCard}>
-        <Text style={styles.profileName}>{profile?.name}</Text>
-        <Text style={styles.profileSport}>{profile?.sport}</Text>
-        <Text style={styles.profileGoal}>{profile?.goal}</Text>
+        {profile ? (
+          <>
+            <Text style={styles.profileName}>{profile.name}</Text>
+            <Text style={styles.profileSport}>{profile.sport}</Text>
+            <Text style={styles.profileGoal}>{profile.goal}</Text>
+          </>
+        ) : (
+          <Text style={styles.emptyState}>Carregando...</Text>
+        )}
       </View>
+
+<View style={styles.macrosCard}>
+    {targetMacros ? (
+      <>
+        <Text style={[styles.statItem, { color: COLORS.calories }]}>Calorias: {Math.round(targetMacros.calories)}</Text>
+        <Text style={[styles.statItem, { color: COLORS.protein }]}>Proteína: {Math.round(targetMacros.protein)}g</Text>
+        <Text style={[styles.statItem, { color: COLORS.carbs }]}>Carboidratos: {Math.round(targetMacros.carbs)}g</Text>
+        <Text style={[styles.statItem, { color: COLORS.fat }]}>Gordura: {Math.round(targetMacros.fat)}g</Text>
+      </>
+    ) : (
+      <Text style={styles.emptyState}>Carregando...</Text>
+    )}
+  </View>
+  <View style={styles.adherenceCard}>
+    {summary ? (
+      <Text style={[styles.statItem, summary.adherencePercent >= 80 ? { color: COLORS.success } : summary.adherencePercent >= 50 ? { color: COLORS.warning } : { color: COLORS.error }]}>Aderência: {Math.round(summary.adherencePercent)}%</Text>
+    ) : (
+      <Text style={styles.emptyState}>Carregando...</Text>
+    )}
+  </View>
       <View style={styles.statsRow}>
-        <Text style={styles.statItem}>Peso: {weightHistory.length > 0 ? Math.round(weightHistory[weightHistory.length - 1].weight) : 'N/A'} kg</Text>
-        <Text style={styles.statItem}>Altura: {profile?.height} cm</Text>
-        <Text style={styles.statItem}>Idade: {profile?.age} anos</Text>
-      </View>
-
-      {targetMacros && (
-        <View style={styles.macrosCard}>
-          <Text style={styles.cardTitle}>Metas de Macros</Text>
-          <View style={styles.macrosRow}>
-            <View style={styles.macroItem}>
-              <Text style={[styles.macroValue, { color: COLORS.calories }]}>{Math.round(targetMacros.calories)}</Text>
-              <Text style={styles.macroLabel}>kcal</Text>
-            </View>
-            <View style={styles.macroItem}>
-              <Text style={[styles.macroValue, { color: COLORS.protein }]}>{Math.round(targetMacros.protein)}g</Text>
-              <Text style={styles.macroLabel}>Proteína</Text>
-            </View>
-            <View style={styles.macroItem}>
-              <Text style={[styles.macroValue, { color: COLORS.carbs }]}>{Math.round(targetMacros.carbs)}g</Text>
-              <Text style={styles.macroLabel}>Carbs</Text>
-            </View>
-            <View style={styles.macroItem}>
-              <Text style={[styles.macroValue, { color: COLORS.fat }]}>{Math.round(targetMacros.fat)}g</Text>
-              <Text style={styles.macroLabel}>Gordura</Text>
-            </View>
-          </View>
-        </View>
-      )}
-
-      <View style={[styles.adherenceCard, { borderLeftColor: summary.adherencePercent >= 80 ? COLORS.success : summary.adherencePercent >= 50 ? COLORS.warning : COLORS.error }]}>
-        <Text style={styles.cardTitle}>Aderência Semanal</Text>
-        <Text style={[styles.adherenceValue, { color: summary.adherencePercent >= 80 ? COLORS.success : summary.adherencePercent >= 50 ? COLORS.warning : COLORS.error }]}>
-          {summary.adherencePercent}%
-        </Text>
-        <Text style={styles.adherenceSub}>{summary.daysTracked} de 7 dias registrados</Text>
+        {weightHistory.length > 0 ? (
+          <Text style={styles.statItem}>
+            Último peso: {Math.round(weightHistory[weightHistory.length - 1].weight)} kg
+          </Text>
+        ) : (
+          <Text style={styles.emptyState}>Nenhum peso registrado</Text>
+        )}
+        <Text style={styles.statItem}>{profile?.height} cm</Text>
+        <Text style={styles.statItem}>{profile?.age} anos</Text>
       </View>
     </View>
   );
@@ -79,14 +79,14 @@ const styles = StyleSheet.create({
     color: COLORS.text,
   },
   profileCard: {
+    padding: SPACING.md,
     backgroundColor: COLORS.surface,
-    padding: SPACING.lg,
     borderRadius: BORDER_RADIUS.md,
     marginHorizontal: SPACING.md,
-    marginTop: SPACING.xl,
+    marginTop: SPACING.lg,
   },
   profileName: {
-    fontSize: FONT_SIZE.lg,
+    fontSize: FONT_SIZE.xl,
     color: COLORS.text,
   },
   profileSport: {
@@ -100,59 +100,21 @@ const styles = StyleSheet.create({
   statsRow: {
     flexDirection: 'row',
     justifyContent: 'space-around',
+    marginHorizontal: SPACING.md,
     marginTop: SPACING.lg,
   },
   statItem: {
-    fontSize: FONT_SIZE.sm,
+    fontSize: FONT_SIZE.md,
     color: COLORS.textSecondary,
+  },
+  emptyState: {
+    fontSize: FONT_SIZE.md,
+    color: COLORS.textMuted,
   },
   macrosCard: {
-    backgroundColor: COLORS.surface,
-    padding: SPACING.lg,
-    borderRadius: BORDER_RADIUS.md,
-    marginHorizontal: SPACING.md,
-    marginTop: SPACING.lg,
-  },
-  cardTitle: {
-    fontSize: FONT_SIZE.md,
-    fontWeight: 'bold',
-    color: COLORS.text,
-    marginBottom: SPACING.md,
-  },
-  macrosRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  macroItem: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  macroValue: {
-    fontSize: FONT_SIZE.xl,
-    fontWeight: 'bold',
-  },
-  macroLabel: {
-    fontSize: FONT_SIZE.xs,
-    color: COLORS.textSecondary,
-    marginTop: SPACING.xs,
+    backgroundColor: COLORS.surface, padding: SPACING.md, borderRadius: BORDER_RADIUS.md, marginVertical: SPACING.sm,
   },
   adherenceCard: {
-    backgroundColor: COLORS.surface,
-    padding: SPACING.lg,
-    borderRadius: BORDER_RADIUS.md,
-    marginHorizontal: SPACING.md,
-    marginTop: SPACING.lg,
-    borderLeftWidth: 4,
-  },
-  adherenceValue: {
-    fontSize: FONT_SIZE.hero,
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
-  adherenceSub: {
-    fontSize: FONT_SIZE.sm,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-    marginTop: SPACING.sm,
+    backgroundColor: COLORS.surface, padding: SPACING.md, borderRadius: BORDER_RADIUS.md, marginVertical: SPACING.sm,
   },
 });
