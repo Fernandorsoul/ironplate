@@ -1,8 +1,13 @@
 // Common foods database for IronPlate
+// LEGACY: use taco.ts for comprehensive TACO table
 
 import { Food } from '../types';
 
-export const FOOD_DATABASE: Food[] = [
+// Re-export TACO database as main database
+export { TACO_DATABASE as FOOD_DATABASE } from './taco';
+
+// Legacy database kept for backward compatibility
+export const LEGACY_FOOD_DATABASE: Food[] = [
   // Proteins
   { id: 'chicken_breast', name: 'Peito de Frango', macros: { calories: 165, protein: 31, carbs: 0, fat: 3.6 }, category: 'Proteína' },
   { id: 'rice', name: 'Arroz Branco', macros: { calories: 130, protein: 2.7, carbs: 28, fat: 0.3 }, category: 'Carboidrato' },

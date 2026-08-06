@@ -3,92 +3,24 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'rea
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../constants/theme';
 import { useApp } from '../context/AppContext';
 import { calculateMacros } from '../utils/calculations';
+import { generateDiet } from '../utils/dietGenerator';
 import { MealPlan, Meal } from '../types';
-import { FOOD_DATABASE } from '../constants/foods';
 
 export default function MealPlanScreen({ navigation }: any) {
   const { profile, mealPlans, saveMealPlan, deleteMealPlan } = useApp();
 
-  const generateDefaultPlan = (): MealPlan => {
+  const handleGeneratePlan = async () => {
     if (!profile) {
       Alert.alert('Erro', 'Configure seu perfil primeiro');
-      return null as any;
+      return;
     }
 
-    const macros = calculateMacros(profile);
-    const proteinPerMeal = Math.round(macros.protein / 4);
-    const carbsPerMeal = Math.round(macros.carbs / 4);
-
-    const meals: Meal[] = [
-      {
-        id: '1',
-        name: 'Café da Manhã',
-        timing: 'regular',
-        foods: [
-          { food: FOOD_DATABASE.find(f => f.id === 'oats')!, grams: 80, macros: { calories: 311, protein: 14, carbs: 53, fat: 6 } },
-          { food: FOOD_DATABASE.find(f => f.id === 'whey')!, grams: 30, macros: { calories: 36, protein: 7, carbs: 1, fat: 0 } },
-          { food: FOOD_DATABASE.find(f => f.id === 'banana')!, grams: 120, macros: { calories: 107, protein: 1, carbs: 28, fat: 0 } },
-        ],
-        totalMacros: { calories: 454, protein: 22, carbs: 82, fat: 6 },
-      },
-      {
-        id: '2',
-        name: 'Almoço',
-        timing: 'regular',
-        foods: [
-          { food: FOOD_DATABASE.find(f => f.id === 'chicken_breast')!, grams: 200, macros: { calories: 330, protein: 62, carbs: 0, fat: 7 } },
-          { food: FOOD_DATABASE.find(f => f.id === 'rice')!, grams: 200, macros: { calories: 260, protein: 5, carbs: 56, fat: 1 } },
-          { food: FOOD_DATABASE.find(f => f.id === 'broccoli')!, grams: 150, macros: { calories: 51, protein: 4, carbs: 11, fat: 1 } },
-        ],
-        totalMacros: { calories: 641, protein: 71, carbs: 67, fat: 9 },
-      },
-      {
-        id: '3',
-        name: 'Pré-treino',
-        timing: 'pre_workout',
-        foods: [
-          { food: FOOD_DATABASE.find(f => f.id === 'bread')!, grams: 60, macros: { calories: 148, protein: 8, carbs: 25, fat: 2 } },
-          { food: FOOD_DATABASE.find(f => f.id === 'peanut_butter')!, grams: 20, macros: { calories: 118, protein: 5, carbs: 4, fat: 10 } },
-        ],
-        totalMacros: { calories: 266, protein: 13, carbs: 29, fat: 12 },
-      },
-      {
-        id: '4',
-        name: 'Pós-treino',
-        timing: 'post_workout',
-        foods: [
-          { food: FOOD_DATABASE.find(f => f.id === 'whey')!, grams: 40, macros: { calories: 48, protein: 10, carbs: 1, fat: 1 } },
-          { food: FOOD_DATABASE.find(f => f.id === 'banana')!, grams: 100, macros: { calories: 89, protein: 1, carbs: 23, fat: 0 } },
-        ],
-        totalMacros: { calories: 137, protein: 11, carbs: 24, fat: 1 },
-      },
-    ];
-
-    const totalMacros = meals.reduce(
-      (acc, meal) => ({
-        calories: acc.calories + meal.totalMacros.calories,
-        protein: acc.protein + meal.totalMacros.protein,
-        carbs: acc.carbs + meal.totalMacros.carbs,
-        fat: acc.fat + meal.totalMacros.fat,
-      }),
-      { calories: 0, protein: 0, carbs: 0, fat: 0 }
-    );
-
-    return {
-      id: Date.now().toString(),
-      name: `Plano ${profile.goal === 'bulking' ? 'Bulking' : profile.goal === 'cutting' ? 'Cutting' : 'Manutenção'}`,
-      goal: profile.goal,
-      meals,
-      totalMacros,
-      createdAt: new Date().toISOString(),
-    };
-  };
-
-  const handleGeneratePlan = async () => {
-    const plan = generateDefaultPlan();
-    if (plan) {
+    try {
+      const plan = generateDiet(profile);
       await saveMealPlan(plan);
-      Alert.alert('Sucesso', 'Plano gerado com sucesso!');
+      Alert.alert('Sucesso', `Plano ${plan.name} gerado com ${plan.meals.length} refeições!`);
+    } catch (error) {
+      Alert.alert('Erro', 'Não foi possível gerar o plano');
     }
   };
 
