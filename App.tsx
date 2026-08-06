@@ -16,6 +16,7 @@ import MealPlanScreen from './src/screens/MealPlanScreen';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import AddFoodScreen from './src/screens/AddFoodScreen';
 import EditMealPlanScreen from './src/screens/EditMealPlanScreen';
+import WeeklySummaryScreen from './src/screens/WeeklySummaryScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -82,6 +83,7 @@ function AppNavigator() {
           <Stack.Screen name="AddWorkout" component={AddWorkoutScreen} />
           <Stack.Screen name="AddFood" component={AddFoodScreen} />
           <Stack.Screen name="EditMealPlan" component={EditMealPlanScreen} />
+          <Stack.Screen name="WeeklySummary" component={WeeklySummaryScreen} />
         </>
       )}
     </Stack.Navigator>
