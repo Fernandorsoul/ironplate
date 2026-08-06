@@ -14,9 +14,9 @@ const AddFoodScreen = ({ navigation }: any) => {
 
   const { addCustomFood } = useApp();
 
-  const saveFood = () => {
-    if (!name || (calories <= 0 && protein <= 0 && carbs <= 0 && fat <= 0)) {
-      Alert.alert('Erro', 'Nome não pode estar vazio e pelo menos um macronutriente deve ser maior que zero.');
+  const handleSave = () => {
+    if (!name || (calories === 0 && protein === 0 && carbs === 0 && fat === 0)) {
+      Alert.alert('Erro', 'Nome do alimento e pelo menos uma macro devem ser preenchidos.');
       return;
     }
 
@@ -36,10 +36,10 @@ const AddFoodScreen = ({ navigation }: any) => {
     <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.headerText}>← Voltar</Text>
+          <Text style={styles.headerText}>â† Voltar</Text>
         </TouchableOpacity>
         <Text style={[styles.headerText, styles.centerHeader]}>Novo Alimento</Text>
-        <TouchableOpacity onPress={saveFood}>
+        <TouchableOpacity onPress={handleSave}>
           <Text style={styles.headerText}>Salvar</Text>
         </TouchableOpacity>
       </View>
@@ -50,19 +50,30 @@ const AddFoodScreen = ({ navigation }: any) => {
           onChangeText={setName}
           placeholder="Nome do alimento"
           style={styles.input}
-          placeholderTextColor={COLORS.textSecondary}
         />
 
         <View style={styles.categoryGrid}>
-          {['Proteína', 'Carboidrato', 'Gordura', 'Fruta', 'Verdura', 'Laticínio', 'Outro'].map(cat => (
-            <TouchableOpacity
-              key={cat}
-              onPress={() => setCategory(cat)}
-              style={[styles.categoryButton, category === cat && styles.selected]}
-            >
-              <Text style={styles.categoryButtonText}>{cat}</Text>
-            </TouchableOpacity>
-          ))}
+          <TouchableOpacity onPress={() => setCategory('Proteína')} style={styles.categoryButton}>
+            <Text style={styles.categoryButtonText}>Proteína</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setCategory('Carboidrato')} style={styles.categoryButton}>
+            <Text style={styles.categoryButtonText}>Carboidrato</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setCategory('Gordura')} style={styles.categoryButton}>
+            <Text style={styles.categoryButtonText}>Gordura</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setCategory('Fruta')} style={styles.categoryButton}>
+            <Text style={styles.categoryButtonText}>Fruta</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setCategory('Verdura')} style={styles.categoryButton}>
+            <Text style={styles.categoryButtonText}>Verdura</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setCategory('Laticínio')} style={styles.categoryButton}>
+            <Text style={styles.categoryButtonText}>Laticínio</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setCategory('Outro')} style={styles.categoryButton}>
+            <Text style={styles.categoryButtonText}>Outro</Text>
+          </TouchableOpacity>
         </View>
 
         <TextInput
@@ -71,7 +82,6 @@ const AddFoodScreen = ({ navigation }: any) => {
           keyboardType="numeric"
           placeholder="Calorias (kcal)"
           style={styles.input}
-          placeholderTextColor={COLORS.textSecondary}
         />
 
         <TextInput
@@ -80,7 +90,6 @@ const AddFoodScreen = ({ navigation }: any) => {
           keyboardType="numeric"
           placeholder="Proteína (g)"
           style={styles.input}
-          placeholderTextColor={COLORS.textSecondary}
         />
 
         <TextInput
@@ -89,16 +98,14 @@ const AddFoodScreen = ({ navigation }: any) => {
           keyboardType="numeric"
           placeholder="Carboidratos (g)"
           style={styles.input}
-          placeholderTextColor={COLORS.textSecondary}
         />
 
         <TextInput
           value={fat.toString()}
           onChangeText={(text) => setFat(Math.round(Number(text)) || 0)}
           keyboardType="numeric"
-          placeholder="Gorduras (g)"
+          placeholder="Gordura (g)"
           style={styles.input}
-          placeholderTextColor={COLORS.textSecondary}
         />
       </ScrollView>
     </View>
@@ -106,27 +113,52 @@ const AddFoodScreen = ({ navigation }: any) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.background
+  },
   header: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    padding: SPACING.md, marginTop: SPACING.xl, borderBottomWidth: 1, borderBottomColor: COLORS.borderLight
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: SPACING.md,
+    backgroundColor: COLORS.primaryDark,
+    marginTop: SPACING.xl
   },
-  headerText: { fontSize: FONT_SIZE.md, color: COLORS.text },
-  centerHeader: { textAlign: 'center' },
-  content: { padding: SPACING.md },
+  headerText: {
+    color: COLORS.text,
+    fontSize: FONT_SIZE.lg
+  },
+  centerHeader: {
+    textAlign: 'center'
+  },
+  content: {
+    padding: SPACING.md
+  },
   input: {
-    height: 40, borderColor: COLORS.borderLight, borderWidth: 1,
-    borderRadius: BORDER_RADIUS.sm, paddingHorizontal: SPACING.sm,
-    marginBottom: SPACING.sm, color: COLORS.text
+    height: 40,
+    borderColor: COLORS.border,
+    borderWidth: 1,
+    borderRadius: BORDER_RADIUS.sm,
+    paddingHorizontal: SPACING.sm,
+    marginBottom: SPACING.sm
   },
-  categoryGrid: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: SPACING.md },
+  categoryGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap'
+  },
   categoryButton: {
-    width: '48%', paddingVertical: SPACING.md, alignItems: 'center',
-    justifyContent: 'center', marginHorizontal: '1%', marginBottom: SPACING.sm,
-    backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.md
+    width: '30%',
+    margin: SPACING.xs,
+    paddingVertical: SPACING.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.primaryLight
   },
-  selected: { backgroundColor: COLORS.primary },
-  categoryButtonText: { fontSize: FONT_SIZE.sm, color: COLORS.textSecondary }
+  categoryButtonText: {
+    color: COLORS.textSecondary,
+    fontSize: FONT_SIZE.sm
+  }
 });
 
 export default AddFoodScreen;
