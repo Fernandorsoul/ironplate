@@ -17,6 +17,7 @@ import OnboardingScreen from './src/screens/OnboardingScreen';
 import AddFoodScreen from './src/screens/AddFoodScreen';
 import EditMealPlanScreen from './src/screens/EditMealPlanScreen';
 import WeeklySummaryScreen from './src/screens/WeeklySummaryScreen';
+import EditMealScreen from './src/screens/EditMealScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -84,6 +85,7 @@ function AppNavigator() {
           <Stack.Screen name="AddFood" component={AddFoodScreen} />
           <Stack.Screen name="EditMealPlan" component={EditMealPlanScreen} />
           <Stack.Screen name="WeeklySummary" component={WeeklySummaryScreen} />
+          <Stack.Screen name="EditMeal" component={EditMealScreen} />
         </>
       )}
     </Stack.Navigator>
