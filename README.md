@@ -1,5 +1,7 @@
 # IronPlate - Nutrição para Atletas
 
+[![CI - Tests](https://github.com/Fernandorsoul/ironplate/actions/workflows/ci.yml/badge.svg)](https://github.com/Fernandorsoul/ironplate/actions/workflows/ci.yml)
+
 Aplicativo móvel de nutrição para atletas de **Bodybuilding** e **BJJ** (Brazilian Jiu-Jitsu).
 
 ## Features
