@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../constants/theme';
-import { createUser } from '../services/database';
+import { useApp } from '../context/AppContext';
 
 export default function RegisterScreen({ navigation }: any) {
+  const { register } = useApp();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -31,11 +32,10 @@ export default function RegisterScreen({ navigation }: any) {
 
     setLoading(true);
     try {
-      const user = await createUser(name.trim(), email.trim(), password);
-      if (user) {
-        Alert.alert('Sucesso', 'Conta criada com sucesso!', [
-          { text: 'OK', onPress: () => navigation.navigate('Onboarding') },
-        ]);
+      const success = await register(name.trim(), email.trim(), password);
+      if (success) {
+        // Registration successful - navigation will update automatically
+        // AppNavigator will detect isAuthenticated and show Onboarding
       } else {
         Alert.alert('Erro', 'Este email já está cadastrado');
       }

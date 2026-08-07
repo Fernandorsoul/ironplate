@@ -8,6 +8,7 @@
     "@react-navigation/bottom-tabs": "^7.18.14",
     "@react-navigation/native": "^7.3.14",
     "@react-navigation/native-stack": "^7.18.6",
+    "@shopify/react-native-skia": "^2.11.0",
     "expo": "~57.0.10",
     "expo-crypto": "^57.0.1",
     "expo-font": "~57.0.1",
@@ -26,15 +27,48 @@
     "victory-native": "^41.26.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
+    "@react-native/jest-preset": "^0.86.2",
+    "@testing-library/react-native": "^14.0.1",
+    "@types/jest": "^30.0.0",
     "@types/react": "~19.2.2",
+    "jest": "^29.7.0",
+    "jest-expo": "^57.0.3",
     "playwright": "^1.62.1",
+    "react-test-renderer": "^19.2.8",
     "typescript": "~6.0.3"
   },
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:e2e": "npx playwright test",
+    "test:e2e:ui": "npx playwright test --ui",
+    "test:smoke": "npx playwright test e2e/smoke.spec.ts"
+  },
+  "jest": {
+    "preset": "jest-expo",
+    "transformIgnorePatterns": [
+      "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@sentry/react-native|native-base|react-native-svg)"
+    ],
+    "moduleFileExtensions": [
+      "ts",
+      "tsx",
+      "js",
+      "jsx"
+    ],
+    "testMatch": [
+      "**/__tests__/**/*.[jt]s?(x)",
+      "**/?(*.)+(spec|test).[jt]s?(x)"
+    ],
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/e2e/"
+    ]
   },
   "private": true
 }

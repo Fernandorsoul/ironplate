@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Platform } from 'react-native';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../constants/theme';
 import { useApp } from '../context/AppContext';
-import { CartesianChart, Line, Scatter } from 'victory-native';
+import { useWeightTrend } from '../hooks';
+import { ScreenHeader } from '../components';
 
 export default function WeightScreen({ navigation }: any) {
   const { weightHistory, addWeightEntry, setTodayWeight } = useApp();
   const [newWeight, setNewWeight] = useState('');
+  const { last7Days, last30Days, trend, stats } = useWeightTrend(weightHistory);
 
   const handleAddWeight = async () => {
     const weight = parseFloat(newWeight);
@@ -20,28 +22,9 @@ export default function WeightScreen({ navigation }: any) {
     Alert.alert('Sucesso', 'Peso registrado!');
   };
 
-  const last7Days = weightHistory.slice(-7).reverse();
-  const last30Days = weightHistory.slice(-30);
-
-  const calculateTrend = () => {
-    if (last7Days.length < 2) return null;
-    const first = last7Days[last7Days.length - 1].weight;
-    const last = last7Days[0].weight;
-    return last - first;
-  };
-
-  const trend = calculateTrend();
-
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backButton}>← Voltar</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>Peso Corporal</Text>
-        <View style={{ width: 50 }} />
-      </View>
+      <ScreenHeader title="Peso Corporal" onBack={() => navigation.goBack()} />
 
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Add Weight */}
@@ -64,11 +47,11 @@ export default function WeightScreen({ navigation }: any) {
         </View>
 
         {/* Current Stats */}
-        {weightHistory.length > 0 && (
+        {stats && (
           <View style={styles.statsGrid}>
             <View style={styles.statCard}>
               <Text style={styles.statLabel}>Atual</Text>
-              <Text style={styles.statValue}>{weightHistory[weightHistory.length - 1].weight} kg</Text>
+              <Text style={styles.statValue}>{stats.current} kg</Text>
             </View>
             <View style={styles.statCard}>
               <Text style={styles.statLabel}>Tendência 7d</Text>
@@ -78,11 +61,11 @@ export default function WeightScreen({ navigation }: any) {
             </View>
             <View style={styles.statCard}>
               <Text style={styles.statLabel}>Mínimo</Text>
-              <Text style={styles.statValue}>{Math.min(...last30Days.map(e => e.weight))} kg</Text>
+              <Text style={styles.statValue}>{stats.min} kg</Text>
             </View>
             <View style={styles.statCard}>
               <Text style={styles.statLabel}>Máximo</Text>
-              <Text style={styles.statValue}>{Math.max(...last30Days.map(e => e.weight))} kg</Text>
+              <Text style={styles.statValue}>{stats.max} kg</Text>
             </View>
           </View>
         )}
@@ -91,29 +74,27 @@ export default function WeightScreen({ navigation }: any) {
         <View style={styles.chartCard}>
           <Text style={styles.chartTitle}>Evolução (30 dias)</Text>
           {last30Days.length >= 2 ? (
-            <View style={{ height: 220 }}>
-              <CartesianChart
-                data={last30Days.map((e, i) => ({ day: i, weight: e.weight }))}
-                xKey="day"
-                yKeys={["weight"]}
-                domainPadding={{ left: 20, right: 20, top: 20, bottom: 20 }}
-              >
-                {({ points }) => (
-                  <>
-                    <Line
-                      points={points.weight}
-                      color={COLORS.primary}
-                      strokeWidth={2}
-                      animate={{ type: "spring", duration: 300 }}
-                    />
-                    <Scatter
-                      points={points.weight}
-                      color={COLORS.primary}
-                      radius={4}
-                    />
-                  </>
-                )}
-              </CartesianChart>
+            <View style={styles.chartContainer}>
+              {/* Simple bar chart for web compatibility */}
+              <View style={styles.chartBars}>
+                {last30Days.slice(-10).map((entry, index) => {
+                  const weights = last30Days.map(e => e.weight);
+                  const minWeight = Math.min(...weights);
+                  const maxWeight = Math.max(...weights);
+                  const range = maxWeight - minWeight || 1;
+                  const height = ((entry.weight - minWeight) / range) * 150 + 20;
+                  
+                  return (
+                    <View key={index} style={styles.chartBarContainer}>
+                      <Text style={styles.chartBarValue}>{entry.weight}</Text>
+                      <View style={[styles.chartBar, { height }]} />
+                      <Text style={styles.chartBarLabel}>
+                        {new Date(entry.date).getDate()}
+                      </Text>
+                    </View>
+                  );
+                })}
+              </View>
             </View>
           ) : (
             <View style={styles.chartPlaceholder}>
@@ -148,22 +129,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
     padding: SPACING.md,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: SPACING.xl,
-    marginBottom: SPACING.lg,
-  },
-  backButton: {
-    color: COLORS.primary,
-    fontSize: FONT_SIZE.md,
-  },
-  title: {
-    fontSize: FONT_SIZE.lg,
-    fontWeight: 'bold',
-    color: COLORS.text,
   },
   addCard: {
     backgroundColor: COLORS.surface,
@@ -241,6 +206,37 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: COLORS.text,
     marginBottom: SPACING.md,
+  },
+  chartContainer: {
+    height: 220,
+    justifyContent: 'flex-end',
+  },
+  chartBars: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-around',
+    height: 200,
+    paddingHorizontal: SPACING.sm,
+  },
+  chartBarContainer: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  chartBar: {
+    width: 20,
+    backgroundColor: COLORS.primary,
+    borderRadius: BORDER_RADIUS.sm,
+    marginHorizontal: 2,
+  },
+  chartBarValue: {
+    fontSize: 10,
+    color: COLORS.textSecondary,
+    marginBottom: 4,
+  },
+  chartBarLabel: {
+    fontSize: 10,
+    color: COLORS.textMuted,
+    marginTop: 4,
   },
   chartPlaceholder: {
     height: 200,

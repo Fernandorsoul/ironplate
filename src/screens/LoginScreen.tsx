@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../constants/theme';
-import { authenticateUser } from '../services/database';
 import { useApp } from '../context/AppContext';
 
 export default function LoginScreen({ navigation }: any) {
-  const { setProfile } = useApp();
+  const { login } = useApp();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -22,14 +21,10 @@ export default function LoginScreen({ navigation }: any) {
 
     setLoading(true);
     try {
-      const user = await authenticateUser(email.trim(), password);
-      if (user) {
-        // Login successful - navigate to main app
-        // The user profile will be loaded from DB in the context
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'MainTabs' }],
-        });
+      const success = await login(email.trim(), password);
+      if (success) {
+        // Login successful - navigation will update automatically
+        // AppNavigator will detect isAuthenticated and show main app
       } else {
         Alert.alert('Erro', 'Email ou senha incorretos');
       }

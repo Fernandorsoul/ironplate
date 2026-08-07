@@ -26,6 +26,8 @@ import DietAnalysisScreen from './src/screens/DietAnalysisScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
 import BodyMeasurementsScreen from './src/screens/BodyMeasurementsScreen';
+import EvolutionScreen from './src/screens/EvolutionScreen';
+import EditProfileScreen from './src/screens/EditProfileScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -75,7 +77,7 @@ function HomeTabs() {
 }
 
 function AppNavigator() {
-  const { isOnboarded, isLoading } = useApp();
+  const { isAuthenticated, isOnboarded, isLoading } = useApp();
 
   if (isLoading) {
     return null; // or a loading screen
@@ -83,25 +85,34 @@ function AppNavigator() {
 
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="Login" component={LoginScreen} />
-      <Stack.Screen name="Register" component={RegisterScreen} />
-      <Stack.Screen name="BodyMeasurements" component={BodyMeasurementsScreen} />
-      {!isOnboarded ? (
-        <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+      {!isAuthenticated ? (
+        // Auth screens
+        <>
+          <Stack.Screen name="Login" component={LoginScreen} />
+          <Stack.Screen name="Register" component={RegisterScreen} />
+        </>
+      ) : !isOnboarded ? (
+        // Onboarding screen
+        <>
+          <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+          <Stack.Screen name="BodyMeasurements" component={BodyMeasurementsScreen} />
+        </>
       ) : (
+        // Main app screens
         <>
           <Stack.Screen name="MainTabs" component={HomeTabs} />
           <Stack.Screen name="AddMeal" component={AddMealScreen} />
           <Stack.Screen name="AddWorkout" component={AddWorkoutScreen} />
           <Stack.Screen name="AddFood" component={AddFoodScreen} />
-
           <Stack.Screen name="Profile" component={ProfileScreen} />
           <Stack.Screen name="EditMealPlan" component={EditMealPlanScreen} />
           <Stack.Screen name="WeeklySummary" component={WeeklySummaryScreen} />
           <Stack.Screen name="EditMeal" component={EditMealScreen} />
-
           <Stack.Screen name="WorkoutDetail" component={WorkoutDetailScreen} />
           <Stack.Screen name="DietAnalysis" component={DietAnalysisScreen} />
+          <Stack.Screen name="BodyMeasurements" component={BodyMeasurementsScreen} />
+          <Stack.Screen name="Evolution" component={EvolutionScreen} />
+          <Stack.Screen name="EditProfile" component={EditProfileScreen} />
         </>
       )}
     </Stack.Navigator>

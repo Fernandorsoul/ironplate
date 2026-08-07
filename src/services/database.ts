@@ -130,11 +130,69 @@ export async function initDatabase(): Promise<void> {
       UNIQUE(user_id, date)
     );
 
+    CREATE TABLE IF NOT EXISTS body_measurements (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id),
+      date TEXT NOT NULL,
+      weight REAL,
+      height REAL,
+      body_fat REAL,
+      body_fat_method TEXT DEFAULT 'visual',
+      -- Bioimpedance
+      resistance REAL,
+      reactance REAL,
+      phase_angle REAL,
+      -- Skinfolds (mm) - Padrão CREF
+      triceps REAL,
+      biceps REAL,
+      subscapular REAL,
+      suprailiac REAL,
+      abdominal REAL,
+      chest_skinfold REAL,
+      axillary_mid REAL,
+      thigh_skinfold REAL,
+      calf_skinfold REAL,
+      -- Circumferences (cm) - Padrão CREF
+      -- Membro Superior
+      arm_relaxed_right REAL,
+      arm_relaxed_left REAL,
+      arm_flexed_right REAL,
+      arm_flexed_left REAL,
+      forearm_right REAL,
+      forearm_left REAL,
+      wrist_right REAL,
+      wrist_left REAL,
+      -- Tronco
+      chest_circumference REAL,
+      waist_circumference REAL,
+      abdomen_circumference REAL,
+      hip_circumference REAL,
+      -- Membro Inferior
+      thigh_proximal_right REAL,
+      thigh_proximal_left REAL,
+      thigh_mid_right REAL,
+      thigh_mid_left REAL,
+      calf_right REAL,
+      calf_left REAL,
+      ankle_right REAL,
+      ankle_left REAL,
+      -- Calculated
+      lean_mass REAL,
+      fat_mass REAL,
+      bmi REAL,
+      waist_hip_ratio REAL,
+      -- Notes
+      notes TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(user_id, date)
+    );
+
     CREATE INDEX IF NOT EXISTS idx_daily_logs_user ON daily_logs(user_id, date);
     CREATE INDEX IF NOT EXISTS idx_meals_log ON meals(daily_log_id);
     CREATE INDEX IF NOT EXISTS idx_workouts_log ON workouts(daily_log_id);
     CREATE INDEX IF NOT EXISTS idx_meal_plans_user ON meal_plans(user_id);
     CREATE INDEX IF NOT EXISTS idx_weight_user ON weight_history(user_id, date);
+    CREATE INDEX IF NOT EXISTS idx_body_measurements_user ON body_measurements(user_id, date);
   `);
 }
 
@@ -219,6 +277,23 @@ export async function authenticateUser(
 
 export async function getUserById(userId: string): Promise<UserProfile | null> {
   if (!db) await initDatabase();
+
+  // Web fallback: use in-memory storage
+  if (isWeb) {
+    const users = getMemoryTable('users');
+    const user = users.find(u => u.id === userId);
+    if (!user) return null;
+    return {
+      name: user.name,
+      age: user.age || 0,
+      weight: user.weight || 0,
+      height: user.height || 0,
+      gender: user.gender || 'male',
+      activityLevel: user.activity_level || 'moderate',
+      goal: user.goal || 'maintenance',
+      sport: user.sport || 'bodybuilding',
+    };
+  }
 
   const user = await db!.getFirstAsync(
     'SELECT name, age, weight, height, gender, activity_level, goal, sport FROM users WHERE id = ?',
@@ -421,6 +496,19 @@ export async function deleteMealPlan(planId: string): Promise<void> {
 export async function saveCustomFood(userId: string, food: Food): Promise<void> {
   if (!db) await initDatabase();
 
+  // Web fallback
+  if (isWeb) {
+    const foods = getMemoryTable('custom_foods');
+    const existing = foods.findIndex(f => f.id === food.id && f.user_id === userId);
+    const item = { id: food.id, user_id: userId, name: food.name, category: food.category, ...food.macros };
+    if (existing >= 0) {
+      foods[existing] = item;
+    } else {
+      foods.push(item);
+    }
+    return;
+  }
+
   await db!.runAsync(
     'INSERT OR REPLACE INTO custom_foods (id, user_id, name, category, calories, protein, carbs, fat) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
     [food.id, userId, food.name, food.category, food.macros.calories, food.macros.protein, food.macros.carbs, food.macros.fat]
@@ -429,6 +517,17 @@ export async function saveCustomFood(userId: string, food: Food): Promise<void> 
 
 export async function getCustomFoods(userId: string): Promise<Food[]> {
   if (!db) await initDatabase();
+
+  // Web fallback
+  if (isWeb) {
+    const foods = getMemoryTable('custom_foods');
+    return foods.filter(f => f.user_id === userId).map(f => ({
+      id: f.id,
+      name: f.name,
+      category: f.category,
+      macros: { calories: f.calories, protein: f.protein, carbs: f.carbs, fat: f.fat },
+    }));
+  }
 
   const foods = await db!.getAllAsync('SELECT * FROM custom_foods WHERE user_id = ?', [userId]);
 
@@ -447,6 +546,19 @@ export async function getCustomFoods(userId: string): Promise<Food[]> {
 export async function saveWeightEntry(userId: string, entry: { date: string; weight: number; bodyFat?: number }): Promise<void> {
   if (!db) await initDatabase();
 
+  // Web fallback
+  if (isWeb) {
+    const entries = getMemoryTable('weight_history');
+    const existing = entries.findIndex(e => e.user_id === userId && e.date === entry.date);
+    const item = { id: `${userId}_${entry.date}`, user_id: userId, date: entry.date, weight: entry.weight, body_fat: entry.bodyFat || null };
+    if (existing >= 0) {
+      entries[existing] = item;
+    } else {
+      entries.push(item);
+    }
+    return;
+  }
+
   await db!.runAsync(
     'INSERT INTO weight_history (id, user_id, date, weight, body_fat) VALUES (?, ?, ?, ?, ?) ON CONFLICT(user_id, date) DO UPDATE SET weight = ?, body_fat = ?',
     [`${userId}_${entry.date}`, userId, entry.date, entry.weight, entry.bodyFat || null, entry.weight, entry.bodyFat || null]
@@ -456,6 +568,16 @@ export async function saveWeightEntry(userId: string, entry: { date: string; wei
 export async function getWeightHistory(userId: string): Promise<{ date: string; weight: number; bodyFat?: number }[]> {
   if (!db) await initDatabase();
 
+  // Web fallback
+  if (isWeb) {
+    const entries = getMemoryTable('weight_history');
+    return entries.filter(e => e.user_id === userId).sort((a, b) => a.date.localeCompare(b.date)).map(e => ({
+      date: e.date,
+      weight: e.weight,
+      bodyFat: e.body_fat || undefined,
+    }));
+  }
+
   const entries = await db!.getAllAsync('SELECT * FROM weight_history WHERE user_id = ? ORDER BY date ASC', [userId]);
 
   return (entries as any[]).map(e => ({
@@ -463,4 +585,169 @@ export async function getWeightHistory(userId: string): Promise<{ date: string; 
     weight: e.weight,
     bodyFat: e.body_fat || undefined,
   }));
+}
+
+// ============================================================
+// BODY MEASUREMENTS
+// ============================================================
+
+export interface BodyMeasurement {
+  date: string;
+  weight: number;
+  height?: number;
+  bodyFat?: number;
+  bodyFatMethod?: 'visual' | 'skinfold' | 'bioimpedance';
+  // Bioimpedance
+  resistance?: number;
+  reactance?: number;
+  phaseAngle?: number;
+  // Skinfolds (mm) - Padrão CREF
+  triceps?: number;
+  biceps?: number;
+  subscapular?: number;
+  suprailiac?: number;
+  abdominal?: number;
+  chestSkinfold?: number;
+  axillaryMid?: number;
+  thighSkinfold?: number;
+  calfSkinfold?: number;
+  // Circumferences (cm) - Padrão CREF
+  armRelaxedRight?: number;
+  armRelaxedLeft?: number;
+  armFlexedRight?: number;
+  armFlexedLeft?: number;
+  forearmRight?: number;
+  forearmLeft?: number;
+  wristRight?: number;
+  wristLeft?: number;
+  chestCircumference?: number;
+  waistCircumference?: number;
+  abdomenCircumference?: number;
+  hipCircumference?: number;
+  thighProximalRight?: number;
+  thighProximalLeft?: number;
+  thighMidRight?: number;
+  thighMidLeft?: number;
+  calfRight?: number;
+  calfLeft?: number;
+  ankleRight?: number;
+  ankleLeft?: number;
+  // Calculated
+  leanMass?: number;
+  fatMass?: number;
+  bmi?: number;
+  waistHipRatio?: number;
+  notes?: string;
+}
+
+export async function saveBodyMeasurement(userId: string, measurement: BodyMeasurement): Promise<void> {
+  if (!db) await initDatabase();
+
+  const id = `${userId}_${measurement.date}`;
+  const h = measurement.height || 170;
+  const leanMass = measurement.weight * (1 - (measurement.bodyFat || 0) / 100);
+  const fatMass = measurement.weight * ((measurement.bodyFat || 0) / 100);
+  const bmi = measurement.weight / Math.pow(h / 100, 2);
+  const waistHipRatio = (measurement.waistCircumference && measurement.hipCircumference) 
+    ? measurement.waistCircumference / measurement.hipCircumference : undefined;
+
+  const fields = [
+    id, userId, measurement.date, measurement.weight, measurement.height || null,
+    measurement.bodyFat || null, measurement.bodyFatMethod || 'visual',
+    measurement.resistance || null, measurement.reactance || null, measurement.phaseAngle || null,
+    measurement.triceps || null, measurement.biceps || null, measurement.subscapular || null,
+    measurement.suprailiac || null, measurement.abdominal || null, measurement.chestSkinfold || null,
+    measurement.axillaryMid || null, measurement.thighSkinfold || null, measurement.calfSkinfold || null,
+    measurement.armRelaxedRight || null, measurement.armRelaxedLeft || null,
+    measurement.armFlexedRight || null, measurement.armFlexedLeft || null,
+    measurement.forearmRight || null, measurement.forearmLeft || null,
+    measurement.wristRight || null, measurement.wristLeft || null,
+    measurement.chestCircumference || null, measurement.waistCircumference || null,
+    measurement.abdomenCircumference || null, measurement.hipCircumference || null,
+    measurement.thighProximalRight || null, measurement.thighProximalLeft || null,
+    measurement.thighMidRight || null, measurement.thighMidLeft || null,
+    measurement.calfRight || null, measurement.calfLeft || null,
+    measurement.ankleRight || null, measurement.ankleLeft || null,
+    leanMass, fatMass, bmi, waistHipRatio || null, measurement.notes || null,
+  ];
+
+  if (isWeb) {
+    const measurements = getMemoryTable('body_measurements');
+    const existing = measurements.findIndex(m => m.user_id === userId && m.date === measurement.date);
+    const item: any = {
+      id, user_id: userId, date: measurement.date,
+      weight: measurement.weight, height: measurement.height || null,
+      body_fat: measurement.bodyFat || null, body_fat_method: measurement.bodyFatMethod || 'visual',
+      resistance: measurement.resistance || null, reactance: measurement.reactance || null, phase_angle: measurement.phaseAngle || null,
+      triceps: measurement.triceps || null, biceps: measurement.biceps || null,
+      subscapular: measurement.subscapular || null, suprailiac: measurement.suprailiac || null,
+      abdominal: measurement.abdominal || null, chest_skinfold: measurement.chestSkinfold || null,
+      axillary_mid: measurement.axillaryMid || null, thigh_skinfold: measurement.thighSkinfold || null, calf_skinfold: measurement.calfSkinfold || null,
+      arm_relaxed_right: measurement.armRelaxedRight || null, arm_relaxed_left: measurement.armRelaxedLeft || null,
+      arm_flexed_right: measurement.armFlexedRight || null, arm_flexed_left: measurement.armFlexedLeft || null,
+      forearm_right: measurement.forearmRight || null, forearm_left: measurement.forearmLeft || null,
+      wrist_right: measurement.wristRight || null, wrist_left: measurement.wristLeft || null,
+      chest_circumference: measurement.chestCircumference || null, waist_circumference: measurement.waistCircumference || null,
+      abdomen_circumference: measurement.abdomenCircumference || null, hip_circumference: measurement.hipCircumference || null,
+      thigh_proximal_right: measurement.thighProximalRight || null, thigh_proximal_left: measurement.thighProximalLeft || null,
+      thigh_mid_right: measurement.thighMidRight || null, thigh_mid_left: measurement.thighMidLeft || null,
+      calf_right: measurement.calfRight || null, calf_left: measurement.calfLeft || null,
+      ankle_right: measurement.ankleRight || null, ankle_left: measurement.ankleLeft || null,
+      lean_mass: leanMass, fat_mass: fatMass, bmi, waist_hip_ratio: waistHipRatio || null, notes: measurement.notes || null,
+    };
+    if (existing >= 0) { measurements[existing] = item; } else { measurements.push(item); }
+    console.log('Web saveBodyMeasurement success:', measurement.date);
+    return;
+  }
+
+  await db!.runAsync(
+    `INSERT INTO body_measurements (id, user_id, date, weight, height, body_fat, body_fat_method, resistance, reactance, phase_angle, triceps, biceps, subscapular, suprailiac, abdominal, chest_skinfold, axillary_mid, thigh_skinfold, calf_skinfold, arm_relaxed_right, arm_relaxed_left, arm_flexed_right, arm_flexed_left, forearm_right, forearm_left, wrist_right, wrist_left, chest_circumference, waist_circumference, abdomen_circumference, hip_circumference, thigh_proximal_right, thigh_proximal_left, thigh_mid_right, thigh_mid_left, calf_right, calf_left, ankle_right, ankle_left, lean_mass, fat_mass, bmi, waist_hip_ratio, notes)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+     ON CONFLICT(user_id, date) DO UPDATE SET weight=excluded.weight, height=excluded.height, body_fat=excluded.body_fat, body_fat_method=excluded.body_fat_method, resistance=excluded.resistance, reactance=excluded.reactance, phase_angle=excluded.phase_angle, triceps=excluded.triceps, biceps=excluded.biceps, subscapular=excluded.subscapular, suprailiac=excluded.suprailiac, abdominal=excluded.abdominal, chest_skinfold=excluded.chest_skinfold, axillary_mid=excluded.axillary_mid, thigh_skinfold=excluded.thigh_skinfold, calf_skinfold=excluded.calf_skinfold, arm_relaxed_right=excluded.arm_relaxed_right, arm_relaxed_left=excluded.arm_relaxed_left, arm_flexed_right=excluded.arm_flexed_right, arm_flexed_left=excluded.arm_flexed_left, forearm_right=excluded.forearm_right, forearm_left=excluded.forearm_left, wrist_right=excluded.wrist_right, wrist_left=excluded.wrist_left, chest_circumference=excluded.chest_circumference, waist_circumference=excluded.waist_circumference, abdomen_circumference=excluded.abdomen_circumference, hip_circumference=excluded.hip_circumference, thigh_proximal_right=excluded.thigh_proximal_right, thigh_proximal_left=excluded.thigh_proximal_left, thigh_mid_right=excluded.thigh_mid_right, thigh_mid_left=excluded.thigh_mid_left, calf_right=excluded.calf_right, calf_left=excluded.calf_left, ankle_right=excluded.ankle_right, ankle_left=excluded.ankle_left, lean_mass=excluded.lean_mass, fat_mass=excluded.fat_mass, bmi=excluded.bmi, waist_hip_ratio=excluded.waist_hip_ratio, notes=excluded.notes`,
+    fields
+  );
+}
+
+export async function getBodyMeasurements(userId: string, limit: number = 30): Promise<BodyMeasurement[]> {
+  if (!db) await initDatabase();
+
+  if (isWeb) {
+    const measurements = getMemoryTable('body_measurements');
+    return measurements
+      .filter(m => m.user_id === userId)
+      .sort((a, b) => b.date.localeCompare(a.date))
+      .slice(0, limit)
+      .map(m => mapMeasurement(m));
+  }
+
+  const entries = await db!.getAllAsync(
+    'SELECT * FROM body_measurements WHERE user_id = ? ORDER BY date DESC LIMIT ?',
+    [userId, limit]
+  );
+
+  return (entries as any[]).map(m => mapMeasurement(m));
+}
+
+function mapMeasurement(m: any): BodyMeasurement {
+  return {
+    date: m.date, weight: m.weight, height: m.height || undefined,
+    bodyFat: m.body_fat || undefined, bodyFatMethod: m.body_fat_method || undefined,
+    resistance: m.resistance || undefined, reactance: m.reactance || undefined, phaseAngle: m.phase_angle || undefined,
+    triceps: m.triceps || undefined, biceps: m.biceps || undefined,
+    subscapular: m.subscapular || undefined, suprailiac: m.suprailiac || undefined,
+    abdominal: m.abdominal || undefined, chestSkinfold: m.chest_skinfold || undefined,
+    axillaryMid: m.axillary_mid || undefined, thighSkinfold: m.thigh_skinfold || undefined, calfSkinfold: m.calf_skinfold || undefined,
+    armRelaxedRight: m.arm_relaxed_right || undefined, armRelaxedLeft: m.arm_relaxed_left || undefined,
+    armFlexedRight: m.arm_flexed_right || undefined, armFlexedLeft: m.arm_flexed_left || undefined,
+    forearmRight: m.forearm_right || undefined, forearmLeft: m.forearm_left || undefined,
+    wristRight: m.wrist_right || undefined, wristLeft: m.wrist_left || undefined,
+    chestCircumference: m.chest_circumference || undefined, waistCircumference: m.waist_circumference || undefined,
+    abdomenCircumference: m.abdomen_circumference || undefined, hipCircumference: m.hip_circumference || undefined,
+    thighProximalRight: m.thigh_proximal_right || undefined, thighProximalLeft: m.thigh_proximal_left || undefined,
+    thighMidRight: m.thigh_mid_right || undefined, thighMidLeft: m.thigh_mid_left || undefined,
+    calfRight: m.calf_right || undefined, calfLeft: m.calf_left || undefined,
+    ankleRight: m.ankle_right || undefined, ankleLeft: m.ankle_left || undefined,
+    leanMass: m.lean_mass || undefined, fatMass: m.fat_mass || undefined, bmi: m.bmi || undefined,
+    waistHipRatio: m.waist_hip_ratio || undefined, notes: m.notes || undefined,
+  };
 }
