@@ -50,6 +50,8 @@ export default function HomeScreen({ navigation }: any) {
         <ActionButton icon="⚖️" label="Peso" onPress={() => navigation.navigate('Weight')} color={COLORS.calories} />
         <ActionButton icon="📊" label="Plano" onPress={() => navigation.navigate('MealPlan')} color={COLORS.fat} />
         <ActionButton icon="📈" label="Resumo" onPress={() => navigation.navigate('WeeklySummary')} color={COLORS.accent} />
+
+<ActionButton icon="📏" label="Medidas" onPress={() => navigation.navigate('BodyMeasurements')} color={COLORS.accent} />
       </View>
 
       {/* Today's Meals */}

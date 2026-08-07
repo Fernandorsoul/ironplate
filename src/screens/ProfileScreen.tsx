@@ -22,6 +22,10 @@ export default function ProfileScreen({ navigation }: any) {
             <Text style={styles.profileGoal}>{profile.goal}</Text>
           </View>
 
+<TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('BodyMeasurements')}>
+  <Text style={styles.menuText}>Medidas Corporais</Text>
+</TouchableOpacity>
+
 <View style={styles.cardsContainer}>
   <View style={styles.card}>
     <Text style={[styles.cardTitle, { color: COLORS.calories }]}>Calorias</Text>
@@ -122,5 +126,11 @@ const styles = StyleSheet.create({
   },
   cardValue: {
     fontSize: FONT_SIZE.lg, fontWeight: 'bold', color: COLORS.text,
+  },
+  menuItem: {
+    flex: 1,
+  },
+  menuText: {
+    fontSize: FONT_SIZE.md, color: COLORS.textSecondary,
   },
 });

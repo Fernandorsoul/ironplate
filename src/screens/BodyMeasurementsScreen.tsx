@@ -3,6 +3,8 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert 
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../constants/theme';
 import { useApp } from '../context/AppContext';
 
+import { saveWeightEntry } from '../services/database';
+
 const BodyMeasurementsScreen = ({ navigation }: any) => {
   const { profile, setTodayWeight } = useApp();
   const [weight, setWeight] = useState(profile?.weight.toString() || '');
