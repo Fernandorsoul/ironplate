@@ -2,8 +2,16 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { UserProfile, DailyLog, MealPlan, WeightEntry, Macros, Food, WeeklySummary } from '../types';
 import { calculateMacros } from '../utils/calculations';
 import * as Storage from '../services/storage';
+import * as Database from '../services/database';
 
 interface AppContextType {
+  // Auth
+  userId: string | null;
+  isAuthenticated: boolean;
+  login: (email: string, password: string) => Promise<boolean>;
+  register: (name: string, email: string, password: string) => Promise<boolean>;
+  logout: () => Promise<void>;
+
   // User
   profile: UserProfile | null;
   setProfile: (profile: UserProfile) => Promise<void>;
@@ -43,6 +51,7 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: ReactNode }) {
+  const [userId, setUserId] = useState<string | null>(null);
   const [profile, setProfileState] = useState<UserProfile | null>(null);
   const [targetMacros, setTargetMacros] = useState<Macros | null>(null);
   const [dailyLogs, setDailyLogs] = useState<DailyLog[]>([]);
@@ -72,11 +81,64 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setMealPlans(savedPlans);
       setWeightHistory(savedWeight);
       setCustomFoods(savedCustomFoods);
+      
+      // Check if user is authenticated (has saved profile)
+      const savedUserId = await Storage.loadData<string>('@ironplate_user_id');
+      if (savedUserId) {
+        setUserId(savedUserId);
+      }
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const login = async (email: string, password: string): Promise<boolean> => {
+    try {
+      const user = await Database.authenticateUser(email, password);
+      if (!user) return false;
+      
+      setUserId(user.id);
+      await Storage.saveData('@ironplate_user_id', user.id);
+      
+      // Try to load existing profile from database
+      const existingProfile = await Database.getUserById(user.id);
+      if (existingProfile) {
+        await setProfile(existingProfile);
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Login error:', error);
+      return false;
+    }
+  };
+
+  const register = async (name: string, email: string, password: string): Promise<boolean> => {
+    try {
+      const user = await Database.createUser(name, email, password);
+      if (!user) return false;
+      
+      setUserId(user.id);
+      await Storage.saveData('@ironplate_user_id', user.id);
+      
+      return true;
+    } catch (error) {
+      console.error('Register error:', error);
+      return false;
+    }
+  };
+
+  const logout = async () => {
+    setUserId(null);
+    setProfileState(null);
+    setTargetMacros(null);
+    setDailyLogs([]);
+    setMealPlans([]);
+    setWeightHistory([]);
+    setCustomFoods([]);
+    await Storage.removeData('@ironplate_user_id');
   };
 
   const setProfile = async (newProfile: UserProfile) => {
@@ -219,6 +281,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   return (
     <AppContext.Provider
       value={{
+        // Auth
+        userId,
+        isAuthenticated: !!userId,
+        login,
+        register,
+        logout,
+        // User
         profile,
         setProfile,
         targetMacros,

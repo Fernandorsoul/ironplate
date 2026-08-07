@@ -2,35 +2,68 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../constants/theme';
 import { useApp } from '../context/AppContext';
-import { calculateMacros } from '../utils/calculations';
-import { generateDiet } from '../utils/dietGenerator';
-import { getMealVariety } from '../utils/mealVariety';
-import { MealPlan, Meal } from '../types';
+import { calculateMacros, calculateTDEE, calculateTargetCalories } from '../utils/calculations';
+import { generateDietOptions, analyzeDiet } from '../utils/dietGenerator';
+import { generateDietPDF, generateDietOptionsPDF } from '../utils/dietPdfGenerator';
+import { MealPlan, Goal } from '../types';
 
 export default function MealPlanScreen({ navigation }: any) {
-  const { profile, mealPlans, saveMealPlan, deleteMealPlan } = useApp();
+  const { profile, mealPlans, saveMealPlan, deleteMealPlan, setProfile } = useApp();
+  const [selectedGoal, setSelectedGoal] = useState<Goal>(profile?.goal || 'maintenance');
+  const [generatedOptions, setGeneratedOptions] = useState<MealPlan[]>([]);
 
-  const handleGeneratePlan = async () => {
+  const handleGeneratePlans = async () => {
     if (!profile) {
       Alert.alert('Erro', 'Configure seu perfil primeiro');
       return;
     }
 
     try {
-      const plan = generateDiet(profile);
-      await saveMealPlan(plan);
-      Alert.alert('Sucesso', `Plano ${plan.name} gerado com ${plan.meals.length} refeições!`);
+      const updatedProfile = { ...profile, goal: selectedGoal };
+      await setProfile(updatedProfile);
+      
+      const options = generateDietOptions(updatedProfile);
+      setGeneratedOptions(options);
     } catch (error) {
-      Alert.alert('Erro', 'Não foi possível gerar o plano');
+      console.error('Error generating plans:', error);
+      Alert.alert('Erro', 'Não foi possível gerar os planos');
     }
   };
 
-  const handleDeletePlan = (id: string) => {
-    Alert.alert('Confirmar', 'Deseja excluir este plano?', [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Excluir', style: 'destructive', onPress: () => deleteMealPlan(id) },
-    ]);
+  const handleSavePlan = async (plan: MealPlan) => {
+    await saveMealPlan(plan);
+    Alert.alert('Sucesso', `Plano "${plan.name}" salvo!`);
   };
+
+  const handleDeletePlan = (id: string) => {
+    deleteMealPlan(id);
+  };
+
+  const getGoalInfo = (goal: Goal) => {
+    switch (goal) {
+      case 'cutting_conservative':
+        return { label: 'Conservador', desc: 'Off-season (-15%)', icon: '🟢', color: '#00B894' };
+      case 'cutting_preparation':
+        return { label: 'Preparação', desc: '12-8 sem (-20%)', icon: '🟡', color: '#FDCB6E' };
+      case 'cutting_precontest':
+        return { label: 'Pré-Competição', desc: '8-4 sem (-25%)', icon: '🔴', color: '#FF6B6B' };
+      case 'bulking':
+        return { label: 'Bulking', desc: 'Ganhar massa (+15%)', icon: '💪', color: '#00B894' };
+      case 'maintenance':
+        return { label: 'Manutenção', desc: 'Manter peso', icon: '⚖️', color: '#00CEC9' };
+    }
+  };
+
+  const getMacrosPreview = () => {
+    if (!profile) return null;
+    const previewProfile = { ...profile, goal: selectedGoal };
+    const macros = calculateMacros(previewProfile);
+    const tdee = calculateTDEE(previewProfile);
+    const target = calculateTargetCalories(previewProfile);
+    return { macros, tdee, target };
+  };
+
+  const preview = getMacrosPreview();
 
   return (
     <View style={styles.container}>
@@ -44,39 +77,197 @@ export default function MealPlanScreen({ navigation }: any) {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Generate Button */}
-        <TouchableOpacity style={styles.generateButton} onPress={handleGeneratePlan}>
-          <Text style={styles.generateButtonText}>Gerar Plano Automático</Text>
-          <Text style={styles.generateButtonSubtext}>Baseado no seu perfil e objetivo</Text>
+        {/* Goal selector */}
+        <Text style={styles.sectionTitle}>Escolha seu objetivo</Text>
+        <Text style={styles.subsectionTitle}>Ganho de Massa</Text>
+        <View style={styles.goalRow}>
+          {(['bulking'] as Goal[]).map(goal => {
+            const info = getGoalInfo(goal);
+            const isSelected = selectedGoal === goal;
+            return (
+              <TouchableOpacity
+                key={goal}
+                style={[styles.goalCardSmall, isSelected && { borderColor: info.color, backgroundColor: info.color + '15' }]}
+                onPress={() => setSelectedGoal(goal)}
+              >
+                <Text style={styles.goalIconSmall}>{info.icon}</Text>
+                <Text style={[styles.goalLabelSmall, isSelected && { color: info.color }]}>{info.label}</Text>
+                <Text style={styles.goalDescSmall}>{info.desc}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        <Text style={styles.subsectionTitle}>Perda de Gordura</Text>
+        <View style={styles.goalRow}>
+          {(['cutting_conservative', 'cutting_preparation', 'cutting_precontest'] as Goal[]).map(goal => {
+            const info = getGoalInfo(goal);
+            const isSelected = selectedGoal === goal;
+            return (
+              <TouchableOpacity
+                key={goal}
+                style={[styles.goalCardSmall, isSelected && { borderColor: info.color, backgroundColor: info.color + '15' }]}
+                onPress={() => setSelectedGoal(goal)}
+              >
+                <Text style={styles.goalIconSmall}>{info.icon}</Text>
+                <Text style={[styles.goalLabelSmall, isSelected && { color: info.color }]}>{info.label}</Text>
+                <Text style={styles.goalDescSmall}>{info.desc}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        <Text style={styles.subsectionTitle}>Manutenção</Text>
+        <View style={styles.goalRow}>
+          {(['maintenance'] as Goal[]).map(goal => {
+            const info = getGoalInfo(goal);
+            const isSelected = selectedGoal === goal;
+            return (
+              <TouchableOpacity
+                key={goal}
+                style={[styles.goalCardSmall, isSelected && { borderColor: info.color, backgroundColor: info.color + '15' }]}
+                onPress={() => setSelectedGoal(goal)}
+              >
+                <Text style={styles.goalIconSmall}>{info.icon}</Text>
+                <Text style={[styles.goalLabelSmall, isSelected && { color: info.color }]}>{info.label}</Text>
+                <Text style={styles.goalDescSmall}>{info.desc}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {/* Macros preview */}
+        {preview && profile && (
+          <View style={styles.previewCard}>
+            <Text style={styles.previewTitle}>Preview das Macros</Text>
+            <View style={styles.previewRow}>
+              <View style={styles.previewItem}>
+                <Text style={styles.previewValue}>{preview.tdee}</Text>
+                <Text style={styles.previewLabel}>TDEE</Text>
+              </View>
+              <Text style={styles.previewArrow}>→</Text>
+              <View style={styles.previewItem}>
+                <Text style={[styles.previewValue, { color: COLORS.primary }]}>{preview.target}</Text>
+                <Text style={styles.previewLabel}>Meta</Text>
+              </View>
+            </View>
+            <View style={styles.macrosRow}>
+              <View style={styles.macroItem}>
+                <Text style={[styles.macroValue, { color: COLORS.protein }]}>{preview.macros.protein}g</Text>
+                <Text style={styles.macroLabel}>Proteína</Text>
+              </View>
+              <View style={styles.macroItem}>
+                <Text style={[styles.macroValue, { color: COLORS.carbs }]}>{preview.macros.carbs}g</Text>
+                <Text style={styles.macroLabel}>Carbos</Text>
+              </View>
+              <View style={styles.macroItem}>
+                <Text style={[styles.macroValue, { color: COLORS.fat }]}>{preview.macros.fat}g</Text>
+                <Text style={styles.macroLabel}>Gordura</Text>
+              </View>
+            </View>
+            <Text style={styles.previewNote}>
+              {selectedGoal === 'cutting_conservative' ? 'Déficit de 15% - Perda gradual (0.3-0.5%/sem)' :
+               selectedGoal === 'cutting_preparation' ? 'Déficit de 20% - Perda moderada (0.5-0.7%/sem)' :
+               selectedGoal === 'cutting_precontest' ? 'Déficit de 25% - Perda agressiva (0.7-1.0%/sem)' :
+               selectedGoal === 'bulking' ? 'Superávit de 15% - Ganho controlado' :
+               'Calorias mantidas no nível de TDEE'}
+            </Text>
+          </View>
+        )}
+
+        {/* Generate button */}
+        <TouchableOpacity style={styles.generateButton} onPress={handleGeneratePlans}>
+          <Text style={styles.generateButtonText}>Gerar 3 Opções de Cardápio</Text>
+          <Text style={styles.generateButtonSubtext}>
+            {getGoalInfo(selectedGoal).label} • {profile?.sport === 'bodybuilding' ? 'Bodybuilding' : profile?.sport === 'bjj' ? 'BJJ' : 'Atleta'}
+          </Text>
         </TouchableOpacity>
 
-        {/* Variety Button */}
-        <TouchableOpacity
-          style={[styles.generateButton, { backgroundColor: COLORS.accent }]}
-          onPress={() => {
-            if (profile) {
-              const options = getMealVariety(profile, 'Almoço', 3);
-              const optionsText = options.map((m, i) =>
-                `Opção ${i + 1}: ${m.foods.map(f => f.food.name).join(', ')}`
-              ).join('\n\n');
-              Alert.alert('Opções de Almoço', optionsText);
-            } else {
-              Alert.alert('Erro', 'Configure seu perfil primeiro');
-            }
-          }}
-        >
-          <Text style={styles.generateButtonText}>Ver Opções de Refeição</Text>
-          <Text style={styles.generateButtonSubtext}>3 opções diferentes para cada refeição</Text>
-        </TouchableOpacity>
+        {/* Generated Options */}
+        {generatedOptions.length > 0 && (
+          <>
+            <View style={styles.optionsHeader}>
+              <Text style={styles.sectionTitle}>Opções Geradas</Text>
+              <TouchableOpacity 
+                style={styles.allPdfButton}
+                onPress={() => profile && generateDietOptionsPDF(generatedOptions, profile)}
+              >
+                <Text style={styles.allPdfButtonText}>📄 PDF com 3 Opções</Text>
+              </TouchableOpacity>
+            </View>
+
+            {generatedOptions.map((plan, index) => {
+              const analysis = profile ? analyzeDiet(plan, profile) : null;
+              return (
+                <View key={plan.id} style={styles.optionCard}>
+                  <View style={styles.optionHeader}>
+                    <Text style={styles.optionTitle}>Opção {index + 1}</Text>
+                    <View style={styles.optionActions}>
+                      <TouchableOpacity 
+                        style={styles.saveOptionButton}
+                        onPress={() => handleSavePlan(plan)}
+                      >
+                        <Text style={styles.saveOptionButtonText}>Salvar</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  {/* Macros Summary */}
+                  <View style={styles.optionMacros}>
+                    <View style={styles.optionMacroItem}>
+                      <Text style={[styles.optionMacroValue, { color: COLORS.calories }]}>{plan.totalMacros.calories}</Text>
+                      <Text style={styles.optionMacroLabel}>kcal</Text>
+                    </View>
+                    <View style={styles.optionMacroItem}>
+                      <Text style={[styles.optionMacroValue, { color: COLORS.protein }]}>{plan.totalMacros.protein}g</Text>
+                      <Text style={styles.optionMacroLabel}>Proteína</Text>
+                    </View>
+                    <View style={styles.optionMacroItem}>
+                      <Text style={[styles.optionMacroValue, { color: COLORS.carbs }]}>{plan.totalMacros.carbs}g</Text>
+                      <Text style={styles.optionMacroLabel}>Carbos</Text>
+                    </View>
+                    <View style={styles.optionMacroItem}>
+                      <Text style={[styles.optionMacroValue, { color: COLORS.fat }]}>{plan.totalMacros.fat}g</Text>
+                      <Text style={styles.optionMacroLabel}>Gordura</Text>
+                    </View>
+                  </View>
+
+                  {/* Analysis */}
+                  {analysis && (
+                    <View style={styles.analysisBadge}>
+                      <Text style={styles.analysisText}>{analysis.adequacy} ({analysis.score}%)</Text>
+                    </View>
+                  )}
+
+                  {/* Meals */}
+                  {plan.meals.map((meal, i) => (
+                    <View key={i} style={styles.mealPreview}>
+                      <View style={styles.mealPreviewHeader}>
+                        <Text style={styles.mealPreviewName}>{meal.name}</Text>
+                        <Text style={styles.mealPreviewCalories}>{meal.totalMacros.calories} kcal</Text>
+                      </View>
+                      {meal.foods.map((food, j) => (
+                        <Text key={j} style={styles.mealPreviewFood}>
+                          {food.grams}g {food.food.name}
+                        </Text>
+                      ))}
+                    </View>
+                  ))}
+                </View>
+              );
+            })}
+          </>
+        )}
 
         {/* Plans List */}
+        <Text style={styles.sectionTitle}>Planos Salvos</Text>
         {mealPlans.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyText}>Nenhum plano criado</Text>
-            <Text style={styles.emptySubtext}>Gere um plano automático ou crie o seu</Text>
+            <Text style={styles.emptySubtext}>Escolha um objetivo e gere um plano automático</Text>
           </View>
         ) : (
-          mealPlans.map((plan, index) => (
+          mealPlans.map((plan) => (
             <View key={plan.id} style={styles.planCard}>
               <View style={styles.planHeader}>
                 <View>
@@ -84,6 +275,9 @@ export default function MealPlanScreen({ navigation }: any) {
                   <Text style={styles.planDate}>{new Date(plan.createdAt).toLocaleDateString('pt-BR')}</Text>
                 </View>
                 <View style={styles.planActions}>
+                  <TouchableOpacity onPress={() => profile && generateDietPDF(plan, profile)}>
+                    <Text style={styles.pdfButtonText}>📄</Text>
+                  </TouchableOpacity>
                   <TouchableOpacity onPress={() => navigation.navigate('EditMealPlan', { plan })}>
                     <Text style={styles.editButton}>Editar</Text>
                   </TouchableOpacity>
@@ -95,7 +289,7 @@ export default function MealPlanScreen({ navigation }: any) {
 
               <View style={styles.planMacros}>
                 <View style={styles.macroItem}>
-                  <Text style={styles.macroValue}>{plan.totalMacros.calories}</Text>
+                  <Text style={[styles.macroValue, { color: COLORS.calories }]}>{plan.totalMacros.calories}</Text>
                   <Text style={styles.macroLabel}>kcal</Text>
                 </View>
                 <View style={styles.macroItem}>
@@ -151,6 +345,136 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: COLORS.text,
   },
+  sectionTitle: {
+    fontSize: FONT_SIZE.md,
+    fontWeight: 'bold',
+    color: COLORS.text,
+  },
+  goalGrid: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    marginBottom: SPACING.lg,
+  },
+  goalCard: {
+    flex: 1,
+    backgroundColor: COLORS.surface,
+    borderRadius: BORDER_RADIUS.lg,
+    padding: SPACING.md,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: COLORS.border,
+  },
+  goalIcon: {
+    fontSize: 28,
+    marginBottom: SPACING.xs,
+  },
+  goalLabel: {
+    color: COLORS.text,
+    fontSize: FONT_SIZE.sm,
+    fontWeight: 'bold',
+    marginBottom: 2,
+  },
+  goalDesc: {
+    color: COLORS.textMuted,
+    fontSize: 10,
+    textAlign: 'center',
+  },
+  subsectionTitle: {
+    fontSize: FONT_SIZE.sm,
+    color: COLORS.textSecondary,
+    fontWeight: '600',
+    marginBottom: SPACING.sm,
+  },
+  goalRow: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    marginBottom: SPACING.md,
+  },
+  goalCardSmall: {
+    flex: 1,
+    backgroundColor: COLORS.surface,
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.sm,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  goalIconSmall: {
+    fontSize: 20,
+    marginBottom: 2,
+  },
+  goalLabelSmall: {
+    color: COLORS.text,
+    fontSize: FONT_SIZE.xs,
+    fontWeight: 'bold',
+  },
+  goalDescSmall: {
+    color: COLORS.textMuted,
+    fontSize: 9,
+    textAlign: 'center',
+  },
+  previewCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: BORDER_RADIUS.lg,
+    padding: SPACING.lg,
+    marginBottom: SPACING.lg,
+  },
+  previewTitle: {
+    color: COLORS.text,
+    fontSize: FONT_SIZE.md,
+    fontWeight: 'bold',
+    marginBottom: SPACING.md,
+    textAlign: 'center',
+  },
+  previewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: SPACING.md,
+    gap: SPACING.md,
+  },
+  previewItem: {
+    alignItems: 'center',
+  },
+  previewValue: {
+    color: COLORS.text,
+    fontSize: FONT_SIZE.xl,
+    fontWeight: 'bold',
+  },
+  previewLabel: {
+    color: COLORS.textSecondary,
+    fontSize: FONT_SIZE.xs,
+  },
+  previewArrow: {
+    color: COLORS.primary,
+    fontSize: FONT_SIZE.xl,
+  },
+  macrosRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    backgroundColor: COLORS.surfaceLight,
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
+  },
+  macroItem: {
+    alignItems: 'center',
+  },
+  macroValue: {
+    fontSize: FONT_SIZE.lg,
+    fontWeight: 'bold',
+  },
+  macroLabel: {
+    color: COLORS.textSecondary,
+    fontSize: FONT_SIZE.xs,
+    marginTop: 2,
+  },
+  previewNote: {
+    color: COLORS.textMuted,
+    fontSize: FONT_SIZE.xs,
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
   generateButton: {
     backgroundColor: COLORS.primary,
     borderRadius: BORDER_RADIUS.lg,
@@ -167,6 +491,125 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     fontSize: FONT_SIZE.sm,
     marginTop: SPACING.xs,
+  },
+  optionCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: BORDER_RADIUS.lg,
+    padding: SPACING.lg,
+    marginBottom: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+  },
+  optionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+  },
+  optionTitle: {
+    color: COLORS.primary,
+    fontSize: FONT_SIZE.lg,
+    fontWeight: 'bold',
+  },
+  optionsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+  },
+  allPdfButton: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.md,
+    borderRadius: BORDER_RADIUS.md,
+  },
+  allPdfButtonText: {
+    color: COLORS.text,
+    fontSize: FONT_SIZE.md,
+    fontWeight: 'bold',
+  },
+  optionActions: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+  },
+  pdfButton: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderRadius: BORDER_RADIUS.md,
+  },
+  pdfButtonText: {
+    color: COLORS.text,
+    fontSize: FONT_SIZE.sm,
+    fontWeight: 'bold',
+  },
+  saveOptionButton: {
+    backgroundColor: COLORS.accent,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderRadius: BORDER_RADIUS.md,
+  },
+  saveOptionButtonText: {
+    color: COLORS.text,
+    fontSize: FONT_SIZE.sm,
+    fontWeight: 'bold',
+  },
+  optionMacros: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    backgroundColor: COLORS.surfaceLight,
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
+  },
+  optionMacroItem: {
+    alignItems: 'center',
+  },
+  optionMacroValue: {
+    fontSize: FONT_SIZE.lg,
+    fontWeight: 'bold',
+  },
+  optionMacroLabel: {
+    color: COLORS.textSecondary,
+    fontSize: FONT_SIZE.xs,
+    marginTop: 2,
+  },
+  analysisBadge: {
+    backgroundColor: COLORS.accent + '20',
+    borderRadius: BORDER_RADIUS.sm,
+    padding: SPACING.xs,
+    marginBottom: SPACING.md,
+    alignItems: 'center',
+  },
+  analysisText: {
+    color: COLORS.accent,
+    fontSize: FONT_SIZE.sm,
+    fontWeight: '600',
+  },
+  mealPreview: {
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+    paddingTop: SPACING.sm,
+    marginBottom: SPACING.sm,
+  },
+  mealPreviewHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: SPACING.xs,
+  },
+  mealPreviewName: {
+    color: COLORS.text,
+    fontSize: FONT_SIZE.md,
+    fontWeight: '600',
+  },
+  mealPreviewCalories: {
+    color: COLORS.calories,
+    fontSize: FONT_SIZE.sm,
+  },
+  mealPreviewFood: {
+    color: COLORS.textSecondary,
+    fontSize: FONT_SIZE.sm,
+    marginLeft: SPACING.sm,
   },
   emptyState: {
     backgroundColor: COLORS.surface,
@@ -220,24 +663,11 @@ const styles = StyleSheet.create({
   },
   planMacros: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'space-around',
     backgroundColor: COLORS.surfaceLight,
     borderRadius: BORDER_RADIUS.md,
     padding: SPACING.md,
     marginBottom: SPACING.md,
-  },
-  macroItem: {
-    alignItems: 'center',
-  },
-  macroValue: {
-    color: COLORS.calories,
-    fontSize: FONT_SIZE.lg,
-    fontWeight: 'bold',
-  },
-  macroLabel: {
-    color: COLORS.textSecondary,
-    fontSize: FONT_SIZE.xs,
-    marginTop: SPACING.xs,
   },
   mealsTitle: {
     color: COLORS.textSecondary,

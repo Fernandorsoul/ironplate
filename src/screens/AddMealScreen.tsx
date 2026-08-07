@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert 
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../constants/theme';
 import { FOOD_DATABASE, MEAL_TIMING_LABELS } from '../constants/foods';
 import { useApp } from '../context/AppContext';
+import { useFoodSearch } from '../hooks';
 import { calculatePortionMacros, sumMacros } from '../utils/calculations';
 import { Food, FoodPortion, Meal, MealTiming } from '../types';
 
@@ -14,9 +15,7 @@ export default function AddMealScreen({ navigation }: any) {
   const [searchQuery, setSearchQuery] = useState('');
 
   const allFoods = [...FOOD_DATABASE, ...customFoods];
-  const filteredFoods = allFoods.filter(food =>
-    food.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredFoods = useFoodSearch(allFoods, searchQuery);
 
   const addFood = (food: Food) => {
     setSelectedFoods(prev => [...prev, { food, grams: 100 }]);

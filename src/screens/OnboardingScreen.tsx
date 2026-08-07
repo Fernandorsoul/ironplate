@@ -130,23 +130,44 @@ export default function OnboardingScreen() {
         return (
           <View style={styles.stepContainer}>
             <Text style={styles.stepTitle}>Seu objetivo</Text>
+            
+            <Text style={styles.subsectionTitle}>Ganho de Massa</Text>
             <TouchableOpacity
               style={[styles.optionButton, goal === 'bulking' && styles.optionButtonActive]}
               onPress={() => setGoal('bulking')}
             >
-              <Text style={[styles.optionText, goal === 'bulking' && styles.optionTextActive]}>Bulking (ganhar massa)</Text>
+              <Text style={[styles.optionText, goal === 'bulking' && styles.optionTextActive]}>Bulking (+15% calorias)</Text>
+            </TouchableOpacity>
+
+            <Text style={styles.subsectionTitle}>Perda de Gordura</Text>
+            <TouchableOpacity
+              style={[styles.optionButton, goal === 'cutting_conservative' && styles.optionButtonActive]}
+              onPress={() => setGoal('cutting_conservative')}
+            >
+              <Text style={[styles.optionText, goal === 'cutting_conservative' && styles.optionTextActive]}>Cutting Conservador (-15%)</Text>
+              <Text style={styles.optionDesc}>Off-season / iniciantes</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.optionButton, goal === 'cutting' && styles.optionButtonActive]}
-              onPress={() => setGoal('cutting')}
+              style={[styles.optionButton, goal === 'cutting_preparation' && styles.optionButtonActive]}
+              onPress={() => setGoal('cutting_preparation')}
             >
-              <Text style={[styles.optionText, goal === 'cutting' && styles.optionTextActive]}>Cutting (perder gordura)</Text>
+              <Text style={[styles.optionText, goal === 'cutting_preparation' && styles.optionTextActive]}>Preparação (-20%)</Text>
+              <Text style={styles.optionDesc}>12-8 semanas antes</Text>
             </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.optionButton, goal === 'cutting_precontest' && styles.optionButtonActive]}
+              onPress={() => setGoal('cutting_precontest')}
+            >
+              <Text style={[styles.optionText, goal === 'cutting_precontest' && styles.optionTextActive]}>Pré-Competição (-25%)</Text>
+              <Text style={styles.optionDesc}>8-4 semanas antes</Text>
+            </TouchableOpacity>
+
+            <Text style={styles.subsectionTitle}>Manutenção</Text>
             <TouchableOpacity
               style={[styles.optionButton, goal === 'maintenance' && styles.optionButtonActive]}
               onPress={() => setGoal('maintenance')}
             >
-              <Text style={[styles.optionText, goal === 'maintenance' && styles.optionTextActive]}>Manutenção</Text>
+              <Text style={[styles.optionText, goal === 'maintenance' && styles.optionTextActive]}>Manutenção do Peso</Text>
             </TouchableOpacity>
 
             <Text style={[styles.stepTitle, { marginTop: SPACING.lg }]}>Modalidade</Text>
@@ -297,6 +318,18 @@ const styles = StyleSheet.create({
   optionTextActive: {
     color: COLORS.primary,
     fontWeight: 'bold',
+  },
+  optionDesc: {
+    color: COLORS.textMuted,
+    fontSize: FONT_SIZE.xs,
+    marginTop: 2,
+  },
+  subsectionTitle: {
+    fontSize: FONT_SIZE.sm,
+    color: COLORS.textSecondary,
+    fontWeight: '600',
+    marginTop: SPACING.md,
+    marginBottom: SPACING.xs,
   },
   nextButton: {
     backgroundColor: COLORS.primary,
