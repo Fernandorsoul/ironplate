@@ -23,7 +23,19 @@ const BodyMeasurementsScreen = ({ navigation }: any) => {
         return;
       }
 
+      const parsedBodyFat = bodyFat ? parseFloat(bodyFat) : undefined;
+
       await setTodayWeight(parsedWeight);
+
+      // Save to weight history with body fat
+      if (profile) {
+        const today = new Date().toISOString().split('T')[0];
+        await saveWeightEntry(profile.name, {
+          date: today,
+          weight: parsedWeight,
+          bodyFat: parsedBodyFat,
+        });
+      }
 
       Alert.alert('Sucesso', 'Medidas salvas com sucesso');
     } catch (error) {

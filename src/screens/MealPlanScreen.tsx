@@ -4,6 +4,7 @@ import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../constants/theme';
 import { useApp } from '../context/AppContext';
 import { calculateMacros } from '../utils/calculations';
 import { generateDiet } from '../utils/dietGenerator';
+import { getMealVariety } from '../utils/mealVariety';
 import { MealPlan, Meal } from '../types';
 
 export default function MealPlanScreen({ navigation }: any) {
@@ -47,6 +48,25 @@ export default function MealPlanScreen({ navigation }: any) {
         <TouchableOpacity style={styles.generateButton} onPress={handleGeneratePlan}>
           <Text style={styles.generateButtonText}>Gerar Plano Automático</Text>
           <Text style={styles.generateButtonSubtext}>Baseado no seu perfil e objetivo</Text>
+        </TouchableOpacity>
+
+        {/* Variety Button */}
+        <TouchableOpacity
+          style={[styles.generateButton, { backgroundColor: COLORS.accent }]}
+          onPress={() => {
+            if (profile) {
+              const options = getMealVariety(profile, 'Almoço', 3);
+              const optionsText = options.map((m, i) =>
+                `Opção ${i + 1}: ${m.foods.map(f => f.food.name).join(', ')}`
+              ).join('\n\n');
+              Alert.alert('Opções de Almoço', optionsText);
+            } else {
+              Alert.alert('Erro', 'Configure seu perfil primeiro');
+            }
+          }}
+        >
+          <Text style={styles.generateButtonText}>Ver Opções de Refeição</Text>
+          <Text style={styles.generateButtonSubtext}>3 opções diferentes para cada refeição</Text>
         </TouchableOpacity>
 
         {/* Plans List */}
