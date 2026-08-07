@@ -23,6 +23,8 @@ import EditMealScreen from './src/screens/EditMealScreen';
 
 import WorkoutDetailScreen from './src/screens/WorkoutDetailScreen';
 import DietAnalysisScreen from './src/screens/DietAnalysisScreen';
+import LoginScreen from './src/screens/LoginScreen';
+import RegisterScreen from './src/screens/RegisterScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -80,6 +82,8 @@ function AppNavigator() {
 
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen name="Register" component={RegisterScreen} />
       {!isOnboarded ? (
         <Stack.Screen name="Onboarding" component={OnboardingScreen} />
       ) : (
