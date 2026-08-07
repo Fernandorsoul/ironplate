@@ -1,18 +1,39 @@
 // SQLite Database Service for IronPlate
 // Uses expo-sqlite (sync API) + expo-crypto for password hashing
+// Web platform uses memory storage fallback
 
-import * as SQLite from 'expo-sqlite';
 import * as Crypto from 'expo-crypto';
 import { UserProfile, DailyLog, Meal, Workout, MealPlan, Food, Macros, FoodPortion } from '../types';
+import { Platform } from 'react-native';
+const isWeb = Platform.OS === 'web';
+
+
+// In-memory storage for web platform
+const memoryStore: Map<string, any[]> = new Map();
+
+function getMemoryTable(tableName: string): any[] {
+  if (!memoryStore.has(tableName)) memoryStore.set(tableName, []);
+  return memoryStore.get(tableName)!;
+}
 
 // ============================================================
 // DATABASE INITIALIZATION
 // ============================================================
 
-let db: SQLite.SQLiteDatabase | null = null;
+let db: any = null;
 
 export async function initDatabase(): Promise<void> {
-  db = await SQLite.openDatabaseAsync('ironplate.db');
+  if (isWeb) {
+    console.log('Web platform — SQLite not available, using memory storage');
+    return;
+  }
+  try {
+    const SQLite = require('expo-sqlite');
+    db = await SQLite.openDatabaseAsync('ironplate.db');
+  } catch (e) {
+    console.log('expo-sqlite not available');
+    return;
+  }
 
   await db.execAsync(`
     CREATE TABLE IF NOT EXISTS users (
@@ -135,6 +156,21 @@ export async function createUser(
 ): Promise<{ id: string; name: string; email: string } | null> {
   if (!db) await initDatabase();
 
+
+  // Web fallback: use in-memory storage
+  if (isWeb) {
+    const users = getMemoryTable('users');
+    const exists = users.find(u => u.email === email.toLowerCase().trim());
+    if (exists) return null;
+    const id = Crypto.randomUUID();
+    const passwordHash = await hashPassword(password);
+    const user = { id, name: name.trim(), email: email.toLowerCase().trim(), password_hash: passwordHash };
+    users.push(user);
+
+    console.log('Web createUser success:', { id, name: name.trim(), email: email.toLowerCase().trim() });
+    return { id, name: name.trim(), email: email.toLowerCase().trim() };
+  }
+
   try {
     const id = Crypto.randomUUID();
     const passwordHash = await hashPassword(password);
@@ -160,6 +196,15 @@ export async function authenticateUser(
   if (!db) await initDatabase();
 
   const passwordHash = await hashPassword(password);
+
+
+  // Web fallback: use in-memory storage
+  if (isWeb) {
+    const users = getMemoryTable('users');
+    const user = users.find(u => u.email === email.toLowerCase().trim() && u.password_hash === passwordHash);
+    if (!user) return null;
+    return { id: user.id, name: user.name, email: user.email };
+  }
   const user = await db!.getFirstAsync(
     'SELECT id, name, email FROM users WHERE email = ? AND password_hash = ?',
     [email.toLowerCase().trim(), passwordHash]
