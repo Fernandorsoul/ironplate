@@ -4,6 +4,7 @@
 import { Food, Meal, MealPlan, MealTiming, Macros, UserProfile, Goal } from '../types';
 import { TACO_DATABASE } from '../constants/taco';
 import { calculateMacros, calculatePortionMacros, sumMacros, calculateTDEE, calculateTargetCalories } from './calculations';
+import * as Crypto from 'expo-crypto';
 
 // ============================================================
 // DISTRIBUIÇÃO DE REFEIÇÕES POR ESPORTE
@@ -234,7 +235,7 @@ function generateMeal(
   const totalMacros = sumMacros(portionMacros);
 
   return {
-    id: `meal_${mealName}_${Date.now()}_${variation}`,
+    id: Crypto.randomUUID(),
     name: mealName,
     timing: config.timing,
     foods: foods.map((f, i) => ({
@@ -273,7 +274,7 @@ export function generateDiet(profile: UserProfile, optionIndex: number = 0): Mea
   const optionLabel = `Opção ${optionIndex + 1}`;
 
   return {
-    id: `diet_${Date.now()}_${optionIndex}`,
+    id: Crypto.randomUUID(),
     name: `${goalLabel} ${sportLabel} - ${optionLabel}`,
     goal: profile.goal,
     meals,

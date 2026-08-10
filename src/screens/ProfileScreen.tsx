@@ -6,7 +6,7 @@ import { useApp } from '../context/AppContext';
 export default function ProfileScreen({ navigation }: any) {
   const { profile, targetMacros, getWeeklySummary, weightHistory } = useApp();
 
-  const summary = useMemo(() => getWeeklySummary(), [getWeeklySummary]);
+  const summary = useMemo(() => getWeeklySummary(), [getWeeklySummary, targetMacros]);
 
   return (
     <View style={styles.container}>

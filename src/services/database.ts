@@ -1,12 +1,12 @@
 // SQLite Database Service for IronPlate
-// Uses expo-sqlite (sync API) + expo-crypto for password hashing
+// Uses expo-sqlite + expo-crypto for password hashing
 // Web platform uses memory storage fallback
 
 import * as Crypto from 'expo-crypto';
 import { UserProfile, DailyLog, Meal, Workout, MealPlan, Food, Macros, FoodPortion } from '../types';
 import { Platform } from 'react-native';
-const isWeb = Platform.OS === 'web';
 
+const isWeb = Platform.OS === 'web';
 
 // In-memory storage for web platform
 const memoryStore: Map<string, any[]> = new Map();
@@ -22,16 +22,30 @@ function getMemoryTable(tableName: string): any[] {
 
 let db: any = null;
 
+// Lazy load SQLite only on native platforms
+function loadSQLite(): any {
+  if (isWeb) return null;
+  try {
+    return require('expo-sqlite');
+  } catch {
+    return null;
+  }
+}
+
 export async function initDatabase(): Promise<void> {
   if (isWeb) {
     console.log('Web platform — SQLite not available, using memory storage');
     return;
   }
   try {
-    const SQLite = require('expo-sqlite');
+    const SQLite = loadSQLite();
+    if (!SQLite) {
+      console.log('expo-sqlite not available');
+      return;
+    }
     db = await SQLite.openDatabaseAsync('ironplate.db');
   } catch (e) {
-    console.log('expo-sqlite not available');
+    console.log('expo-sqlite not available:', e);
     return;
   }
 
@@ -200,11 +214,29 @@ export async function initDatabase(): Promise<void> {
 // AUTHENTICATION
 // ============================================================
 
-async function hashPassword(password: string): Promise<string> {
-  return await Crypto.digestStringAsync(
+// PBKDF2-like hashing using multiple rounds of SHA256
+// Uses a unique salt per user for security
+const HASH_ITERATIONS = 10000;
+const SALT_LENGTH = 32;
+
+async function generateSalt(): Promise<string> {
+  const bytes = await Crypto.digestStringAsync(
     Crypto.CryptoDigestAlgorithm.SHA256,
-    password + 'ironplate_salt_2024'
+    Crypto.randomUUID() + Date.now().toString()
   );
+  return bytes.substring(0, SALT_LENGTH);
+}
+
+async function hashPassword(password: string, salt: string): Promise<string> {
+  // PBKDF2-like: multiple rounds of SHA256 with salt
+  let hash = password + salt;
+  for (let i = 0; i < HASH_ITERATIONS; i++) {
+    hash = await Crypto.digestStringAsync(
+      Crypto.CryptoDigestAlgorithm.SHA256,
+      hash + salt
+    );
+  }
+  return hash;
 }
 
 export async function createUser(
@@ -214,30 +246,26 @@ export async function createUser(
 ): Promise<{ id: string; name: string; email: string } | null> {
   if (!db) await initDatabase();
 
+  const id = Crypto.randomUUID();
+  const salt = await generateSalt();
+  const passwordHash = await hashPassword(password, salt);
+  const storedHash = `${salt}:${passwordHash}`;
 
   // Web fallback: use in-memory storage
   if (isWeb) {
     const users = getMemoryTable('users');
     const exists = users.find(u => u.email === email.toLowerCase().trim());
     if (exists) return null;
-    const id = Crypto.randomUUID();
-    const passwordHash = await hashPassword(password);
-    const user = { id, name: name.trim(), email: email.toLowerCase().trim(), password_hash: passwordHash };
+    const user = { id, name: name.trim(), email: email.toLowerCase().trim(), password_hash: storedHash };
     users.push(user);
-
-    console.log('Web createUser success:', { id, name: name.trim(), email: email.toLowerCase().trim() });
     return { id, name: name.trim(), email: email.toLowerCase().trim() };
   }
 
   try {
-    const id = Crypto.randomUUID();
-    const passwordHash = await hashPassword(password);
-
     await db!.runAsync(
       'INSERT INTO users (id, name, email, password_hash) VALUES (?, ?, ?, ?)',
-      [id, name.trim(), email.toLowerCase().trim(), passwordHash]
+      [id, name.trim(), email.toLowerCase().trim(), storedHash]
     );
-
     return { id, name: name.trim(), email: email.toLowerCase().trim() };
   } catch (error: any) {
     if (error.message?.includes('UNIQUE')) {
@@ -253,22 +281,34 @@ export async function authenticateUser(
 ): Promise<{ id: string; name: string; email: string } | null> {
   if (!db) await initDatabase();
 
-  const passwordHash = await hashPassword(password);
-
-
   // Web fallback: use in-memory storage
   if (isWeb) {
     const users = getMemoryTable('users');
-    const user = users.find(u => u.email === email.toLowerCase().trim() && u.password_hash === passwordHash);
+    const user = users.find(u => u.email === email.toLowerCase().trim());
     if (!user) return null;
+
+    // Extract salt and verify hash
+    const [salt] = user.password_hash.split(':');
+    const computedHash = await hashPassword(password, salt);
+    if (user.password_hash !== `${salt}:${computedHash}`) return null;
+
     return { id: user.id, name: user.name, email: user.email };
   }
+
   const user = await db!.getFirstAsync(
-    'SELECT id, name, email FROM users WHERE email = ? AND password_hash = ?',
-    [email.toLowerCase().trim(), passwordHash]
+    'SELECT id, name, email, password_hash FROM users WHERE email = ?',
+    [email.toLowerCase().trim()]
   );
 
-  return user as { id: string; name: string; email: string } | null;
+  if (!user) return null;
+
+  const u = user as { id: string; name: string; email: string; password_hash: string };
+  const [salt] = u.password_hash.split(':');
+  const computedHash = await hashPassword(password, salt);
+
+  if (u.password_hash !== `${salt}:${computedHash}`) return null;
+
+  return { id: u.id, name: u.name, email: u.email };
 }
 
 // ============================================================
@@ -351,89 +391,153 @@ export async function updateUser(
 export async function saveDailyLog(userId: string, log: DailyLog): Promise<void> {
   if (!db) await initDatabase();
 
-  // Upsert daily log
-  await db!.runAsync(
-    `INSERT INTO daily_logs (id, user_id, date, weight, notes)
-     VALUES (?, ?, ?, ?, ?)
-     ON CONFLICT(user_id, date) DO UPDATE SET weight = ?, notes = ?`,
-    [
-      `${userId}_${log.date}`, userId, log.date, log.weight || null, log.notes || null,
-      log.weight || null, log.notes || null,
-    ]
-  );
-
   const logId = `${userId}_${log.date}`;
 
-  // Delete existing meals and workouts for this log
-  await db!.runAsync('DELETE FROM meal_foods WHERE meal_id IN (SELECT id FROM meals WHERE daily_log_id = ?)', [logId]);
-  await db!.runAsync('DELETE FROM meals WHERE daily_log_id = ?', [logId]);
-  await db!.runAsync('DELETE FROM workouts WHERE daily_log_id = ?', [logId]);
-
-  // Insert meals
-  for (const meal of log.meals) {
+  // Use transaction for batch operations - much faster
+  await db!.withTransactionAsync(async () => {
+    // Upsert daily log
     await db!.runAsync(
-      'INSERT INTO meals (id, daily_log_id, name, timing, total_calories, total_protein, total_carbs, total_fat, time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [meal.id, logId, meal.name, meal.timing, meal.totalMacros.calories, meal.totalMacros.protein, meal.totalMacros.carbs, meal.totalMacros.fat, meal.time || null]
+      `INSERT INTO daily_logs (id, user_id, date, weight, notes)
+       VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(user_id, date) DO UPDATE SET weight = ?, notes = ?`,
+      [logId, userId, log.date, log.weight || null, log.notes || null, log.weight || null, log.notes || null]
     );
 
-    for (const food of meal.foods) {
+    // Delete existing meals and workouts for this log
+    await db!.runAsync('DELETE FROM meal_foods WHERE meal_id IN (SELECT id FROM meals WHERE daily_log_id = ?)', [logId]);
+    await db!.runAsync('DELETE FROM meals WHERE daily_log_id = ?', [logId]);
+    await db!.runAsync('DELETE FROM workouts WHERE daily_log_id = ?', [logId]);
+
+    // Batch insert meals
+    for (const meal of log.meals) {
       await db!.runAsync(
-        'INSERT INTO meal_foods (id, meal_id, food_id, food_name, food_category, grams, calories, protein, carbs, fat) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [`${meal.id}_${food.food.id}`, meal.id, food.food.id, food.food.name, food.food.category, food.grams, food.macros.calories, food.macros.protein, food.macros.carbs, food.macros.fat]
+        'INSERT INTO meals (id, daily_log_id, name, timing, total_calories, total_protein, total_carbs, total_fat, time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [meal.id, logId, meal.name, meal.timing, meal.totalMacros.calories, meal.totalMacros.protein, meal.totalMacros.carbs, meal.totalMacros.fat, meal.time || null]
+      );
+
+      // Batch insert foods for this meal
+      for (const food of meal.foods) {
+        await db!.runAsync(
+          'INSERT INTO meal_foods (id, meal_id, food_id, food_name, food_category, grams, calories, protein, carbs, fat) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [`${meal.id}_${food.food.id}`, meal.id, food.food.id, food.food.name, food.food.category, food.grams, food.macros.calories, food.macros.protein, food.macros.carbs, food.macros.fat]
+        );
+      }
+    }
+
+    // Batch insert workouts
+    for (const workout of log.workouts) {
+      await db!.runAsync(
+        'INSERT INTO workouts (id, daily_log_id, name, type, duration, intensity, time) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [workout.id, logId, workout.name, workout.type, workout.duration, workout.intensity, workout.time || null]
       );
     }
-  }
-
-  // Insert workouts
-  for (const workout of log.workouts) {
-    await db!.runAsync(
-      'INSERT INTO workouts (id, daily_log_id, name, type, duration, intensity, time) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [workout.id, logId, workout.name, workout.type, workout.duration, workout.intensity, workout.time || null]
-    );
-  }
+  });
 }
 
 export async function getDailyLogs(userId: string, limit: number = 30): Promise<DailyLog[]> {
   if (!db) await initDatabase();
 
-  const logs = await db!.getAllAsync(
-    'SELECT * FROM daily_logs WHERE user_id = ? ORDER BY date DESC LIMIT ?',
-    [userId, limit]
+  // Single query with JOINs to get all data at once
+  const rows = await db!.getAllAsync(
+    `SELECT
+      dl.id as log_id, dl.date, dl.weight as log_weight, dl.notes,
+      m.id as meal_id, m.name as meal_name, m.timing, m.time as meal_time,
+      m.total_calories, m.total_protein, m.total_carbs, m.total_fat,
+      mf.id as food_id, mf.food_id as food_ref_id, mf.food_name, mf.food_category,
+      mf.grams, mf.calories, mf.protein, mf.carbs, mf.fat,
+      w.id as workout_id, w.name as workout_name, w.type, w.duration, w.intensity, w.time as workout_time
+    FROM daily_logs dl
+    LEFT JOIN meals m ON m.daily_log_id = dl.id
+    LEFT JOIN meal_foods mf ON mf.meal_id = m.id
+    LEFT JOIN workouts w ON w.daily_log_id = dl.id
+    WHERE dl.user_id = ?
+    ORDER BY dl.date DESC, m.id, w.id`,
+    [userId]
   );
 
-  const result: DailyLog[] = [];
+  // Group the flat rows into structured DailyLog objects
+  const logsMap = new Map<string, DailyLog>();
+  const mealsMap = new Map<string, Meal>();
+  const mealFoodsMap = new Map<string, { food: FoodPortion[] }>();
+  const workoutsSet = new Map<string, Set<string>>();
 
-  for (const log of logs as any[]) {
-    const meals = await db!.getAllAsync('SELECT * FROM meals WHERE daily_log_id = ?', [log.id]) as any[];
-    const workouts = await db!.getAllAsync('SELECT * FROM workouts WHERE daily_log_id = ?', [log.id]) as any[];
-
-    const mealsWithFoods: Meal[] = [];
-    for (const meal of meals) {
-      const foods = await db!.getAllAsync('SELECT * FROM meal_foods WHERE meal_id = ?', [meal.id]) as any[];
-      mealsWithFoods.push({
-        id: meal.id,
-        name: meal.name,
-        timing: meal.timing,
-        foods: foods.map((f: any) => ({
-          food: { id: f.food_id, name: f.food_name, category: f.food_category, macros: { calories: f.calories, protein: f.protein, carbs: f.carbs, fat: f.fat } },
-          grams: f.grams,
-          macros: { calories: f.calories, protein: f.protein, carbs: f.carbs, fat: f.fat },
-        })),
-        totalMacros: { calories: meal.total_calories, protein: meal.total_protein, carbs: meal.total_carbs, fat: meal.total_fat },
-        time: meal.time,
-      });
+  for (const row of rows as any[]) {
+    // Get or create daily log
+    let log = logsMap.get(row.log_id);
+    if (!log) {
+      log = {
+        date: row.date,
+        meals: [],
+        workouts: [],
+        weight: row.log_weight || undefined,
+        totalMacros: { calories: 0, protein: 0, carbs: 0, fat: 0 },
+        notes: row.notes || undefined,
+      };
+      logsMap.set(row.log_id, log);
+      workoutsSet.set(row.log_id, new Set());
     }
 
-    const workoutsList: Workout[] = workouts.map((w: any) => ({
-      id: w.id,
-      name: w.name,
-      type: w.type,
-      duration: w.duration,
-      intensity: w.intensity,
-      time: w.time,
-    }));
+    // Process meal if exists
+    if (row.meal_id && !mealsMap.has(row.meal_id)) {
+      const meal: Meal = {
+        id: row.meal_id,
+        name: row.meal_name,
+        timing: row.timing,
+        foods: [],
+        totalMacros: {
+          calories: row.total_calories || 0,
+          protein: row.total_protein || 0,
+          carbs: row.total_carbs || 0,
+          fat: row.total_fat || 0,
+        },
+        time: row.meal_time || undefined,
+      };
+      mealsMap.set(row.meal_id, meal);
+      log.meals.push(meal);
+    }
 
-    const totalMacros = mealsWithFoods.reduce(
+    // Process food if exists
+    if (row.food_id && row.meal_id) {
+      const meal = mealsMap.get(row.meal_id);
+      if (meal) {
+        const foodPortion: FoodPortion = {
+          food: {
+            id: row.food_ref_id,
+            name: row.food_name,
+            category: row.food_category || '',
+            macros: { calories: row.calories || 0, protein: row.protein || 0, carbs: row.carbs || 0, fat: row.fat || 0 },
+          },
+          grams: row.grams || 0,
+          macros: { calories: row.calories || 0, protein: row.protein || 0, carbs: row.carbs || 0, fat: row.fat || 0 },
+        };
+        // Avoid duplicate food entries
+        if (!meal.foods.some(f => f.food.id === foodPortion.food.id && f.grams === foodPortion.grams)) {
+          meal.foods.push(foodPortion);
+        }
+      }
+    }
+
+    // Process workout if exists
+    if (row.workout_id) {
+      const logWorkouts = workoutsSet.get(row.log_id)!;
+      if (!logWorkouts.has(row.workout_id)) {
+        logWorkouts.add(row.workout_id);
+        log.workouts.push({
+          id: row.workout_id,
+          name: row.workout_name,
+          type: row.type,
+          duration: row.duration || 0,
+          intensity: row.intensity || 'medium',
+          time: row.workout_time || undefined,
+        });
+      }
+    }
+  }
+
+  // Calculate totalMacros for each log
+  const result: DailyLog[] = [];
+  for (const log of logsMap.values()) {
+    log.totalMacros = log.meals.reduce(
       (acc, m) => ({
         calories: acc.calories + m.totalMacros.calories,
         protein: acc.protein + m.totalMacros.protein,
@@ -442,15 +546,7 @@ export async function getDailyLogs(userId: string, limit: number = 30): Promise<
       }),
       { calories: 0, protein: 0, carbs: 0, fat: 0 }
     );
-
-    result.push({
-      date: log.date,
-      meals: mealsWithFoods,
-      workouts: workoutsList,
-      weight: log.weight,
-      totalMacros,
-      notes: log.notes,
-    });
+    result.push(log);
   }
 
   return result;

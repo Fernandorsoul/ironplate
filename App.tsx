@@ -5,7 +5,12 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Text } from 'react-native';
 import { AppProvider, useApp } from './src/context/AppContext';
+import { AuthProvider } from './src/context/AuthContext';
+import { ProfileProvider } from './src/context/ProfileContext';
+import { DailyLogProvider } from './src/context/DailyLogContext';
 import { COLORS } from './src/constants/theme';
+import { ErrorBoundary } from './src/components/ErrorBoundary';
+import { RootStackParamList, TabParamList } from './src/types/navigation';
 
 // Screens
 import HomeScreen from './src/screens/HomeScreen';
@@ -29,8 +34,8 @@ import BodyMeasurementsScreen from './src/screens/BodyMeasurementsScreen';
 import EvolutionScreen from './src/screens/EvolutionScreen';
 import EditProfileScreen from './src/screens/EditProfileScreen';
 
-const Stack = createNativeStackNavigator();
-const Tab = createBottomTabNavigator();
+const Stack = createNativeStackNavigator<RootStackParamList>();
+const Tab = createBottomTabNavigator<TabParamList>();
 
 function HomeTabs() {
   return (
@@ -121,11 +126,19 @@ function AppNavigator() {
 
 export default function App() {
   return (
-    <AppProvider>
-      <NavigationContainer>
-        <StatusBar style="light" />
-        <AppNavigator />
-      </NavigationContainer>
-    </AppProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <ProfileProvider>
+          <DailyLogProvider>
+            <AppProvider>
+              <NavigationContainer>
+                <StatusBar style="light" />
+                <AppNavigator />
+              </NavigationContainer>
+            </AppProvider>
+          </DailyLogProvider>
+        </ProfileProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }

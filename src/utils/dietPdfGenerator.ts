@@ -1,8 +1,10 @@
 // PDF Generator for Diet Plans
 
-import { Platform } from 'react-native';
+import { Platform, Alert } from 'react-native';
 import { MealPlan, UserProfile } from '../types';
 import { calculateTDEE, calculateTargetCalories, getMacroPercentages } from './calculations';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
 
 const getGoalLabel = (goal: string) => {
   switch (goal) {
@@ -103,18 +105,18 @@ function generateOptionHTML(plan: MealPlan, index: number): string {
   </div>`;
 }
 
-export function generateDietPDF(plan: MealPlan, profile: UserProfile): void {
-  generateDietOptionsPDF([plan], profile);
+export async function generateDietPDF(plan: MealPlan, profile: UserProfile): Promise<void> {
+  await generateDietOptionsPDF([plan], profile);
 }
 
-export function generateDietOptionsPDF(plans: MealPlan[], profile: UserProfile): void {
+export async function generateDietOptionsPDF(plans: MealPlan[], profile: UserProfile): Promise<void> {
   console.log('[PDF] Generating PDF for', plans.length, 'options');
-  
+
   const tdee = calculateTDEE(profile);
   const targetCalories = calculateTargetCalories(profile);
-  
-  const today = new Date().toLocaleDateString('pt-BR', { 
-    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
+
+  const today = new Date().toLocaleDateString('pt-BR', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
   });
 
   const goalLabel = plans.length > 0 ? getGoalLabel(plans[0].goal) : 'Personalizado';
@@ -128,14 +130,14 @@ export function generateDietOptionsPDF(plans: MealPlan[], profile: UserProfile):
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Segoe UI', Arial, sans-serif; padding: 25px; color: #333; line-height: 1.4; font-size: 11px; }
-    
+
     .header { text-align: center; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 3px solid #FF6B35; }
     .header h1 { color: #FF6B35; font-size: 20px; margin-bottom: 3px; }
     .header p { color: #666; font-size: 10px; }
-    
+
     .section { margin-bottom: 15px; page-break-inside: avoid; }
     .section-title { background: #1A1A2E; color: white; padding: 6px 10px; font-size: 12px; font-weight: bold; margin-bottom: 8px; border-radius: 4px; }
-    
+
     .info-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
     .info-card { background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 5px; padding: 8px; text-align: center; }
     .info-card label { display: block; font-size: 9px; color: #666; margin-bottom: 2px; text-transform: uppercase; }
@@ -143,11 +145,11 @@ export function generateDietOptionsPDF(plans: MealPlan[], profile: UserProfile):
     .info-card .unit { font-size: 10px; color: #666; }
     .highlight { background: #FF6B3515; border-color: #FF6B35; }
     .highlight .value { color: #FF6B35; }
-    
+
     .option-section { margin-bottom: 25px; border: 2px solid #FF6B35; border-radius: 8px; padding: 15px; page-break-before: always; }
     .option-header { background: #FF6B35; color: white; padding: 8px 12px; border-radius: 5px; margin-bottom: 12px; }
     .option-header h2 { font-size: 16px; margin: 0; }
-    
+
     .macros-summary { display: flex; gap: 10px; margin-bottom: 15px; }
     .macro-box { flex: 1; text-align: center; padding: 10px 5px; border-radius: 6px; }
     .cal-box { background: #00CEC920; border: 1px solid #00CEC9; }
@@ -160,7 +162,7 @@ export function generateDietOptionsPDF(plans: MealPlan[], profile: UserProfile):
     .carb-box .macro-val { color: #FDCB6E; }
     .fat-box .macro-val { color: #A29BFE; }
     .macro-lbl { font-size: 9px; color: #666; margin-top: 3px; }
-    
+
     .meal { background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 6px; padding: 10px; margin-bottom: 8px; }
     .meal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; border-bottom: 1px solid #e9ecef; padding-bottom: 6px; }
     .meal-name { font-size: 13px; font-weight: bold; color: #1A1A2E; }
@@ -172,18 +174,18 @@ export function generateDietOptionsPDF(plans: MealPlan[], profile: UserProfile):
     .macro.prot { color: #E17055; }
     .macro.carb { color: #FDCB6E; }
     .macro.fat { color: #A29BFE; }
-    
+
     .food-table { width: 100%; border-collapse: collapse; font-size: 10px; }
     .food-table th { background: #e9ecef; padding: 4px 6px; text-align: left; font-size: 9px; text-transform: uppercase; color: #666; }
     .food-table td { padding: 4px 6px; border-bottom: 1px dotted #e9ecef; }
     .food-grams { font-weight: bold; color: #FF6B35; }
-    
+
     .footer { margin-top: 20px; padding-top: 12px; border-top: 2px solid #e9ecef; text-align: center; color: #666; font-size: 9px; }
     .notes { background: #fff3cd; border: 1px solid #ffc107; border-radius: 5px; padding: 8px; margin-top: 12px; font-size: 10px; color: #856404; }
-    
-    @media print { 
-      body { padding: 15px; } 
-      .no-print { display: none; } 
+
+    @media print {
+      body { padding: 15px; }
+      .no-print { display: none; }
       .option-section { page-break-before: always; }
       .option-section:first-of-type { page-break-before: auto; }
     }
@@ -243,24 +245,16 @@ export function generateDietOptionsPDF(plans: MealPlan[], profile: UserProfile):
     <p>Nutricionista Responsável</p>
     <p>CRN: _____________</p>
   </div>
-
-  <div class="no-print" style="text-align:center;margin-top:15px;position:sticky;bottom:0;background:white;padding:10px;">
-    <button onclick="window.print()" style="background:#FF6B35;color:white;border:none;padding:12px 30px;font-size:14px;border-radius:6px;cursor:pointer;font-weight:bold;">
-      Imprimir / Salvar PDF
-    </button>
-  </div>
 </body>
 </html>`;
 
-  if (Platform.OS === 'web') {
-    try {
+  try {
+    if (Platform.OS === 'web') {
       const printWindow = window.open('', '_blank');
       if (printWindow) {
         printWindow.document.write(html);
         printWindow.document.close();
-        console.log('[PDF] PDF generated successfully with', plans.length, 'options');
       } else {
-        console.error('[PDF] Failed to open window - downloading as HTML');
         const blob = new Blob([html], { type: 'text/html' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -271,8 +265,18 @@ export function generateDietOptionsPDF(plans: MealPlan[], profile: UserProfile):
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
       }
-    } catch (error) {
-      console.error('[PDF] Error generating PDF:', error);
+    } else {
+      // Mobile: generate PDF and share
+      const { uri } = await Print.printToFileAsync({ html });
+      await Sharing.shareAsync(uri, {
+        mimeType: 'application/pdf',
+        dialogTitle: 'Compartilhar Plano Alimentar',
+        UTI: 'com.adobe.pdf',
+      });
     }
+    console.log('[PDF] PDF generated successfully with', plans.length, 'options');
+  } catch (error) {
+    console.error('[PDF] Error generating PDF:', error);
+    Alert.alert('Erro', 'Não foi possível gerar o PDF');
   }
 }
