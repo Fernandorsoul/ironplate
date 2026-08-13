@@ -37,6 +37,8 @@ export interface Food {
 export interface FoodPortion {
   food: Food;
   grams: number;
+  quantity?: number;
+  unit?: 'unidade' | 'fatia' | 'colher' | 'xicara' | 'ml' | 'g';
   macros: Macros; // calculated for portion
 }
 
@@ -56,6 +58,16 @@ export interface MealPlan {
   meals: Meal[];
   totalMacros: Macros;
   createdAt: string;
+  isActive?: boolean;
+  supplements?: SupplementRecommendation[];
+}
+
+export interface SupplementRecommendation {
+  name: string;
+  dose: string;
+  timing: string;
+  reason: string;
+  caution?: string;
 }
 
 export interface Workout {

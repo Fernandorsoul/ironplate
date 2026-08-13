@@ -1,24 +1,44 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
+import React, { useState, useMemo, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, ActivityIndicator } from 'react-native';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../constants/theme';
 import { FOOD_DATABASE, MEAL_TIMING_LABELS } from '../constants/foods';
 import { useApp } from '../context/AppContext';
-import { useFoodSearch } from '../hooks';
+import { useFoodSearch, useOnlineFoodSearch } from '../hooks';
 import { calculatePortionMacros, sumMacros } from '../utils/calculations';
-import { Food, FoodPortion, Meal, MealTiming } from '../types';
+import { Food, Meal, MealTiming } from '../types';
+import * as Crypto from 'expo-crypto';
+
+type PortionUnit = 'unidade' | 'fatia' | 'colher' | 'xicara' | 'ml' | 'g';
+const PORTION_UNITS: PortionUnit[] = ['unidade', 'fatia', 'colher', 'xicara', 'ml', 'g'];
 
 export default function AddMealScreen({ navigation }: any) {
   const { addMealToToday, customFoods } = useApp();
   const [mealName, setMealName] = useState('');
   const [timing, setTiming] = useState<MealTiming>('regular');
-  const [selectedFoods, setSelectedFoods] = useState<{ food: Food; grams: number }[]>([]);
+  const [selectedFoods, setSelectedFoods] = useState<{ food: Food; grams: number; quantity: number; unit: PortionUnit }[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showOnlineResults, setShowOnlineResults] = useState(false);
 
-  const allFoods = [...FOOD_DATABASE, ...customFoods];
+  const allFoods = useMemo(() => [...FOOD_DATABASE, ...customFoods], [customFoods]);
   const filteredFoods = useFoodSearch(allFoods, searchQuery);
+  const { results: onlineResults, isLoading: isSearchingOnline, search: searchOnline, clearResults: clearOnlineResults } = useOnlineFoodSearch();
+
+  const handleSearch = useCallback((text: string) => {
+    setSearchQuery(text);
+    if (text.trim().length >= 3) {
+      searchOnline(text);
+      setShowOnlineResults(true);
+    } else {
+      clearOnlineResults();
+      setShowOnlineResults(false);
+    }
+  }, [searchOnline, clearOnlineResults]);
 
   const addFood = (food: Food) => {
-    setSelectedFoods(prev => [...prev, { food, grams: 100 }]);
+    setSelectedFoods(prev => [...prev, { food, grams: 100, quantity: 1, unit: 'unidade' }]);
+    setSearchQuery('');
+    setShowOnlineResults(false);
+    clearOnlineResults();
   };
 
   const removeFood = (index: number) => {
@@ -30,6 +50,15 @@ export default function AddMealScreen({ navigation }: any) {
     setSelectedFoods(prev =>
       prev.map((item, i) => i === index ? { ...item, grams: numGrams } : item)
     );
+  };
+
+  const updateQuantity = (index: number, quantity: string) => {
+    const value = parseFloat(quantity.replace(',', '.')) || 0;
+    setSelectedFoods(prev => prev.map((item, i) => i === index ? { ...item, quantity: value } : item));
+  };
+
+  const updateUnit = (index: number, unit: PortionUnit) => {
+    setSelectedFoods(prev => prev.map((item, i) => i === index ? { ...item, unit } : item));
   };
 
   const totalMacros = sumMacros(
@@ -47,12 +76,14 @@ export default function AddMealScreen({ navigation }: any) {
     }
 
     const meal: Meal = {
-      id: Date.now().toString(),
+      id: Crypto.randomUUID(),
       name: mealName,
       timing,
       foods: selectedFoods.map(item => ({
         food: item.food,
         grams: item.grams,
+        quantity: item.quantity,
+        unit: item.unit,
         macros: calculatePortionMacros(item.food, item.grams),
       })),
       totalMacros,
@@ -76,7 +107,7 @@ export default function AddMealScreen({ navigation }: any) {
         </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         {/* Meal Name */}
         <TextInput
           style={styles.input}
@@ -107,6 +138,7 @@ export default function AddMealScreen({ navigation }: any) {
         {selectedFoods.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyText}>Nenhum alimento selecionado</Text>
+            <Text style={styles.emptySubtext}>Busque um alimento abaixo para adicionar</Text>
           </View>
         ) : (
           selectedFoods.map((item, index) => (
@@ -118,6 +150,24 @@ export default function AddMealScreen({ navigation }: any) {
                 </Text>
               </View>
               <View style={styles.foodActions}>
+                <TextInput
+                  style={styles.quantityInput}
+                  keyboardType={'decimal-pad'}
+                  value={item.quantity.toString()}
+                  onChangeText={(value) => updateQuantity(index, value)}
+                />
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.unitPicker}>
+                  {PORTION_UNITS.map(unit => (
+                    <TouchableOpacity
+                      key={unit}
+                      style={[styles.unitButton, item.unit === unit && styles.unitButtonActive]}
+                      onPress={() => updateUnit(index, unit)}
+                    >
+                      <Text style={[styles.unitButtonText, item.unit === unit && styles.unitButtonTextActive]}>{unit}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+                <Text style={styles.gramsHint}>equivale a</Text>
                 <TextInput
                   style={styles.gramsInput}
                   keyboardType="numeric"
@@ -138,7 +188,7 @@ export default function AddMealScreen({ navigation }: any) {
           <View style={styles.totalCard}>
             <Text style={styles.totalTitle}>Total</Text>
             <View style={styles.totalMacros}>
-              <Text style={[styles.totalMacro, { color: COLORS.calories }]}>{totalMacros.calories} kcal</Text>
+              <Text style={[styles.totalMacro, { color: COLORS.calories }]}>{Math.round(totalMacros.calories)} kcal</Text>
               <Text style={[styles.totalMacro, { color: COLORS.protein }]}>P: {totalMacros.protein}g</Text>
               <Text style={[styles.totalMacro, { color: COLORS.carbs }]}>C: {totalMacros.carbs}g</Text>
               <Text style={[styles.totalMacro, { color: COLORS.fat }]}>G: {totalMacros.fat}g</Text>
@@ -148,13 +198,20 @@ export default function AddMealScreen({ navigation }: any) {
 
         {/* Food Search */}
         <Text style={styles.sectionTitle}>Adicionar Alimento</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Buscar alimento..."
-          placeholderTextColor={COLORS.textMuted}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
+        <Text style={styles.searchSubtitle}>
+          Digite o nome do alimento para buscar na internet ou no banco local
+        </Text>
+
+        <View style={styles.searchContainer}>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Ex: café dolce gusto, peito de frango..."
+            placeholderTextColor={COLORS.textMuted}
+            value={searchQuery}
+            onChangeText={handleSearch}
+          />
+          {isSearchingOnline && <ActivityIndicator style={styles.searchLoader} color={COLORS.primary} />}
+        </View>
 
         <TouchableOpacity
           style={styles.addFoodButton}
@@ -163,16 +220,70 @@ export default function AddMealScreen({ navigation }: any) {
           <Text style={styles.addFoodButtonText}>+ Criar alimento personalizado</Text>
         </TouchableOpacity>
 
-        {/* Food List */}
-        {filteredFoods.map(food => (
-          <TouchableOpacity key={food.id} style={styles.foodOption} onPress={() => addFood(food)}>
-            <View>
-              <Text style={styles.foodOptionName}>{food.name}</Text>
-              <Text style={styles.foodOptionCategory}>{food.category}</Text>
-            </View>
-            <Text style={styles.foodOptionMacros}>{food.macros.calories} kcal/100g</Text>
-          </TouchableOpacity>
-        ))}
+        {/* Online Results */}
+        {showOnlineResults && onlineResults.length > 0 && (
+          <View style={styles.onlineResults}>
+            <Text style={styles.onlineResultsTitle}>
+              Resultados da Internet ({onlineResults.length})
+            </Text>
+            {onlineResults.map((food, index) => (
+              <TouchableOpacity
+                key={food.id || index}
+                style={styles.onlineResultItem}
+                onPress={() => addFood(food)}
+              >
+                <View style={styles.onlineResultInfo}>
+                  <Text style={styles.onlineResultName} numberOfLines={2}>{food.name}</Text>
+                  <Text style={styles.onlineResultCategory}>{food.category}</Text>
+                </View>
+                <View style={styles.onlineResultMacros}>
+                  <Text style={styles.onlineResultCal}>{Math.round(food.macros.calories)} kcal</Text>
+                  <View style={styles.macroRow}>
+                    <Text style={[styles.onlineResultMacro, { color: COLORS.protein }]}>P:{food.macros.protein}g</Text>
+                    <Text style={[styles.onlineResultMacro, { color: COLORS.carbs }]}>C:{food.macros.carbs}g</Text>
+                    <Text style={[styles.onlineResultMacro, { color: COLORS.fat }]}>G:{food.macros.fat}g</Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
+        {/* Loading indicator for online search */}
+        {showOnlineResults && isSearchingOnline && onlineResults.length === 0 && (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={COLORS.primary} />
+            <Text style={styles.loadingText}>Buscando na internet...</Text>
+          </View>
+        )}
+
+        {/* No online results */}
+        {showOnlineResults && !isSearchingOnline && onlineResults.length === 0 && searchQuery.length >= 3 && (
+          <Text style={styles.noOnlineResults}>
+            Nenhum resultado na internet. Tente o banco local abaixo.
+          </Text>
+        )}
+
+        {/* Local Food List */}
+        {filteredFoods.length > 0 && (
+          <>
+            <Text style={styles.sectionTitle}>
+              Banco Local ({filteredFoods.length})
+            </Text>
+            {filteredFoods.slice(0, 20).map(food => (
+              <TouchableOpacity key={food.id} style={styles.foodOption} onPress={() => addFood(food)}>
+                <View style={styles.foodOptionInfo}>
+                  <Text style={styles.foodOptionName}>{food.name}</Text>
+                  <Text style={styles.foodOptionCategory}>{food.category}</Text>
+                </View>
+                <View style={styles.foodOptionMacros}>
+                  <Text style={styles.foodOptionCal}>{food.macros.calories} kcal</Text>
+                  <Text style={styles.foodOptionMacro}>P:{food.macros.protein}g C:{food.macros.carbs}g G:{food.macros.fat}g</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </>
+        )}
 
         <View style={{ height: 100 }} />
       </ScrollView>
@@ -222,6 +333,11 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.md,
     marginTop: SPACING.md,
   },
+  searchSubtitle: {
+    color: COLORS.textSecondary,
+    fontSize: FONT_SIZE.sm,
+    marginBottom: SPACING.sm,
+  },
   timingGrid: {
     flexDirection: 'row',
     gap: SPACING.sm,
@@ -255,6 +371,12 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     color: COLORS.textSecondary,
+    fontSize: FONT_SIZE.md,
+  },
+  emptySubtext: {
+    color: COLORS.textMuted,
+    fontSize: FONT_SIZE.sm,
+    marginTop: SPACING.xs,
   },
   foodItem: {
     flexDirection: 'row',
@@ -280,9 +402,17 @@ const styles = StyleSheet.create({
   },
   foodActions: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: SPACING.sm,
   },
+  quantityInput: { backgroundColor: COLORS.surfaceLight, borderRadius: BORDER_RADIUS.sm, padding: SPACING.sm, width: 52, textAlign: 'center', color: COLORS.text },
+  unitPicker: { maxWidth: 170 },
+  unitButton: { paddingHorizontal: SPACING.sm, paddingVertical: SPACING.sm, borderRadius: BORDER_RADIUS.sm, borderWidth: 1, borderColor: COLORS.border, marginRight: 4 },
+  unitButtonActive: { borderColor: COLORS.primary, backgroundColor: COLORS.surfaceLight },
+  unitButtonText: { color: COLORS.textSecondary, fontSize: FONT_SIZE.xs },
+  unitButtonTextActive: { color: COLORS.primary, fontWeight: '700' },
+  gramsHint: { width: '100%', color: COLORS.textMuted, fontSize: FONT_SIZE.xs, textAlign: 'right' },
   gramsInput: {
     backgroundColor: COLORS.surfaceLight,
     borderRadius: BORDER_RADIUS.sm,
@@ -321,28 +451,24 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZE.md,
     fontWeight: '600',
   },
-  foodOption: {
+  searchContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: SPACING.md,
+  },
+  searchInput: {
+    flex: 1,
     backgroundColor: COLORS.surface,
     borderRadius: BORDER_RADIUS.md,
     padding: SPACING.md,
-    marginBottom: SPACING.sm,
-  },
-  foodOptionName: {
     color: COLORS.text,
     fontSize: FONT_SIZE.md,
-    fontWeight: '600',
+    borderWidth: 1,
+    borderColor: COLORS.primary,
   },
-  foodOptionCategory: {
-    color: COLORS.textSecondary,
-    fontSize: FONT_SIZE.sm,
-    marginTop: SPACING.xs,
-  },
-  foodOptionMacros: {
-    color: COLORS.textSecondary,
-    fontSize: FONT_SIZE.sm,
+  searchLoader: {
+    position: 'absolute',
+    right: SPACING.md,
   },
   addFoodButton: {
     backgroundColor: COLORS.surfaceLight,
@@ -358,5 +484,105 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
     fontSize: FONT_SIZE.md,
     fontWeight: '600',
+  },
+  onlineResults: {
+    marginBottom: SPACING.md,
+  },
+  onlineResultsTitle: {
+    color: COLORS.primary,
+    fontSize: FONT_SIZE.sm,
+    fontWeight: 'bold',
+    marginBottom: SPACING.sm,
+  },
+  onlineResultItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md,
+    marginBottom: SPACING.sm,
+    borderWidth: 1,
+    borderColor: COLORS.primary + '40',
+  },
+  onlineResultInfo: {
+    flex: 1,
+    marginRight: SPACING.md,
+  },
+  onlineResultName: {
+    color: COLORS.text,
+    fontSize: FONT_SIZE.md,
+    fontWeight: '600',
+  },
+  onlineResultCategory: {
+    color: COLORS.textMuted,
+    fontSize: FONT_SIZE.xs,
+    marginTop: 2,
+  },
+  onlineResultMacros: {
+    alignItems: 'flex-end',
+  },
+  onlineResultCal: {
+    color: COLORS.calories,
+    fontSize: FONT_SIZE.md,
+    fontWeight: 'bold',
+  },
+  onlineResultMacro: {
+    fontSize: FONT_SIZE.xs,
+  },
+  macroRow: {
+    flexDirection: 'row',
+    gap: SPACING.xs,
+    marginTop: 2,
+  },
+  loadingContainer: {
+    padding: SPACING.xl,
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: COLORS.textSecondary,
+    fontSize: FONT_SIZE.sm,
+    marginTop: SPACING.sm,
+  },
+  noOnlineResults: {
+    color: COLORS.textMuted,
+    fontSize: FONT_SIZE.sm,
+    textAlign: 'center',
+    marginBottom: SPACING.md,
+    fontStyle: 'italic',
+  },
+  foodOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md,
+    marginBottom: SPACING.sm,
+  },
+  foodOptionInfo: {
+    flex: 1,
+  },
+  foodOptionName: {
+    color: COLORS.text,
+    fontSize: FONT_SIZE.md,
+    fontWeight: '600',
+  },
+  foodOptionCategory: {
+    color: COLORS.textSecondary,
+    fontSize: FONT_SIZE.sm,
+    marginTop: SPACING.xs,
+  },
+  foodOptionMacros: {
+    alignItems: 'flex-end',
+  },
+  foodOptionCal: {
+    color: COLORS.calories,
+    fontSize: FONT_SIZE.sm,
+    fontWeight: 'bold',
+  },
+  foodOptionMacro: {
+    color: COLORS.textMuted,
+    fontSize: FONT_SIZE.xs,
   },
 });
