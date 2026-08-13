@@ -8,11 +8,14 @@ import { calculatePortionMacros, sumMacros } from '../utils/calculations';
 import { Food, Meal, MealTiming } from '../types';
 import * as Crypto from 'expo-crypto';
 
+type PortionUnit = 'unidade' | 'fatia' | 'colher' | 'xicara' | 'ml' | 'g';
+const PORTION_UNITS: PortionUnit[] = ['unidade', 'fatia', 'colher', 'xicara', 'ml', 'g'];
+
 export default function AddMealScreen({ navigation }: any) {
   const { addMealToToday, customFoods } = useApp();
   const [mealName, setMealName] = useState('');
   const [timing, setTiming] = useState<MealTiming>('regular');
-  const [selectedFoods, setSelectedFoods] = useState<{ food: Food; grams: number }[]>([]);
+  const [selectedFoods, setSelectedFoods] = useState<{ food: Food; grams: number; quantity: number; unit: PortionUnit }[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [showOnlineResults, setShowOnlineResults] = useState(false);
 
@@ -32,7 +35,7 @@ export default function AddMealScreen({ navigation }: any) {
   }, [searchOnline, clearOnlineResults]);
 
   const addFood = (food: Food) => {
-    setSelectedFoods(prev => [...prev, { food, grams: 100 }]);
+    setSelectedFoods(prev => [...prev, { food, grams: 100, quantity: 1, unit: 'unidade' }]);
     setSearchQuery('');
     setShowOnlineResults(false);
     clearOnlineResults();
@@ -47,6 +50,15 @@ export default function AddMealScreen({ navigation }: any) {
     setSelectedFoods(prev =>
       prev.map((item, i) => i === index ? { ...item, grams: numGrams } : item)
     );
+  };
+
+  const updateQuantity = (index: number, quantity: string) => {
+    const value = parseFloat(quantity.replace(',', '.')) || 0;
+    setSelectedFoods(prev => prev.map((item, i) => i === index ? { ...item, quantity: value } : item));
+  };
+
+  const updateUnit = (index: number, unit: PortionUnit) => {
+    setSelectedFoods(prev => prev.map((item, i) => i === index ? { ...item, unit } : item));
   };
 
   const totalMacros = sumMacros(
@@ -70,6 +82,8 @@ export default function AddMealScreen({ navigation }: any) {
       foods: selectedFoods.map(item => ({
         food: item.food,
         grams: item.grams,
+        quantity: item.quantity,
+        unit: item.unit,
         macros: calculatePortionMacros(item.food, item.grams),
       })),
       totalMacros,
@@ -136,6 +150,24 @@ export default function AddMealScreen({ navigation }: any) {
                 </Text>
               </View>
               <View style={styles.foodActions}>
+                <TextInput
+                  style={styles.quantityInput}
+                  keyboardType={'decimal-pad'}
+                  value={item.quantity.toString()}
+                  onChangeText={(value) => updateQuantity(index, value)}
+                />
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.unitPicker}>
+                  {PORTION_UNITS.map(unit => (
+                    <TouchableOpacity
+                      key={unit}
+                      style={[styles.unitButton, item.unit === unit && styles.unitButtonActive]}
+                      onPress={() => updateUnit(index, unit)}
+                    >
+                      <Text style={[styles.unitButtonText, item.unit === unit && styles.unitButtonTextActive]}>{unit}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+                <Text style={styles.gramsHint}>equivale a</Text>
                 <TextInput
                   style={styles.gramsInput}
                   keyboardType="numeric"
@@ -370,9 +402,17 @@ const styles = StyleSheet.create({
   },
   foodActions: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: SPACING.sm,
   },
+  quantityInput: { backgroundColor: COLORS.surfaceLight, borderRadius: BORDER_RADIUS.sm, padding: SPACING.sm, width: 52, textAlign: 'center', color: COLORS.text },
+  unitPicker: { maxWidth: 170 },
+  unitButton: { paddingHorizontal: SPACING.sm, paddingVertical: SPACING.sm, borderRadius: BORDER_RADIUS.sm, borderWidth: 1, borderColor: COLORS.border, marginRight: 4 },
+  unitButtonActive: { borderColor: COLORS.primary, backgroundColor: COLORS.surfaceLight },
+  unitButtonText: { color: COLORS.textSecondary, fontSize: FONT_SIZE.xs },
+  unitButtonTextActive: { color: COLORS.primary, fontWeight: '700' },
+  gramsHint: { width: '100%', color: COLORS.textMuted, fontSize: FONT_SIZE.xs, textAlign: 'right' },
   gramsInput: {
     backgroundColor: COLORS.surfaceLight,
     borderRadius: BORDER_RADIUS.sm,

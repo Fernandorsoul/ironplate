@@ -5,8 +5,9 @@ import { CompositeScreenProps, NavigatorScreenParams } from '@react-navigation/n
 // Tab Navigator
 export type TabParamList = {
   Home: undefined;
-  MealPlan: undefined;
   Weight: undefined;
+  Workout: undefined;
+  MealPlan: undefined;
 };
 
 // Stack Navigator

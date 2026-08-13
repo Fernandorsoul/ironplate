@@ -1,6 +1,6 @@
 // Nutrition and fitness calculations
 
-import { UserProfile, Macros, ActivityLevel, Goal } from '../types';
+import { UserProfile, Macros, Workout } from '../types';
 import { ACTIVITY_LEVELS } from '../constants/foods';
 
 // Mifflin-St Jeor equation for BMR
@@ -17,6 +17,38 @@ export function calculateTDEE(profile: UserProfile): number {
   const bmr = calculateBMR(profile);
   const multiplier = ACTIVITY_LEVELS[profile.activityLevel].multiplier;
   return Math.round(bmr * multiplier);
+}
+
+const WORKOUT_MET: Record<Workout['type'], number> = {
+  strength: 6,
+  cardio: 8,
+  bjj: 10.3,
+  rest: 1.3,
+};
+
+const INTENSITY_FACTOR: Record<Workout['intensity'], number> = {
+  low: 0.8,
+  medium: 1,
+  high: 1.2,
+};
+
+export function calculateWorkoutCalories(workout: Workout, weightKg: number): number {
+  if (weightKg <= 0 || workout.duration <= 0) return 0;
+  const met = WORKOUT_MET[workout.type] * INTENSITY_FACTOR[workout.intensity];
+  return Math.round((met * 3.5 * weightKg / 200) * workout.duration);
+}
+
+export function calculateDailyEnergyExpenditure(profile: UserProfile, workouts: Workout[]) {
+  const baseExpenditure = Math.round(calculateBMR(profile) * 1.2);
+  const workoutExpenditure = workouts.reduce(
+    (total, workout) => total + calculateWorkoutCalories(workout, profile.weight),
+    0,
+  );
+  return {
+    baseExpenditure,
+    workoutExpenditure,
+    totalExpenditure: baseExpenditure + workoutExpenditure,
+  };
 }
 
 // Target calories based on goal

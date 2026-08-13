@@ -161,6 +161,60 @@ function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
+const MEAL_TEMPLATES: Record<number, Omit<MealConfig, 'pct'>[]> = {
+  3: [{ name: 'Café da Manhã', timing: 'regular' }, { name: 'Almoço', timing: 'regular' }, { name: 'Jantar', timing: 'regular' }],
+  4: [{ name: 'Café da Manhã', timing: 'regular' }, { name: 'Almoço', timing: 'regular' }, { name: 'Pré-treino', timing: 'pre_workout' }, { name: 'Jantar', timing: 'regular' }],
+  5: [{ name: 'Café da Manhã', timing: 'regular' }, { name: 'Almoço', timing: 'regular' }, { name: 'Pré-treino', timing: 'pre_workout' }, { name: 'Pós-treino', timing: 'post_workout' }, { name: 'Jantar', timing: 'regular' }],
+  6: [{ name: 'Café da Manhã', timing: 'regular' }, { name: 'Lanche da Manhã', timing: 'regular' }, { name: 'Almoço', timing: 'regular' }, { name: 'Pré-treino', timing: 'pre_workout' }, { name: 'Pós-treino', timing: 'post_workout' }, { name: 'Jantar', timing: 'regular' }],
+  7: [{ name: 'Café da Manhã', timing: 'regular' }, { name: 'Lanche da Manhã', timing: 'regular' }, { name: 'Almoço', timing: 'regular' }, { name: 'Lanche da Tarde', timing: 'regular' }, { name: 'Pré-treino', timing: 'pre_workout' }, { name: 'Pós-treino', timing: 'post_workout' }, { name: 'Jantar', timing: 'regular' }],
+  8: [{ name: 'Café da Manhã', timing: 'regular' }, { name: 'Lanche da Manhã', timing: 'regular' }, { name: 'Almoço', timing: 'regular' }, { name: 'Lanche da Tarde', timing: 'regular' }, { name: 'Pré-treino', timing: 'pre_workout' }, { name: 'Pós-treino', timing: 'post_workout' }, { name: 'Jantar', timing: 'regular' }, { name: 'Ceia', timing: 'regular' }],
+};
+
+function buildMealConfigs(mealCount: number): MealConfig[] {
+  const templates = MEAL_TEMPLATES[clamp(Math.round(mealCount), 3, 8)];
+  const weights = templates.map(meal =>
+    meal.timing !== 'regular' ? 1.15 : meal.name === 'Almoço' || meal.name === 'Jantar' ? 1.25 : 0.8
+  );
+  const total = weights.reduce((sum, value) => sum + value, 0);
+  return templates.map((meal, index) => ({ ...meal, pct: weights[index] / total }));
+}
+
+function sourceKey(mealName: string): string {
+  if (mealName === 'Lanche da Tarde') return 'Lanche da Manhã';
+  if (mealName === 'Ceia') return 'Jantar';
+  return mealName;
+}
+
+function macroError(macros: Macros, target: Macros): number {
+  const relative = (actual: number, expected: number) => Math.abs(actual - expected) / Math.max(expected, 1);
+  return relative(macros.calories, target.calories) * 1.5 + relative(macros.protein, target.protein) * 2
+    + relative(macros.carbs, target.carbs) + relative(macros.fat, target.fat);
+}
+
+function optimizePortions(foods: { food: Food; grams: number }[], target: Macros) {
+  let result = foods.map(item => ({ ...item }));
+  for (let pass = 0; pass < 5; pass += 1) {
+    result = result.map((item, index) => {
+      let bestGrams = item.grams;
+      let bestError = macroError(sumMacros(result.map((candidate, i) =>
+        calculatePortionMacros(candidate.food, i === index ? bestGrams : candidate.grams)
+      )), target);
+      for (const factor of [0.75, 0.9, 1.1, 1.25]) {
+        const grams = clamp(Math.round(item.grams * factor), 5, 400);
+        const error = macroError(sumMacros(result.map((candidate, i) =>
+          calculatePortionMacros(candidate.food, i === index ? grams : candidate.grams)
+        )), target);
+        if (error < bestError) {
+          bestError = error;
+          bestGrams = grams;
+        }
+      }
+      return { ...item, grams: bestGrams };
+    });
+  }
+  return result;
+}
+
 function calculateGramsForMacro(food: Food, targetMacro: keyof Macros, targetAmount: number): number {
   const macroPer100g = food.macros[targetMacro];
   if (macroPer100g === 0) return 0;
@@ -179,6 +233,7 @@ function generateMeal(
 ): Meal {
   const foods: { food: Food; grams: number }[] = [];
   const mealName = config.name;
+  const lookupKey = sourceKey(mealName);
 
   // Macros alvo para esta refeição
   const mealTargetCalories = Math.round(targetMacros.calories * config.pct);
@@ -187,7 +242,7 @@ function generateMeal(
   const mealTargetFat = Math.round(targetMacros.fat * config.pct);
 
   // === PROTEÍNA ===
-  const proteinOptions = PROTEIN_SOURCES[mealName] || PROTEIN_SOURCES['Almoço'];
+  const proteinOptions = PROTEIN_SOURCES[lookupKey] || PROTEIN_SOURCES['Almoço'];
   const proteinSource = proteinOptions[variation % proteinOptions.length];
   const proteinFood = getFoodById(proteinSource.id);
   
@@ -198,7 +253,7 @@ function generateMeal(
   }
 
   // === CARBOIDRATO ===
-  const carbOptions = CARB_SOURCES[mealName] || CARB_SOURCES['Almoço'];
+  const carbOptions = CARB_SOURCES[lookupKey] || CARB_SOURCES['Almoço'];
   const carbSource = carbOptions[variation % carbOptions.length];
   const carbFood = getFoodById(carbSource.id);
   
@@ -209,7 +264,7 @@ function generateMeal(
   }
 
   // === GORDURA ===
-  const fatOptions = FAT_SOURCES[mealName] || [];
+  const fatOptions = FAT_SOURCES[lookupKey] || [];
   if (fatOptions.length > 0 && mealTargetFat > 5) {
     const fatSource = fatOptions[variation % fatOptions.length];
     const fatFood = getFoodById(fatSource.id);
@@ -231,14 +286,20 @@ function generateMeal(
   }
 
   // Calcula macros totais da refeição
-  const portionMacros = foods.map(f => calculatePortionMacros(f.food, f.grams));
+  const optimizedFoods = optimizePortions(foods, {
+    calories: mealTargetCalories,
+    protein: mealTargetProtein,
+    carbs: mealTargetCarbs,
+    fat: mealTargetFat,
+  });
+  const portionMacros = optimizedFoods.map(f => calculatePortionMacros(f.food, f.grams));
   const totalMacros = sumMacros(portionMacros);
 
   return {
     id: Crypto.randomUUID(),
     name: mealName,
     timing: config.timing,
-    foods: foods.map((f, i) => ({
+    foods: optimizedFoods.map((f, i) => ({
       food: f.food,
       grams: f.grams,
       macros: portionMacros[i],
@@ -251,13 +312,12 @@ function generateMeal(
 // GERADOR DE DIETA PRINCIPAL
 // ============================================================
 
-export function generateDiet(profile: UserProfile, optionIndex: number = 0): MealPlan {
+export function generateDiet(profile: UserProfile, optionIndex: number = 0, mealCount: number = 8): MealPlan {
   const targetMacros = calculateMacros(profile);
   const tdee = calculateTDEE(profile);
 
   // Seleciona distribuição baseada no esporte
-  const sportKey = profile.sport === 'both' ? 'both' : profile.sport;
-  const mealConfigs = MEAL_CONFIGS[sportKey] || MEAL_CONFIGS.bodybuilding;
+  const mealConfigs = buildMealConfigs(mealCount);
 
   // Gera refeições com variação
   const meals: Meal[] = mealConfigs.map(config => 
@@ -280,6 +340,7 @@ export function generateDiet(profile: UserProfile, optionIndex: number = 0): Mea
     meals,
     totalMacros,
     createdAt: new Date().toISOString(),
+    supplements: getSupplementRecommendations(profile),
   };
 }
 
@@ -287,12 +348,41 @@ export function generateDiet(profile: UserProfile, optionIndex: number = 0): Mea
 // GERAR 3 OPÇÕES DE CARDÁPIO
 // ============================================================
 
-export function generateDietOptions(profile: UserProfile): MealPlan[] {
+export function generateDietOptions(profile: UserProfile, mealCount: number = 8): MealPlan[] {
   return [
-    generateDiet(profile, 0),
-    generateDiet(profile, 1),
-    generateDiet(profile, 2),
+    generateDiet(profile, 0, mealCount),
+    generateDiet(profile, 1, mealCount),
+    generateDiet(profile, 2, mealCount),
   ];
+}
+
+export function getSupplementRecommendations(profile: UserProfile) {
+  const recommendations = [];
+  if (profile.sport === 'bodybuilding' || profile.sport === 'both') {
+    recommendations.push({
+      name: 'Creatina monohidratada',
+      dose: '3–5 g/dia',
+      timing: 'Diariamente, no horário mais fácil de manter',
+      reason: 'Pode apoiar força, potência e ganho de massa magra durante o treinamento.',
+      caution: 'Converse com médico ou nutricionista em caso de doença renal, gestação ou uso de medicamentos.',
+    });
+  }
+  recommendations.push({
+    name: 'Proteína em pó (opcional)',
+    dose: 'Somente a quantidade necessária para completar a meta diária',
+    timing: 'Em uma refeição com pouca proteína ou após o treino',
+    reason: 'É conveniência alimentar; não é necessária quando a meta é atingida com comida.',
+  });
+  if (profile.sport === 'bjj' || profile.sport === 'both') {
+    recommendations.push({
+      name: 'Eletrólitos (condicional)',
+      dose: 'Conforme rótulo e orientação profissional',
+      timing: 'Treinos prolongados, muito quentes ou com suor intenso',
+      reason: 'Pode ajudar a repor sódio e líquidos perdidos no suor.',
+      caution: 'Evite uso indiscriminado em hipertensão, doença renal ou restrição de sódio.',
+    });
+  }
+  return recommendations;
 }
 
 function getGoalLabel(goal: Goal): string {

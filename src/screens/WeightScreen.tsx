@@ -1,17 +1,41 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Platform } from 'react-native';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../constants/theme';
 import { useApp } from '../context/AppContext';
 import { useWeightTrend } from '../hooks';
 import { ScreenHeader } from '../components';
+import { connectToWeightScale } from '../services/bluetoothScale';
 
 export default function WeightScreen({ navigation }: any) {
   const { weightHistory, addWeightEntry, setTodayWeight } = useApp();
   const [newWeight, setNewWeight] = useState('');
+  const [scaleStatus, setScaleStatus] = useState('Nenhuma balança conectada');
+  const [isScanning, setIsScanning] = useState(false);
+  const stopScaleRef = useRef<null | (() => void)>(null);
   const { last7Days, last30Days, trend, stats } = useWeightTrend(weightHistory);
 
+  useEffect(() => () => stopScaleRef.current?.(), []);
+
+  const handleConnectScale = async () => {
+    stopScaleRef.current?.();
+    setIsScanning(true);
+    try {
+      stopScaleRef.current = await connectToWeightScale(
+        (weight, deviceName) => {
+          setNewWeight(weight.toString().replace('.', ','));
+          setScaleStatus(deviceName + ': ' + weight.toFixed(2) + ' kg recebidos');
+          setIsScanning(false);
+        },
+        setScaleStatus,
+      );
+    } catch (error) {
+      setScaleStatus(error instanceof Error ? error.message : 'Erro ao conectar à balança.');
+      setIsScanning(false);
+    }
+  };
+
   const handleAddWeight = async () => {
-    const weight = parseFloat(newWeight);
+    const weight = parseFloat(newWeight.replace(',', '.'));
     if (isNaN(weight) || weight < 30 || weight > 300) {
       Alert.alert('Erro', 'Digite um peso válido (30-300 kg)');
       return;
@@ -30,6 +54,10 @@ export default function WeightScreen({ navigation }: any) {
         {/* Add Weight */}
         <View style={styles.addCard}>
           <Text style={styles.addTitle}>Registrar Peso</Text>
+          <TouchableOpacity style={styles.bluetoothButton} onPress={handleConnectScale} disabled={isScanning}>
+            <Text style={styles.bluetoothButtonText}>{isScanning ? 'Procurando...' : 'Conectar balança Bluetooth'}</Text>
+          </TouchableOpacity>
+          <Text style={styles.scaleStatus}>{scaleStatus}</Text>
           <View style={styles.addRow}>
             <TextInput
               style={styles.weightInput}
@@ -142,6 +170,16 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     marginBottom: SPACING.md,
   },
+  bluetoothButton: {
+    backgroundColor: COLORS.surfaceLight,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md,
+    alignItems: 'center',
+  },
+  bluetoothButtonText: { color: COLORS.primary, fontWeight: '700', fontSize: FONT_SIZE.sm },
+  scaleStatus: { color: COLORS.textSecondary, fontSize: FONT_SIZE.xs, marginVertical: SPACING.sm, textAlign: 'center' },
   addRow: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { UserProfile, DailyLog, MealPlan, WeightEntry, Macros, Food, WeeklySummary, Meal, Workout } from '../types';
 import { calculateMacros } from '../utils/calculations';
 import * as Storage from '../services/storage';
@@ -31,6 +31,7 @@ interface AppContextType {
   mealPlans: MealPlan[];
   saveMealPlan: (plan: MealPlan) => Promise<void>;
   deleteMealPlan: (id: string) => Promise<void>;
+  setActiveMealPlan: (id: string) => Promise<void>;
 
   // Weight
   weightHistory: WeightEntry[];
@@ -55,6 +56,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [profile, setProfileState] = useState<UserProfile | null>(null);
   const [targetMacros, setTargetMacros] = useState<Macros | null>(null);
   const [dailyLogs, setDailyLogs] = useState<DailyLog[]>([]);
+  const dailyLogsRef = useRef<DailyLog[]>([]);
   const [mealPlans, setMealPlans] = useState<MealPlan[]>([]);
   const [weightHistory, setWeightHistory] = useState<WeightEntry[]>([]);
   const [customFoods, setCustomFoods] = useState<Food[]>([]);
@@ -78,6 +80,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setProfileState(savedProfile);
         setTargetMacros(calculateMacros(savedProfile));
       }
+      dailyLogsRef.current = savedLogs;
       setDailyLogs(savedLogs);
       setMealPlans(savedPlans);
       setWeightHistory(savedWeight);
@@ -92,28 +95,33 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const getTodayDate = useCallback(() => new Date().toISOString().split('T')[0], []);
+  const getTodayDate = useCallback(() => {
+    const date = new Date();
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return year + '-' + month + '-' + day;
+  }, []);
 
   const getTodayLog = useCallback((): DailyLog => {
     const today = getTodayDate();
-    return dailyLogs.find(log => log.date === today) || {
+    return dailyLogsRef.current.find(log => log.date === today) || {
       date: today,
       meals: [],
       workouts: [],
       totalMacros: { calories: 0, protein: 0, carbs: 0, fat: 0 },
     };
-  }, [dailyLogs, getTodayDate]);
+  }, [getTodayDate]);
 
   const updateTodayLog = useCallback(async (updater: (log: DailyLog) => DailyLog) => {
     const today = getTodayDate();
     const currentLog = getTodayLog();
     const updated = updater(currentLog);
-    setDailyLogs(prev => {
-      const newLogs = prev.filter(log => log.date !== today);
-      newLogs.push(updated);
-      Storage.saveDailyLogs(newLogs);
-      return newLogs;
-    });
+    const newLogs = dailyLogsRef.current.filter(log => log.date !== today);
+    newLogs.push(updated);
+    dailyLogsRef.current = newLogs;
+    setDailyLogs(newLogs);
+    await Storage.saveDailyLogs(newLogs);
   }, [getTodayDate, getTodayLog]);
 
   const login = useCallback(async (email: string, password: string): Promise<boolean> => {
@@ -243,6 +251,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const setActiveMealPlan = useCallback(async (id: string) => {
+    setMealPlans(prev => {
+      const newPlans = prev.map(plan => ({ ...plan, isActive: plan.id === id }));
+      Storage.saveMealPlans(newPlans);
+      return newPlans;
+    });
+  }, []);
+
   const addWeightEntry = useCallback(async (entry: WeightEntry) => {
     setWeightHistory(prev => {
       const newHistory = prev.filter(e => e.date !== entry.date);
@@ -313,6 +329,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         mealPlans,
         saveMealPlan,
         deleteMealPlan,
+        setActiveMealPlan,
         weightHistory,
         addWeightEntry,
         customFoods,

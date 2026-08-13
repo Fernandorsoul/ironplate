@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../constants/theme';
 import { useApp } from '../context/AppContext';
 
@@ -17,9 +17,19 @@ export default function ProfileScreen({ navigation }: any) {
       {profile ? (
         <>
           <View style={styles.profileCard}>
+            {profile.photoUri ? (
+              <Image source={{ uri: profile.photoUri }} style={styles.avatar} />
+            ) : (
+              <View style={styles.avatarFallback}>
+                <Text style={styles.avatarText}>{profile.name.charAt(0).toUpperCase()}</Text>
+              </View>
+            )}
             <Text style={styles.profileName}>{profile.name}</Text>
             <Text style={styles.profileSport}>{profile.sport}</Text>
             <Text style={styles.profileGoal}>{profile.goal}</Text>
+            <TouchableOpacity style={styles.editProfileButton} onPress={() => navigation.navigate('EditProfile')}>
+              <Text style={styles.editProfileText}>Editar perfil e foto</Text>
+            </TouchableOpacity>
           </View>
 
 <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('BodyMeasurements')}>
@@ -86,7 +96,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.30,
     shadowRadius: 4.65,
     elevation: 4,
+    alignItems: 'center',
   },
+  avatar: { width: 96, height: 96, borderRadius: 48, marginBottom: SPACING.md },
+  avatarFallback: { width: 96, height: 96, borderRadius: 48, backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center', marginBottom: SPACING.md },
+  avatarText: { color: COLORS.text, fontSize: FONT_SIZE.hero, fontWeight: 'bold' },
+  editProfileButton: { marginTop: SPACING.md, paddingVertical: SPACING.sm, paddingHorizontal: SPACING.lg, borderRadius: BORDER_RADIUS.md, borderWidth: 1, borderColor: COLORS.primary },
+  editProfileText: { color: COLORS.primary, fontWeight: '600' },
   profileName: {
     fontSize: FONT_SIZE.lg,
     fontWeight: 'bold',

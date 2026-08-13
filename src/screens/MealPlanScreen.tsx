@@ -8,9 +8,11 @@ import { generateDietPDF, generateDietOptionsPDF } from '../utils/dietPdfGenerat
 import { MealPlan, Goal } from '../types';
 
 export default function MealPlanScreen({ navigation }: any) {
-  const { profile, mealPlans, saveMealPlan, deleteMealPlan, setProfile } = useApp();
+  const { profile, mealPlans, saveMealPlan, deleteMealPlan, setProfile, setActiveMealPlan } = useApp();
   const [selectedGoal, setSelectedGoal] = useState<Goal>(profile?.goal || 'maintenance');
   const [generatedOptions, setGeneratedOptions] = useState<MealPlan[]>([]);
+  const [mealCount, setMealCount] = useState(8);
+  const activePlan = mealPlans.find(plan => plan.isActive);
 
   const handleGeneratePlans = async () => {
     if (!profile) {
@@ -22,7 +24,7 @@ export default function MealPlanScreen({ navigation }: any) {
       const updatedProfile = { ...profile, goal: selectedGoal };
       await setProfile(updatedProfile);
       
-      const options = generateDietOptions(updatedProfile);
+      const options = generateDietOptions(updatedProfile, mealCount);
       setGeneratedOptions(options);
     } catch (error) {
       console.error('Error generating plans:', error);
@@ -37,6 +39,12 @@ export default function MealPlanScreen({ navigation }: any) {
 
   const handleDeletePlan = (id: string) => {
     deleteMealPlan(id);
+  };
+
+  const handleChoosePlan = async (plan: MealPlan) => {
+    await saveMealPlan({ ...plan, isActive: true });
+    await setActiveMealPlan(plan.id);
+    Alert.alert('Plano escolhido', 'Este plano agora aparece como seu plano alimentar atual.');
   };
 
   const getGoalInfo = (goal: Goal) => {
@@ -77,6 +85,39 @@ export default function MealPlanScreen({ navigation }: any) {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
+        {activePlan && (
+          <View style={styles.activePlanCard}>
+            <Text style={styles.activeBadge}>PLANO ALIMENTAR ESCOLHIDO</Text>
+            <Text style={styles.activePlanTitle}>{activePlan.name}</Text>
+            <Text style={styles.mealsTitle}>{activePlan.meals.length} refeições diárias</Text>
+            {activePlan.meals.map(meal => (
+              <View key={meal.id} style={styles.activeMeal}>
+                <View style={styles.mealPreviewHeader}>
+                  <Text style={styles.mealPreviewName}>{meal.name}</Text>
+                  <Text style={styles.mealPreviewCalories}>{Math.round(meal.totalMacros.calories)} kcal</Text>
+                </View>
+                {meal.foods.map((portion, index) => (
+                  <Text key={index} style={styles.mealPreviewFood}>{portion.grams}g {portion.food.name}</Text>
+                ))}
+              </View>
+            ))}
+            {!!activePlan.supplements?.length && (
+              <View style={styles.supplementSection}>
+                <Text style={styles.sectionTitle}>Suplementação sugerida</Text>
+                {activePlan.supplements.map(item => (
+                  <View key={item.name} style={styles.supplementItem}>
+                    <Text style={styles.supplementName}>{item.name} · {item.dose}</Text>
+                    <Text style={styles.supplementText}>{item.timing}</Text>
+                    <Text style={styles.supplementText}>{item.reason}</Text>
+                    {item.caution ? <Text style={styles.supplementCaution}>{item.caution}</Text> : null}
+                  </View>
+                ))}
+                <Text style={styles.previewNote}>Sugestões gerais. Confirme suplementos com nutricionista ou médico.</Text>
+              </View>
+            )}
+          </View>
+        )}
+
         {/* Goal selector */}
         <Text style={styles.sectionTitle}>Escolha seu objetivo</Text>
         <Text style={styles.subsectionTitle}>Ganho de Massa</Text>
@@ -175,6 +216,19 @@ export default function MealPlanScreen({ navigation }: any) {
           </View>
         )}
 
+        <Text style={styles.sectionTitle}>Quantas refeições por dia?</Text>
+        <View style={styles.mealCountRow}>
+          {[3, 4, 5, 6, 7, 8].map(count => (
+            <TouchableOpacity
+              key={count}
+              style={[styles.mealCountButton, mealCount === count && styles.mealCountButtonActive]}
+              onPress={() => setMealCount(count)}
+            >
+              <Text style={[styles.mealCountText, mealCount === count && styles.mealCountTextActive]}>{count}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
         {/* Generate button */}
         <TouchableOpacity style={styles.generateButton} onPress={handleGeneratePlans}>
           <Text style={styles.generateButtonText}>Gerar 3 Opções de Cardápio</Text>
@@ -208,6 +262,9 @@ export default function MealPlanScreen({ navigation }: any) {
                         onPress={() => handleSavePlan(plan)}
                       >
                         <Text style={styles.saveOptionButtonText}>Salvar</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.chooseOptionButton} onPress={() => handleChoosePlan(plan)}>
+                        <Text style={styles.saveOptionButtonText}>Escolher</Text>
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -248,7 +305,9 @@ export default function MealPlanScreen({ navigation }: any) {
                       </View>
                       {meal.foods.map((food, j) => (
                         <Text key={j} style={styles.mealPreviewFood}>
-                          {food.grams}g {food.food.name}
+                          {food.quantity && food.unit
+                            ? food.quantity + ' ' + food.unit + ' de ' + food.food.name
+                            : food.grams + 'g ' + food.food.name}
                         </Text>
                       ))}
                     </View>
@@ -275,6 +334,9 @@ export default function MealPlanScreen({ navigation }: any) {
                   <Text style={styles.planDate}>{new Date(plan.createdAt).toLocaleDateString('pt-BR')}</Text>
                 </View>
                 <View style={styles.planActions}>
+                  <TouchableOpacity onPress={() => setActiveMealPlan(plan.id)}>
+                    <Text style={styles.choosePlanText}>{plan.isActive ? 'Em uso' : 'Usar plano'}</Text>
+                  </TouchableOpacity>
                   <TouchableOpacity onPress={() => profile && generateDietPDF(plan, profile)}>
                     <Text style={styles.pdfButtonText}>📄</Text>
                   </TouchableOpacity>
@@ -350,6 +412,20 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: COLORS.text,
   },
+  activePlanCard: { backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg, padding: SPACING.lg, marginBottom: SPACING.lg, borderWidth: 2, borderColor: COLORS.accent },
+  activeBadge: { color: COLORS.accent, fontSize: FONT_SIZE.xs, fontWeight: '800', textAlign: 'center', marginBottom: SPACING.sm },
+  activePlanTitle: { color: COLORS.text, fontSize: FONT_SIZE.xl, fontWeight: 'bold', textAlign: 'center' },
+  activeMeal: { borderTopWidth: 1, borderTopColor: COLORS.border, paddingVertical: SPACING.sm },
+  supplementSection: { marginTop: SPACING.md, paddingTop: SPACING.md, borderTopWidth: 1, borderTopColor: COLORS.border },
+  supplementItem: { backgroundColor: COLORS.surfaceLight, borderRadius: BORDER_RADIUS.md, padding: SPACING.md, marginTop: SPACING.sm },
+  supplementName: { color: COLORS.primary, fontWeight: '700', fontSize: FONT_SIZE.sm },
+  supplementText: { color: COLORS.textSecondary, fontSize: FONT_SIZE.xs, marginTop: 3 },
+  supplementCaution: { color: COLORS.warning, fontSize: FONT_SIZE.xs, marginTop: SPACING.xs },
+  mealCountRow: { flexDirection: 'row', gap: SPACING.sm, marginVertical: SPACING.md },
+  mealCountButton: { flex: 1, paddingVertical: SPACING.md, alignItems: 'center', backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.md, borderWidth: 1, borderColor: COLORS.border },
+  mealCountButtonActive: { borderColor: COLORS.primary, backgroundColor: COLORS.surfaceLight },
+  mealCountText: { color: COLORS.textSecondary, fontWeight: '700' },
+  mealCountTextActive: { color: COLORS.primary },
   goalGrid: {
     flexDirection: 'row',
     gap: SPACING.sm,
@@ -549,6 +625,8 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.sm,
     borderRadius: BORDER_RADIUS.md,
   },
+  chooseOptionButton: { backgroundColor: COLORS.primary, paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, borderRadius: BORDER_RADIUS.md },
+  choosePlanText: { color: COLORS.accent, fontSize: FONT_SIZE.sm, fontWeight: '700' },
   saveOptionButtonText: {
     color: COLORS.text,
     fontSize: FONT_SIZE.sm,
