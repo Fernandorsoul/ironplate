@@ -740,67 +740,51 @@ export async function connectToWeightScale(
         }
       }
 
-      // Para scanning apos primeiro match possivel
+      // Parar scanning após primeiro match possível
       manager?.stopDeviceScan();
 
-      // Connect and probe
-      onStatus(`Conectando...`);
+      // Log detalhado dos UUIDs da balança para diagnóstico
+      console.log('[BLE] === DIAGNÓSTICO YODA/OKOK ===');
+      console.log('[BLE] Device name:', device.name);
+      console.log('[BLE] Device id:', device.id);
+      console.log('[BLE] Manufacturer data raw:', device.manufacturerData);
+      
+      // Conectar E listar TODOS os serviços
+      onStatus(`📡 Dispositivo encontrado: ${device.name || 'Yoda'} — descobrindo serviços…`);
       try {
         const connected: Device = await device.connect();
         await connected.discoverAllServicesAndCharacteristics();
-
-        onStatus('Lendo métricas da balança…');
-
+        
+        const allServices = await connected.services();
+        console.log('[BLE] === SERVIÇOS ENCONTRADOS ===');
+        for (const svc of allServices) {
+          console.log('[BLE] Service UUID:', svc.uuid);
+          const chars: any[] = await svc.characteristics();
+          console.log('[BLE]   Chars:', chars.map((c: any) => `${c.uuid} (${c.properties ? Object.keys(c.properties).join(',') : 'unknown'})`));
+        }
+        console.log('[BLE] === FIM DIAGNÓSTICO ===');
+        
+        onStatus('✅ Serviços listados! Suba na balança agora…');
+        // Agora continua com probeDevice normal
         const readout = await probeDevice(connected);
-
-        // Verify we got at least weight
+        
         if (readout.weight && readout.weight > 0 && readout.weight < 400) {
-          onStatus('Métrica(s) recebida(s)! Desça da balança para ler novamente.');
+          onStatus('✅ Métrica(s) recebida(s)! Desça da balança para ler novamente.');
           onWeight(readout, connected.name || 'Balança Bluetooth');
           await connected.cancelConnection();
           return;
         }
-
-        // If no valid weight, still notify user
+        
         if (Object.keys(readout).length > 0) {
-          onStatus(`Dados parciais: ${Object.keys(readout).join(', ')}`);
-          // Still deliver partial readout
+          onStatus(`⚠️ Dados parciais: ${Object.keys(readout).join(', ')}`);
           onWeight(readout, connected.name || 'Balança Bluetooth');
           await connected.cancelConnection();
         } else {
-          onStatus('Nenhuma métrica válida encontrada. Tente outra balança.');
+          onStatus('❌ Nenhuma métrica válida encontrada. Verifique logs no Console/Fast Refresh.');
         }
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : 'Erro desconhecido';
-        onStatus(`Falha ao conectar: ${msg}`);
-        // Resume scanning after short delay
-        setTimeout(() => {
-          if (!stopRequested) {
-            manager?.startDeviceScan(
-              null,
-              null,
-              async (err, dev) => {
-                if (stopRequested) return;
-                if (err) return;
-                if (!dev) return;
-                // Continue old scan callback
-                onStatus(`Novo dispositivo: ${dev.name || 'Desconhecido'}`);
-                manager?.stopDeviceScan();
-                // Probe again…
-                try {
-                  const c: Device = await dev.connect();
-                  await c.discoverAllServicesAndCharacteristics();
-                  const rd = await probeDevice(c);
-                  if (rd.weight && rd.weight > 0 && rd.weight < 400) {
-                    onStatus('Métrica(s) recebida(s)!');
-                    onWeight(rd, c.name || 'Balança Bluetooth');
-                    await c.cancelConnection();
-                  }
-                } catch {}
-              },
-            );
-          }
-        }, 2000);
+        onStatus(`❌ Falha ao conectar: ${msg}`);
       }
     },
   );
