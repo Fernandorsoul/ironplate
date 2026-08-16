@@ -156,6 +156,16 @@ export async function initDatabase(): Promise<void> {
       resistance REAL,
       reactance REAL,
       phase_angle REAL,
+      -- Full composition from BLE scales
+      muscle_mass REAL,
+      skeletal_muscle REAL,
+      water_percent REAL,
+      water_kg REAL,
+      bone_mass REAL,
+      protein_percent REAL,
+      protein_mass REAL,
+      basal_metabolism REAL,
+      visceral_fat_grade INTEGER,
       -- Skinfolds (mm) - Padrão CREF
       triceps REAL,
       biceps REAL,
@@ -697,6 +707,16 @@ export interface BodyMeasurement {
   resistance?: number;
   reactance?: number;
   phaseAngle?: number;
+  // Full composition from BLE scales
+  muscleMass?: number;
+  skeletalMuscle?: number;
+  waterPercent?: number;
+  waterKg?: number;
+  boneMass?: number;
+  proteinPercent?: number;
+  proteinMass?: number;
+  basalMetabolism?: number;
+  visceralFat?: number;
   // Skinfolds (mm) - Padrão CREF
   triceps?: number;
   biceps?: number;
@@ -751,6 +771,11 @@ export async function saveBodyMeasurement(userId: string, measurement: BodyMeasu
     id, userId, measurement.date, measurement.weight, measurement.height || null,
     measurement.bodyFat || null, measurement.bodyFatMethod || 'visual',
     measurement.resistance || null, measurement.reactance || null, measurement.phaseAngle || null,
+    measurement.muscleMass || null, measurement.skeletalMuscle || null,
+    measurement.waterPercent || null, measurement.waterKg || null,
+    measurement.boneMass || null, measurement.proteinPercent || null,
+    measurement.proteinMass || null, measurement.basalMetabolism || null,
+    measurement.visceralFat || null,
     measurement.triceps || null, measurement.biceps || null, measurement.subscapular || null,
     measurement.suprailiac || null, measurement.abdominal || null, measurement.chestSkinfold || null,
     measurement.axillaryMid || null, measurement.thighSkinfold || null, measurement.calfSkinfold || null,
@@ -775,6 +800,11 @@ export async function saveBodyMeasurement(userId: string, measurement: BodyMeasu
       weight: measurement.weight, height: measurement.height || null,
       body_fat: measurement.bodyFat || null, body_fat_method: measurement.bodyFatMethod || 'visual',
       resistance: measurement.resistance || null, reactance: measurement.reactance || null, phase_angle: measurement.phaseAngle || null,
+      muscle_mass: measurement.muscleMass || null, skeletal_muscle: measurement.skeletalMuscle || null,
+      water_percent: measurement.waterPercent || null, water_kg: measurement.waterKg || null,
+      bone_mass: measurement.boneMass || null, protein_percent: measurement.proteinPercent || null,
+      protein_mass: measurement.proteinMass || null, basal_metabolism: measurement.basalMetabolism || null,
+      visceral_fat_grade: measurement.visceralFat || null,
       triceps: measurement.triceps || null, biceps: measurement.biceps || null,
       subscapular: measurement.subscapular || null, suprailiac: measurement.suprailiac || null,
       abdominal: measurement.abdominal || null, chest_skinfold: measurement.chestSkinfold || null,
@@ -797,9 +827,9 @@ export async function saveBodyMeasurement(userId: string, measurement: BodyMeasu
   }
 
   await db!.runAsync(
-    `INSERT INTO body_measurements (id, user_id, date, weight, height, body_fat, body_fat_method, resistance, reactance, phase_angle, triceps, biceps, subscapular, suprailiac, abdominal, chest_skinfold, axillary_mid, thigh_skinfold, calf_skinfold, arm_relaxed_right, arm_relaxed_left, arm_flexed_right, arm_flexed_left, forearm_right, forearm_left, wrist_right, wrist_left, chest_circumference, waist_circumference, abdomen_circumference, hip_circumference, thigh_proximal_right, thigh_proximal_left, thigh_mid_right, thigh_mid_left, calf_right, calf_left, ankle_right, ankle_left, lean_mass, fat_mass, bmi, waist_hip_ratio, notes)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-     ON CONFLICT(user_id, date) DO UPDATE SET weight=excluded.weight, height=excluded.height, body_fat=excluded.body_fat, body_fat_method=excluded.body_fat_method, resistance=excluded.resistance, reactance=excluded.reactance, phase_angle=excluded.phase_angle, triceps=excluded.triceps, biceps=excluded.biceps, subscapular=excluded.subscapular, suprailiac=excluded.suprailiac, abdominal=excluded.abdominal, chest_skinfold=excluded.chest_skinfold, axillary_mid=excluded.axillary_mid, thigh_skinfold=excluded.thigh_skinfold, calf_skinfold=excluded.calf_skinfold, arm_relaxed_right=excluded.arm_relaxed_right, arm_relaxed_left=excluded.arm_relaxed_left, arm_flexed_right=excluded.arm_flexed_right, arm_flexed_left=excluded.arm_flexed_left, forearm_right=excluded.forearm_right, forearm_left=excluded.forearm_left, wrist_right=excluded.wrist_right, wrist_left=excluded.wrist_left, chest_circumference=excluded.chest_circumference, waist_circumference=excluded.waist_circumference, abdomen_circumference=excluded.abdomen_circumference, hip_circumference=excluded.hip_circumference, thigh_proximal_right=excluded.thigh_proximal_right, thigh_proximal_left=excluded.thigh_proximal_left, thigh_mid_right=excluded.thigh_mid_right, thigh_mid_left=excluded.thigh_mid_left, calf_right=excluded.calf_right, calf_left=excluded.calf_left, ankle_right=excluded.ankle_right, ankle_left=excluded.ankle_left, lean_mass=excluded.lean_mass, fat_mass=excluded.fat_mass, bmi=excluded.bmi, waist_hip_ratio=excluded.waist_hip_ratio, notes=excluded.notes`,
+    `INSERT INTO body_measurements (id, user_id, date, weight, height, body_fat, body_fat_method, resistance, reactance, phase_angle, muscle_mass, skeletal_muscle, water_percent, water_kg, bone_mass, protein_percent, protein_mass, basal_metabolism, visceral_fat_grade, triceps, biceps, subscapular, suprailiac, abdominal, chest_skinfold, axillary_mid, thigh_skinfold, calf_skinfold, arm_relaxed_right, arm_relaxed_left, arm_flexed_right, arm_flexed_left, forearm_right, forearm_left, wrist_right, wrist_left, chest_circumference, waist_circumference, abdomen_circumference, hip_circumference, thigh_proximal_right, thigh_proximal_left, thigh_mid_right, thigh_mid_left, calf_right, calf_left, ankle_right, ankle_left, lean_mass, fat_mass, bmi, waist_hip_ratio, notes)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+     ON CONFLICT(user_id, date) DO UPDATE SET weight=excluded.weight, height=excluded.height, body_fat=excluded.body_fat, body_fat_method=excluded.body_fat_method, resistance=excluded.resistance, reactance=excluded.reactance, phase_angle=excluded.phase_angle, muscle_mass=excluded.muscle_mass, skeletal_muscle=excluded.skeletal_muscle, water_percent=excluded.water_percent, water_kg=excluded.water_kg, bone_mass=excluded.bone_mass, protein_percent=excluded.protein_percent, protein_mass=excluded.protein_mass, basal_metabolism=excluded.basal_metabolism, visceral_fat_grade=excluded.visceral_fat_grade, triceps=excluded.triceps, biceps=excluded.biceps, subscapular=excluded.subscapular, suprailiac=excluded.suprailiac, abdominal=excluded.abdominal, chest_skinfold=excluded.chest_skinfold, axillary_mid=excluded.axillary_mid, thigh_skinfold=excluded.thigh_skinfold, calf_skinfold=excluded.calf_skinfold, arm_relaxed_right=excluded.arm_relaxed_right, arm_relaxed_left=excluded.arm_relaxed_left, arm_flexed_right=excluded.arm_flexed_right, arm_flexed_left=excluded.arm_flexed_left, forearm_right=excluded.forearm_right, forearm_left=excluded.forearm_left, wrist_right=excluded.wrist_right, wrist_left=excluded.wrist_left, chest_circumference=excluded.chest_circumference, waist_circumference=excluded.waist_circumference, abdomen_circumference=excluded.abdomen_circumference, hip_circumference=excluded.hip_circumference, thigh_proximal_right=excluded.thigh_proximal_right, thigh_proximal_left=excluded.thigh_proximal_left, thigh_mid_right=excluded.thigh_mid_right, thigh_mid_left=excluded.thigh_mid_left, calf_right=excluded.calf_right, calf_left=excluded.calf_left, ankle_right=excluded.ankle_right, ankle_left=excluded.ankle_left, lean_mass=excluded.lean_mass, fat_mass=excluded.fat_mass, bmi=excluded.bmi, waist_hip_ratio=excluded.waist_hip_ratio, notes=excluded.notes`,
     fields
   );
 }

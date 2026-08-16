@@ -1,6 +1,8 @@
 // PDF Generator for Body Measurements Report - CREF/CRN Standard
 
-import { Platform } from 'react-native';
+import { Platform, Alert } from 'react-native';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
 
 interface PDFData {
   profile: any;
@@ -200,11 +202,26 @@ export async function generatePDF(data: PDFData): Promise<void> {
 </body>
 </html>`;
 
-  if (Platform.OS === 'web') {
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(html);
-      printWindow.document.close();
+  try {
+    if (Platform.OS === 'web') {
+      // Web: open print dialog in new window
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(html);
+        printWindow.document.close();
+      }
+    } else {
+      // Native Android/iOS: generate PDF file and share via system share sheet
+      const { uri } = await Print.printToFileAsync({ html });
+      await Sharing.shareAsync(uri, {
+        mimeType: 'application/pdf',
+        dialogTitle: 'Compartilhar Avaliação Antropométrica',
+        UTI: 'com.adobe.pdf',
+      });
+      console.log('[PDF] Avaliação antropométrica gerada com sucesso:', uri);
     }
+  } catch (error) {
+    console.error('[PDF] Erro ao gerar PDF:', error);
+    Alert.alert('Erro', 'Não foi possível gerar o PDF da avaliação.');
   }
 }
