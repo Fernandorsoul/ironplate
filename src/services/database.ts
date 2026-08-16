@@ -1,7 +1,3 @@
-// SQLite Database Service for IronPlate
-// Uses expo-sqlite + expo-crypto for password hashing
-// Web platform uses memory storage fallback
-
 import * as Crypto from 'expo-crypto';
 import { UserProfile, DailyLog, Meal, Workout, MealPlan, Food, Macros, FoodPortion } from '../types';
 import { Platform } from 'react-native';
@@ -17,7 +13,7 @@ function getMemoryTable(tableName: string): any[] {
 }
 
 // ============================================================
-// DATABASE INITIALIZATION
+// DATABASE INITIALIZATION + MIGRATIONS
 // ============================================================
 
 let db: any = null;
@@ -29,6 +25,54 @@ function loadSQLite(): any {
     return require('expo-sqlite');
   } catch {
     return null;
+  }
+}
+
+/** Migrate body_measurements table to add new Chipsea V20 columns */
+async function migrateBodyMeasurementsTable(dbInstance: any): Promise<void> {
+  const existingColumns: string[] = [];
+  
+  try {
+    // Check what columns exist
+    const pragma = await dbInstance.getAllAsync('PRAGMA table_info(body_measurements)');
+    for (const col of pragma as any[]) {
+      existingColumns.push(col.name);
+    }
+  } catch {
+    // Table doesn't exist yet — will be created by init
+    console.log('[DB Migration] body_measurements table not found — creating fresh');
+    return;
+  }
+  
+  console.log('[DB Migration] Existing columns:', existingColumns.join(', '));
+  
+  // List of new columns to add
+  const newColumns: [string, string][] = [
+    ['muscle_mass', 'REAL'],
+    ['skeletal_muscle', 'REAL'],
+    ['water_percent', 'REAL'],
+    ['water_kg', 'REAL'],
+    ['bone_mass', 'REAL'],
+    ['protein_percent', 'REAL'],
+    ['protein_mass', 'REAL'],
+    ['basal_metabolism', 'REAL'],
+    ['visceral_fat_grade', 'INTEGER'],
+  ];
+  
+  // Add missing columns with migration
+  for (const [colName, colType] of newColumns) {
+    if (!existingColumns.includes(colName)) {
+      try {
+        await dbInstance.runAsync(`ALTER TABLE body_measurements ADD COLUMN ${colName} ${colType}`);
+        console.log(`[DB Migration] ✅ Added column: ${colName}`);
+      } catch (err: unknown) {
+        // Some SQLite versions don't support ALTER TABLE ADD COLUMN
+        // Log error but continue — app will still work without these fields
+        console.warn(`[DB Migration] ⚠️ Could not add ${colName}:`, err);
+      }
+    } else {
+      console.log(`[DB Migration] ✓ Column already exists: ${colName}`);
+    }
   }
 }
 
@@ -44,6 +88,11 @@ export async function initDatabase(): Promise<void> {
       return;
     }
     db = await SQLite.openDatabaseAsync('ironplate.db');
+    
+    // Run migrations first
+    await migrateBodyMeasurementsTable(db);
+    
+    // Then create tables (won't error if already exists)
   } catch (e) {
     console.log('expo-sqlite not available:', e);
     return;
@@ -764,7 +813,7 @@ export async function saveBodyMeasurement(userId: string, measurement: BodyMeasu
   const leanMass = measurement.weight * (1 - (measurement.bodyFat || 0) / 100);
   const fatMass = measurement.weight * ((measurement.bodyFat || 0) / 100);
   const bmi = measurement.weight / Math.pow(h / 100, 2);
-  const waistHipRatio = (measurement.waistCircumference && measurement.hipCircumference) 
+  const waistHipRatio = (measurement.waistCircumference && measurement.hipCircumference)
     ? measurement.waistCircumference / measurement.hipCircumference : undefined;
 
   const fields = [
@@ -843,37 +892,117 @@ export async function getBodyMeasurements(userId: string, limit: number = 30): P
       .filter(m => m.user_id === userId)
       .sort((a, b) => b.date.localeCompare(a.date))
       .slice(0, limit)
-      .map(m => mapMeasurement(m));
+      .map(m => ({
+        date: m.date,
+        weight: m.weight,
+        height: m.height,
+        bodyFat: m.body_fat,
+        bodyFatMethod: m.body_fat_method as 'visual' | 'skinfold' | 'bioimpedance',
+        resistance: m.resistance,
+        reactance: m.reactance,
+        phaseAngle: m.phase_angle,
+        muscleMass: m.muscle_mass,
+        skeletalMuscle: m.skeletal_muscle,
+        waterPercent: m.water_percent,
+        waterKg: m.water_kg,
+        boneMass: m.bone_mass,
+        proteinPercent: m.protein_percent,
+        proteinMass: m.protein_mass,
+        basalMetabolism: m.basal_metabolism,
+        visceralFat: m.visceral_fat_grade,
+        triceps: m.triceps,
+        biceps: m.biceps,
+        subscapular: m.subscapular,
+        suprailiac: m.suprailiac,
+        abdominal: m.abdominal,
+        chestSkinfold: m.chest_skinfold,
+        axillaryMid: m.axillary_mid,
+        thighSkinfold: m.thigh_skinfold,
+        calfSkinfold: m.calf_skinfold,
+        armRelaxedRight: m.arm_relaxed_right,
+        armRelaxedLeft: m.arm_relaxed_left,
+        armFlexedRight: m.arm_flexed_right,
+        armFlexedLeft: m.arm_flexed_left,
+        forearmRight: m.forearm_right,
+        forearmLeft: m.forearm_left,
+        wristRight: m.wrist_right,
+        wristLeft: m.wrist_left,
+        chestCircumference: m.chest_circumference,
+        waistCircumference: m.waist_circumference,
+        abdomenCircumference: m.abdomen_circumference,
+        hipCircumference: m.hip_circumference,
+        thighProximalRight: m.thigh_proximal_right,
+        thighProximalLeft: m.thigh_proximal_left,
+        thighMidRight: m.thigh_mid_right,
+        thighMidLeft: m.thigh_mid_left,
+        calfRight: m.calf_right,
+        calfLeft: m.calf_left,
+        ankleRight: m.ankle_right,
+        ankleLeft: m.ankle_left,
+        leanMass: m.lean_mass,
+        fatMass: m.fat_mass,
+        bmi: m.bmi,
+        waistHipRatio: m.waist_hip_ratio,
+        notes: m.notes,
+      }));
   }
 
-  const entries = await db!.getAllAsync(
+  const rows = await db!.getAllAsync(
     'SELECT * FROM body_measurements WHERE user_id = ? ORDER BY date DESC LIMIT ?',
     [userId, limit]
   );
 
-  return (entries as any[]).map(m => mapMeasurement(m));
-}
-
-function mapMeasurement(m: any): BodyMeasurement {
-  return {
-    date: m.date, weight: m.weight, height: m.height || undefined,
-    bodyFat: m.body_fat || undefined, bodyFatMethod: m.body_fat_method || undefined,
-    resistance: m.resistance || undefined, reactance: m.reactance || undefined, phaseAngle: m.phase_angle || undefined,
-    triceps: m.triceps || undefined, biceps: m.biceps || undefined,
-    subscapular: m.subscapular || undefined, suprailiac: m.suprailiac || undefined,
-    abdominal: m.abdominal || undefined, chestSkinfold: m.chest_skinfold || undefined,
-    axillaryMid: m.axillary_mid || undefined, thighSkinfold: m.thigh_skinfold || undefined, calfSkinfold: m.calf_skinfold || undefined,
-    armRelaxedRight: m.arm_relaxed_right || undefined, armRelaxedLeft: m.arm_relaxed_left || undefined,
-    armFlexedRight: m.arm_flexed_right || undefined, armFlexedLeft: m.arm_flexed_left || undefined,
-    forearmRight: m.forearm_right || undefined, forearmLeft: m.forearm_left || undefined,
-    wristRight: m.wrist_right || undefined, wristLeft: m.wrist_left || undefined,
-    chestCircumference: m.chest_circumference || undefined, waistCircumference: m.waist_circumference || undefined,
-    abdomenCircumference: m.abdomen_circumference || undefined, hipCircumference: m.hip_circumference || undefined,
-    thighProximalRight: m.thigh_proximal_right || undefined, thighProximalLeft: m.thigh_proximal_left || undefined,
-    thighMidRight: m.thigh_mid_right || undefined, thighMidLeft: m.thigh_mid_left || undefined,
-    calfRight: m.calf_right || undefined, calfLeft: m.calf_left || undefined,
-    ankleRight: m.ankle_right || undefined, ankleLeft: m.ankle_left || undefined,
-    leanMass: m.lean_mass || undefined, fatMass: m.fat_mass || undefined, bmi: m.bmi || undefined,
-    waistHipRatio: m.waist_hip_ratio || undefined, notes: m.notes || undefined,
-  };
+  return (rows as any[]).map(r => ({
+    date: r.date,
+    weight: r.weight,
+    height: r.height,
+    bodyFat: r.body_fat,
+    bodyFatMethod: r.body_fat_method as 'visual' | 'skinfold' | 'bioimpedance',
+    resistance: r.resistance,
+    reactance: r.reactance,
+    phaseAngle: r.phase_angle,
+    muscleMass: r.muscle_mass,
+    skeletalMuscle: r.skeletal_muscle,
+    waterPercent: r.water_percent,
+    waterKg: r.water_kg,
+    boneMass: r.bone_mass,
+    proteinPercent: r.protein_percent,
+    proteinMass: r.protein_mass,
+    basalMetabolism: r.basal_metabolism,
+    visceralFat: r.visceral_fat_grade,
+    triceps: r.triceps,
+    biceps: r.biceps,
+    subscapular: r.subscapular,
+    suprailiac: r.suprailiac,
+    abdominal: r.abdominal,
+    chestSkinfold: r.chest_skinfold,
+    axillaryMid: r.axillary_mid,
+    thighSkinfold: r.thigh_skinfold,
+    calfSkinfold: r.calf_skinfold,
+    armRelaxedRight: r.arm_relaxed_right,
+    armRelaxedLeft: r.arm_relaxed_left,
+    armFlexedRight: r.arm_flexed_right,
+    armFlexedLeft: r.arm_flexed_left,
+    forearmRight: r.forearm_right,
+    forearmLeft: r.forearm_left,
+    wristRight: r.wrist_right,
+    wristLeft: r.wrist_left,
+    chestCircumference: r.chest_circumference,
+    waistCircumference: r.waist_circumference,
+    abdomenCircumference: r.abdomen_circumference,
+    hipCircumference: r.hip_circumference,
+    thighProximalRight: r.thigh_proximal_right,
+    thighProximalLeft: r.thigh_proximal_left,
+    thighMidRight: r.thigh_mid_right,
+    thighMidLeft: r.thigh_mid_left,
+    calfRight: r.calf_right,
+    calfLeft: r.calf_left,
+    ankleRight: r.ankle_right,
+    ankleLeft: r.ankle_left,
+    leanMass: r.lean_mass,
+    fatMass: r.fat_mass,
+    bmi: r.bmi,
+    waistHipRatio: r.waist_hip_ratio,
+    notes: r.notes,
+  }));
 }
