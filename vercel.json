@@ -1,5 +1,5 @@
 {
-  "buildCommand": "expo export:web",
+  "buildCommand": "expo export",
   "outputDirectory": "dist",
   "framework": null,
   "rewrites": [
