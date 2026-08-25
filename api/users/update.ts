@@ -37,13 +37,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Build the SET clause dynamically
-    let query = 'UPDATE users SET ';
     const setClauses = updates.map((field, index) => `${field} = $${index + 1}`);
     setClauses.push('updated_at = NOW()');
-    query += setClauses.join(', ');
-    query += ` WHERE id = $${updates.length + 1}`;
+    const setClause = setClauses.join(', ');
     values.push(userId);
 
+    // Use raw query for dynamic field names
+    const query = `UPDATE users SET ${setClause} WHERE id = $${values.length}`;
     await sql(query, values);
 
     return res.status(200).json({ success: true });
