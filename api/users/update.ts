@@ -44,7 +44,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Use raw query for dynamic field names
     const query = `UPDATE users SET ${setClause} WHERE id = $${values.length}`;
-    await sql(query, values);
+    await sql(query, values as any[]);
 
     return res.status(200).json({ success: true });
   } catch (error) {
