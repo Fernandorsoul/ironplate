@@ -1,15 +1,36 @@
 import * as Crypto from 'expo-crypto';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { UserProfile, DailyLog, Meal, Workout, MealPlan, Food, Macros, FoodPortion } from '../types';
 import { Platform } from 'react-native';
 
 const isWeb = Platform.OS === 'web';
 
-// In-memory storage for web platform
+// In-memory storage for web platform (fallback)
 const memoryStore: Map<string, any[]> = new Map();
 
 function getMemoryTable(tableName: string): any[] {
   if (!memoryStore.has(tableName)) memoryStore.set(tableName, []);
   return memoryStore.get(tableName)!;
+}
+
+// AsyncStorage helpers for web platform
+const DB_PREFIX = '@ironplate_db_';
+
+async function loadTableFromStorage(tableName: string): Promise<any[]> {
+  try {
+    const data = await AsyncStorage.getItem(`${DB_PREFIX}${tableName}`);
+    return data ? JSON.parse(data) : [];
+  } catch {
+    return [];
+  }
+}
+
+async function saveTableToStorage(tableName: string, data: any[]): Promise<void> {
+  try {
+    await AsyncStorage.setItem(`${DB_PREFIX}${tableName}`, JSON.stringify(data));
+  } catch (error) {
+    console.error(`Error saving ${tableName} to storage:`, error);
+  }
 }
 
 // ============================================================
@@ -310,13 +331,14 @@ export async function createUser(
   const passwordHash = await hashPassword(password, salt);
   const storedHash = `${salt}:${passwordHash}`;
 
-  // Web fallback: use in-memory storage
+  // Web fallback: use AsyncStorage for persistence
   if (isWeb) {
-    const users = getMemoryTable('users');
-    const exists = users.find(u => u.email === email.toLowerCase().trim());
+    const users = await loadTableFromStorage('users');
+    const exists = users.find((u: any) => u.email === email.toLowerCase().trim());
     if (exists) return null;
     const user = { id, name: name.trim(), email: email.toLowerCase().trim(), password_hash: storedHash };
     users.push(user);
+    await saveTableToStorage('users', users);
     return { id, name: name.trim(), email: email.toLowerCase().trim() };
   }
 
@@ -340,10 +362,10 @@ export async function authenticateUser(
 ): Promise<{ id: string; name: string; email: string } | null> {
   if (!db) await initDatabase();
 
-  // Web fallback: use in-memory storage
+  // Web fallback: use AsyncStorage for persistence
   if (isWeb) {
-    const users = getMemoryTable('users');
-    const user = users.find(u => u.email === email.toLowerCase().trim());
+    const users = await loadTableFromStorage('users');
+    const user = users.find((u: any) => u.email === email.toLowerCase().trim());
     if (!user) return null;
 
     // Extract salt and verify hash
@@ -377,10 +399,10 @@ export async function authenticateUser(
 export async function getUserById(userId: string): Promise<UserProfile | null> {
   if (!db) await initDatabase();
 
-  // Web fallback: use in-memory storage
+  // Web fallback: use AsyncStorage for persistence
   if (isWeb) {
-    const users = getMemoryTable('users');
-    const user = users.find(u => u.id === userId);
+    const users = await loadTableFromStorage('users');
+    const user = users.find((u: any) => u.id === userId);
     if (!user) return null;
     return {
       name: user.name,
@@ -419,6 +441,28 @@ export async function updateUser(
   fields: Partial<UserProfile>
 ): Promise<void> {
   if (!db) await initDatabase();
+
+  // Web fallback: use AsyncStorage for persistence
+  if (isWeb) {
+    const users = await loadTableFromStorage('users');
+    const userIndex = users.findIndex((u: any) => u.id === userId);
+    if (userIndex === -1) return;
+
+    const user = users[userIndex];
+    if (fields.name !== undefined) user.name = fields.name;
+    if (fields.age !== undefined) user.age = fields.age;
+    if (fields.weight !== undefined) user.weight = fields.weight;
+    if (fields.height !== undefined) user.height = fields.height;
+    if (fields.gender !== undefined) user.gender = fields.gender;
+    if (fields.activityLevel !== undefined) user.activity_level = fields.activityLevel;
+    if (fields.goal !== undefined) user.goal = fields.goal;
+    if (fields.sport !== undefined) user.sport = fields.sport;
+    user.updated_at = new Date().toISOString();
+
+    users[userIndex] = user;
+    await saveTableToStorage('users', users);
+    return;
+  }
 
   const updates: string[] = [];
   const values: any[] = [];
