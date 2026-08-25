@@ -429,6 +429,47 @@ export async function authenticateUser(
   return { id: u.id, name: u.name, email: u.email };
 }
 
+export async function getUserByEmail(email: string): Promise<{ id: string; name: string; email: string } | null> {
+  if (!db) await initDatabase();
+
+  if (isWeb) {
+    const users = await loadTableFromStorage('users');
+    const user = users.find((u: any) => u.email === email.toLowerCase().trim());
+    if (!user) return null;
+    return { id: user.id, name: user.name, email: user.email };
+  }
+
+  const user = await db!.getFirstAsync(
+    'SELECT id, name, email FROM users WHERE email = ?',
+    [email.toLowerCase().trim()]
+  );
+
+  if (!user) return null;
+  return user as { id: string; name: string; email: string };
+}
+
+export async function resetPassword(userId: string, newPassword: string): Promise<void> {
+  if (!db) await initDatabase();
+
+  const salt = await generateSalt();
+  const passwordHash = await hashPassword(newPassword, salt);
+  const storedHash = `${salt}:${passwordHash}`;
+
+  if (isWeb) {
+    const users = await loadTableFromStorage('users');
+    const userIndex = users.findIndex((u: any) => u.id === userId);
+    if (userIndex === -1) throw new Error('User not found');
+    users[userIndex].password_hash = storedHash;
+    await saveTableToStorage('users', users);
+    return;
+  }
+
+  await db!.runAsync(
+    'UPDATE users SET password_hash = ? WHERE id = ?',
+    [storedHash, userId]
+  );
+}
+
 // ============================================================
 // USER PROFILE
 // ============================================================

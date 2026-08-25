@@ -31,6 +31,7 @@ import WorkoutDetailScreen from './src/screens/WorkoutDetailScreen';
 import DietAnalysisScreen from './src/screens/DietAnalysisScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
+import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
 import BodyMeasurementsScreen from './src/screens/BodyMeasurementsScreen';
 import EvolutionScreen from './src/screens/EvolutionScreen';
 import EditProfileScreen from './src/screens/EditProfileScreen';
@@ -107,6 +108,7 @@ function AppNavigator() {
         <>
           <Stack.Screen name="Login" component={LoginScreen} />
           <Stack.Screen name="Register" component={RegisterScreen} />
+          <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
         </>
       ) : !isOnboarded ? (
         // Onboarding screen
