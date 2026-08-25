@@ -5,28 +5,8 @@ import { Platform } from 'react-native';
 
 const isWeb = Platform.OS === 'web';
 
-// Neon database connection for web platform
-let neonClient: any = null;
-
-async function getNeonClient() {
-  if (neonClient) return neonClient;
-  
-  try {
-    const { neon } = await import('@neondatabase/serverless');
-    const databaseUrl = process.env.DATABASE_URL || '';
-    
-    if (!databaseUrl) {
-      console.error('DATABASE_URL not configured');
-      return null;
-    }
-    
-    neonClient = neon(databaseUrl);
-    return neonClient;
-  } catch (error) {
-    console.error('Failed to initialize Neon client:', error);
-    return null;
-  }
-}
+// API base URL for web platform
+const API_BASE = '/api';
 
 // In-memory storage for web platform (fallback)
 const memoryStore: Map<string, any[]> = new Map();
@@ -349,59 +329,41 @@ export async function createUser(
 ): Promise<{ id: string; name: string; email: string } | null> {
   if (!db) await initDatabase();
 
+  // Web: call API route
+  if (isWeb) {
+    try {
+      const response = await fetch(`${API_BASE}/users/create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, password }),
+      });
+      
+      if (response.status === 409) return null; // Email already exists
+      if (!response.ok) throw new Error(`API error: ${response.status}`);
+      
+      return await response.json();
+    } catch (error) {
+      console.error('API createUser error:', error);
+      // Fallback: use AsyncStorage
+      const id = Crypto.randomUUID();
+      const salt = await generateSalt();
+      const passwordHash = await hashPassword(password, salt);
+      const storedHash = `${salt}:${passwordHash}`;
+      
+      const users = await loadTableFromStorage('users');
+      const exists = users.find((u: any) => u.email === email.toLowerCase().trim());
+      if (exists) return null;
+      const user = { id, name: name.trim(), email: email.toLowerCase().trim(), password_hash: storedHash };
+      users.push(user);
+      await saveTableToStorage('users', users);
+      return { id, name: name.trim(), email: email.toLowerCase().trim() };
+    }
+  }
+
   const id = Crypto.randomUUID();
   const salt = await generateSalt();
   const passwordHash = await hashPassword(password, salt);
   const storedHash = `${salt}:${passwordHash}`;
-
-  // Web: use Neon database for persistence
-  if (isWeb) {
-    const sql = await getNeonClient();
-    if (sql) {
-      try {
-        // Create users table if not exists
-        await sql`
-          CREATE TABLE IF NOT EXISTS users (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            email TEXT UNIQUE NOT NULL,
-            password_hash TEXT NOT NULL,
-            age INTEGER,
-            weight REAL,
-            height REAL,
-            gender TEXT DEFAULT 'male',
-            activity_level TEXT DEFAULT 'moderate',
-            goal TEXT DEFAULT 'maintenance',
-            sport TEXT DEFAULT 'bodybuilding',
-            created_at TIMESTAMP DEFAULT NOW(),
-            updated_at TIMESTAMP DEFAULT NOW()
-          )
-        `;
-        
-        // Insert user
-        await sql`
-          INSERT INTO users (id, name, email, password_hash)
-          VALUES (${id}, ${name.trim()}, ${email.toLowerCase().trim()}, ${storedHash})
-        `;
-        return { id, name: name.trim(), email: email.toLowerCase().trim() };
-      } catch (error: any) {
-        if (error.message?.includes('duplicate key') || error.message?.includes('unique')) {
-          return null; // Email already exists
-        }
-        console.error('Neon createUser error:', error);
-        // Fall through to AsyncStorage fallback
-      }
-    }
-    
-    // Fallback: use AsyncStorage
-    const users = await loadTableFromStorage('users');
-    const exists = users.find((u: any) => u.email === email.toLowerCase().trim());
-    if (exists) return null;
-    const user = { id, name: name.trim(), email: email.toLowerCase().trim(), password_hash: storedHash };
-    users.push(user);
-    await saveTableToStorage('users', users);
-    return { id, name: name.trim(), email: email.toLowerCase().trim() };
-  }
 
   try {
     await db!.runAsync(
@@ -423,42 +385,32 @@ export async function authenticateUser(
 ): Promise<{ id: string; name: string; email: string } | null> {
   if (!db) await initDatabase();
 
-  // Web: use Neon database for persistence
+  // Web: call API route
   if (isWeb) {
-    const sql = await getNeonClient();
-    if (sql) {
-      try {
-        const users = await sql`
-          SELECT id, name, email, password_hash 
-          FROM users 
-          WHERE email = ${email.toLowerCase().trim()}
-        `;
-        
-        if (users.length === 0) return null;
-        
-        const user = users[0];
-        const [salt] = user.password_hash.split(':');
-        const computedHash = await hashPassword(password, salt);
-        if (user.password_hash !== `${salt}:${computedHash}`) return null;
-        
-        return { id: user.id, name: user.name, email: user.email };
-      } catch (error) {
-        console.error('Neon authenticateUser error:', error);
-        // Fall through to AsyncStorage fallback
-      }
+    try {
+      const response = await fetch(`${API_BASE}/users/auth`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      
+      if (response.status === 401) return null; // Invalid credentials
+      if (!response.ok) throw new Error(`API error: ${response.status}`);
+      
+      return await response.json();
+    } catch (error) {
+      console.error('API authenticateUser error:', error);
+      // Fallback: use AsyncStorage
+      const users = await loadTableFromStorage('users');
+      const user = users.find((u: any) => u.email === email.toLowerCase().trim());
+      if (!user) return null;
+
+      const [salt] = user.password_hash.split(':');
+      const computedHash = await hashPassword(password, salt);
+      if (user.password_hash !== `${salt}:${computedHash}`) return null;
+
+      return { id: user.id, name: user.name, email: user.email };
     }
-    
-    // Fallback: use AsyncStorage
-    const users = await loadTableFromStorage('users');
-    const user = users.find((u: any) => u.email === email.toLowerCase().trim());
-    if (!user) return null;
-
-    // Extract salt and verify hash
-    const [salt] = user.password_hash.split(':');
-    const computedHash = await hashPassword(password, salt);
-    if (user.password_hash !== `${salt}:${computedHash}`) return null;
-
-    return { id: user.id, name: user.name, email: user.email };
   }
 
   const user = await db!.getFirstAsync(
@@ -484,50 +436,32 @@ export async function authenticateUser(
 export async function getUserById(userId: string): Promise<UserProfile | null> {
   if (!db) await initDatabase();
 
-  // Web: use Neon database for persistence
+  // Web: call API route
   if (isWeb) {
-    const sql = await getNeonClient();
-    if (sql) {
-      try {
-        const users = await sql`
-          SELECT name, age, weight, height, gender, activity_level, goal, sport
-          FROM users
-          WHERE id = ${userId}
-        `;
-        
-        if (users.length === 0) return null;
-        
-        const user = users[0];
-        return {
-          name: user.name,
-          age: user.age || 0,
-          weight: user.weight || 0,
-          height: user.height || 0,
-          gender: user.gender || 'male',
-          activityLevel: user.activity_level || 'moderate',
-          goal: user.goal || 'maintenance',
-          sport: user.sport || 'bodybuilding',
-        };
-      } catch (error) {
-        console.error('Neon getUserById error:', error);
-        // Fall through to AsyncStorage fallback
-      }
+    try {
+      const response = await fetch(`${API_BASE}/users/get?userId=${encodeURIComponent(userId)}`);
+      
+      if (response.status === 404) return null;
+      if (!response.ok) throw new Error(`API error: ${response.status}`);
+      
+      return await response.json();
+    } catch (error) {
+      console.error('API getUserById error:', error);
+      // Fallback: use AsyncStorage
+      const users = await loadTableFromStorage('users');
+      const user = users.find((u: any) => u.id === userId);
+      if (!user) return null;
+      return {
+        name: user.name,
+        age: user.age || 0,
+        weight: user.weight || 0,
+        height: user.height || 0,
+        gender: user.gender || 'male',
+        activityLevel: user.activity_level || 'moderate',
+        goal: user.goal || 'maintenance',
+        sport: user.sport || 'bodybuilding',
+      };
     }
-    
-    // Fallback: use AsyncStorage
-    const users = await loadTableFromStorage('users');
-    const user = users.find((u: any) => u.id === userId);
-    if (!user) return null;
-    return {
-      name: user.name,
-      age: user.age || 0,
-      weight: user.weight || 0,
-      height: user.height || 0,
-      gender: user.gender || 'male',
-      activityLevel: user.activity_level || 'moderate',
-      goal: user.goal || 'maintenance',
-      sport: user.sport || 'bodybuilding',
-    };
   }
 
   const user = await db!.getFirstAsync(
@@ -556,61 +490,39 @@ export async function updateUser(
 ): Promise<void> {
   if (!db) await initDatabase();
 
-  // Web: use Neon database for persistence
+  // Web: call API route
   if (isWeb) {
-    const sql = await getNeonClient();
-    if (sql) {
-      try {
-        // Build dynamic update query
-        const updates: string[] = [];
-        const values: any[] = [];
-        
-        if (fields.name !== undefined) { updates.push('name'); values.push(fields.name); }
-        if (fields.age !== undefined) { updates.push('age'); values.push(fields.age); }
-        if (fields.weight !== undefined) { updates.push('weight'); values.push(fields.weight); }
-        if (fields.height !== undefined) { updates.push('height'); values.push(fields.height); }
-        if (fields.gender !== undefined) { updates.push('gender'); values.push(fields.gender); }
-        if (fields.activityLevel !== undefined) { updates.push('activity_level'); values.push(fields.activityLevel); }
-        if (fields.goal !== undefined) { updates.push('goal'); values.push(fields.goal); }
-        if (fields.sport !== undefined) { updates.push('sport'); values.push(fields.sport); }
-        
-        if (updates.length === 0) return;
-        
-        // Build the SET clause dynamically
-        let query = 'UPDATE users SET ';
-        const setClauses = updates.map((field, index) => `${field} = $${index + 1}`);
-        setClauses.push('updated_at = NOW()');
-        query += setClauses.join(', ');
-        query += ` WHERE id = $${updates.length + 1}`;
-        values.push(userId);
-        
-        await sql(query, values);
-        return;
-      } catch (error) {
-        console.error('Neon updateUser error:', error);
-        // Fall through to AsyncStorage fallback
-      }
+    try {
+      const response = await fetch(`${API_BASE}/users/update`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, fields }),
+      });
+      
+      if (!response.ok) throw new Error(`API error: ${response.status}`);
+      return;
+    } catch (error) {
+      console.error('API updateUser error:', error);
+      // Fallback: use AsyncStorage
+      const users = await loadTableFromStorage('users');
+      const userIndex = users.findIndex((u: any) => u.id === userId);
+      if (userIndex === -1) return;
+
+      const user = users[userIndex];
+      if (fields.name !== undefined) user.name = fields.name;
+      if (fields.age !== undefined) user.age = fields.age;
+      if (fields.weight !== undefined) user.weight = fields.weight;
+      if (fields.height !== undefined) user.height = fields.height;
+      if (fields.gender !== undefined) user.gender = fields.gender;
+      if (fields.activityLevel !== undefined) user.activity_level = fields.activityLevel;
+      if (fields.goal !== undefined) user.goal = fields.goal;
+      if (fields.sport !== undefined) user.sport = fields.sport;
+      user.updated_at = new Date().toISOString();
+
+      users[userIndex] = user;
+      await saveTableToStorage('users', users);
+      return;
     }
-    
-    // Fallback: use AsyncStorage
-    const users = await loadTableFromStorage('users');
-    const userIndex = users.findIndex((u: any) => u.id === userId);
-    if (userIndex === -1) return;
-
-    const user = users[userIndex];
-    if (fields.name !== undefined) user.name = fields.name;
-    if (fields.age !== undefined) user.age = fields.age;
-    if (fields.weight !== undefined) user.weight = fields.weight;
-    if (fields.height !== undefined) user.height = fields.height;
-    if (fields.gender !== undefined) user.gender = fields.gender;
-    if (fields.activityLevel !== undefined) user.activity_level = fields.activityLevel;
-    if (fields.goal !== undefined) user.goal = fields.goal;
-    if (fields.sport !== undefined) user.sport = fields.sport;
-    user.updated_at = new Date().toISOString();
-
-    users[userIndex] = user;
-    await saveTableToStorage('users', users);
-    return;
   }
 
   const updates: string[] = [];
