@@ -15,36 +15,46 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    // Build dynamic update
-    const allowedFields = ['name', 'age', 'weight', 'height', 'gender', 'activity_level', 'goal', 'sport'];
+    // Map camelCase to snake_case
     const fieldMap: Record<string, string> = {
       activityLevel: 'activity_level',
     };
 
-    const updates: string[] = [];
-    const values: any[] = [];
+    // Update each field individually using tagged template literals
+    const allowedFields = ['name', 'age', 'weight', 'height', 'gender', 'activity_level', 'goal', 'sport'];
 
     for (const [key, value] of Object.entries(fields)) {
       const dbField = fieldMap[key] || key;
       if (allowedFields.includes(dbField) && value !== undefined) {
-        updates.push(dbField);
-        values.push(value);
+        // Use tagged template literal for each field
+        switch (dbField) {
+          case 'name':
+            await sql`UPDATE users SET name = ${value as string}, updated_at = NOW() WHERE id = ${userId}`;
+            break;
+          case 'age':
+            await sql`UPDATE users SET age = ${value as number}, updated_at = NOW() WHERE id = ${userId}`;
+            break;
+          case 'weight':
+            await sql`UPDATE users SET weight = ${value as number}, updated_at = NOW() WHERE id = ${userId}`;
+            break;
+          case 'height':
+            await sql`UPDATE users SET height = ${value as number}, updated_at = NOW() WHERE id = ${userId}`;
+            break;
+          case 'gender':
+            await sql`UPDATE users SET gender = ${value as string}, updated_at = NOW() WHERE id = ${userId}`;
+            break;
+          case 'activity_level':
+            await sql`UPDATE users SET activity_level = ${value as string}, updated_at = NOW() WHERE id = ${userId}`;
+            break;
+          case 'goal':
+            await sql`UPDATE users SET goal = ${value as string}, updated_at = NOW() WHERE id = ${userId}`;
+            break;
+          case 'sport':
+            await sql`UPDATE users SET sport = ${value as string}, updated_at = NOW() WHERE id = ${userId}`;
+            break;
+        }
       }
     }
-
-    if (updates.length === 0) {
-      return res.status(400).json({ error: 'No valid fields to update' });
-    }
-
-    // Build the SET clause dynamically
-    const setClauses = updates.map((field, index) => `${field} = $${index + 1}`);
-    setClauses.push('updated_at = NOW()');
-    const setClause = setClauses.join(', ');
-    values.push(userId);
-
-    // Use raw query for dynamic field names
-    const query = `UPDATE users SET ${setClause} WHERE id = $${values.length}`;
-    await sql(query, values as any[]);
 
     return res.status(200).json({ success: true });
   } catch (error) {
