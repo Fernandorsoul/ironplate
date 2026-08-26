@@ -1,381 +1,61 @@
-import * as Crypto from 'expo-crypto';
+import { UserProfile, DailyLog, MealPlan, Food, Macros } from '../types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { UserProfile, DailyLog, Meal, Workout, MealPlan, Food, Macros, FoodPortion } from '../types';
-import { Platform } from 'react-native';
 
-const isWeb = Platform.OS === 'web';
-
-// API base URL for web platform
+// API base URL
 const API_BASE = '/api';
 
-// In-memory storage for web platform (fallback)
-const memoryStore: Map<string, any[]> = new Map();
+// AsyncStorage keys for offline cache
+const CACHE_PREFIX = '@ironplate_cache_';
 
-function getMemoryTable(tableName: string): any[] {
-  if (!memoryStore.has(tableName)) memoryStore.set(tableName, []);
-  return memoryStore.get(tableName)!;
-}
-
-// AsyncStorage helpers for web platform
-const DB_PREFIX = '@ironplate_db_';
-
-async function loadTableFromStorage(tableName: string): Promise<any[]> {
+// Cache helpers
+async function saveToCache<T>(key: string, data: T): Promise<void> {
   try {
-    const data = await AsyncStorage.getItem(`${DB_PREFIX}${tableName}`);
-    return data ? JSON.parse(data) : [];
-  } catch {
-    return [];
-  }
-}
-
-async function saveTableToStorage(tableName: string, data: any[]): Promise<void> {
-  try {
-    await AsyncStorage.setItem(`${DB_PREFIX}${tableName}`, JSON.stringify(data));
+    await AsyncStorage.setItem(`${CACHE_PREFIX}${key}`, JSON.stringify(data));
   } catch (error) {
-    console.error(`Error saving ${tableName} to storage:`, error);
+    console.error(`Error saving to cache ${key}:`, error);
   }
 }
 
-// ============================================================
-// DATABASE INITIALIZATION + MIGRATIONS
-// ============================================================
-
-let db: any = null;
-
-// Lazy load SQLite only on native platforms
-function loadSQLite(): any {
-  if (isWeb) return null;
+async function loadFromCache<T>(key: string): Promise<T | null> {
   try {
-    return require('expo-sqlite');
+    const data = await AsyncStorage.getItem(`${CACHE_PREFIX}${key}`);
+    return data ? JSON.parse(data) : null;
   } catch {
     return null;
   }
-}
-
-/** Migrate body_measurements table to add new Chipsea V20 columns */
-async function migrateBodyMeasurementsTable(dbInstance: any): Promise<void> {
-  const existingColumns: string[] = [];
-  
-  try {
-    // Check what columns exist
-    const pragma = await dbInstance.getAllAsync('PRAGMA table_info(body_measurements)');
-    for (const col of pragma as any[]) {
-      existingColumns.push(col.name);
-    }
-  } catch {
-    // Table doesn't exist yet — will be created by init
-    console.log('[DB Migration] body_measurements table not found — creating fresh');
-    return;
-  }
-  
-  console.log('[DB Migration] Existing columns:', existingColumns.join(', '));
-  
-  // List of new columns to add
-  const newColumns: [string, string][] = [
-    ['muscle_mass', 'REAL'],
-    ['skeletal_muscle', 'REAL'],
-    ['water_percent', 'REAL'],
-    ['water_kg', 'REAL'],
-    ['bone_mass', 'REAL'],
-    ['protein_percent', 'REAL'],
-    ['protein_mass', 'REAL'],
-    ['basal_metabolism', 'REAL'],
-    ['visceral_fat_grade', 'INTEGER'],
-  ];
-  
-  // Add missing columns with migration
-  for (const [colName, colType] of newColumns) {
-    if (!existingColumns.includes(colName)) {
-      try {
-        await dbInstance.runAsync(`ALTER TABLE body_measurements ADD COLUMN ${colName} ${colType}`);
-        console.log(`[DB Migration] ✅ Added column: ${colName}`);
-      } catch (err: unknown) {
-        // Some SQLite versions don't support ALTER TABLE ADD COLUMN
-        // Log error but continue — app will still work without these fields
-        console.warn(`[DB Migration] ⚠️ Could not add ${colName}:`, err);
-      }
-    } else {
-      console.log(`[DB Migration] ✓ Column already exists: ${colName}`);
-    }
-  }
-}
-
-export async function initDatabase(): Promise<void> {
-  if (isWeb) {
-    console.log('Web platform — SQLite not available, using memory storage');
-    return;
-  }
-  try {
-    const SQLite = loadSQLite();
-    if (!SQLite) {
-      console.log('expo-sqlite not available');
-      return;
-    }
-    db = await SQLite.openDatabaseAsync('ironplate.db');
-    
-    // Run migrations first
-    await migrateBodyMeasurementsTable(db);
-    
-    // Then create tables (won't error if already exists)
-  } catch (e) {
-    console.log('expo-sqlite not available:', e);
-    return;
-  }
-
-  await db.execAsync(`
-    CREATE TABLE IF NOT EXISTS users (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      email TEXT UNIQUE NOT NULL,
-      password_hash TEXT NOT NULL,
-      age INTEGER,
-      weight REAL,
-      height REAL,
-      gender TEXT DEFAULT 'male',
-      activity_level TEXT DEFAULT 'moderate',
-      goal TEXT DEFAULT 'maintenance',
-      sport TEXT DEFAULT 'bodybuilding',
-      created_at TEXT DEFAULT (datetime('now')),
-      updated_at TEXT DEFAULT (datetime('now'))
-    );
-
-    CREATE TABLE IF NOT EXISTS daily_logs (
-      id TEXT PRIMARY KEY,
-      user_id TEXT NOT NULL REFERENCES users(id),
-      date TEXT NOT NULL,
-      weight REAL,
-      notes TEXT,
-      created_at TEXT DEFAULT (datetime('now')),
-      UNIQUE(user_id, date)
-    );
-
-    CREATE TABLE IF NOT EXISTS meals (
-      id TEXT PRIMARY KEY,
-      daily_log_id TEXT NOT NULL REFERENCES daily_logs(id),
-      name TEXT NOT NULL,
-      timing TEXT DEFAULT 'regular',
-      total_calories REAL DEFAULT 0,
-      total_protein REAL DEFAULT 0,
-      total_carbs REAL DEFAULT 0,
-      total_fat REAL DEFAULT 0,
-      time TEXT
-    );
-
-    CREATE TABLE IF NOT EXISTS meal_foods (
-      id TEXT PRIMARY KEY,
-      meal_id TEXT NOT NULL REFERENCES meals(id),
-      food_id TEXT NOT NULL,
-      food_name TEXT NOT NULL,
-      food_category TEXT,
-      grams REAL NOT NULL,
-      calories REAL DEFAULT 0,
-      protein REAL DEFAULT 0,
-      carbs REAL DEFAULT 0,
-      fat REAL DEFAULT 0
-    );
-
-    CREATE TABLE IF NOT EXISTS workouts (
-      id TEXT PRIMARY KEY,
-      daily_log_id TEXT NOT NULL REFERENCES daily_logs(id),
-      name TEXT NOT NULL,
-      type TEXT DEFAULT 'strength',
-      duration INTEGER DEFAULT 0,
-      intensity TEXT DEFAULT 'medium',
-      time TEXT
-    );
-
-    CREATE TABLE IF NOT EXISTS meal_plans (
-      id TEXT PRIMARY KEY,
-      user_id TEXT NOT NULL REFERENCES users(id),
-      name TEXT NOT NULL,
-      goal TEXT DEFAULT 'maintenance',
-      total_calories REAL DEFAULT 0,
-      total_protein REAL DEFAULT 0,
-      total_carbs REAL DEFAULT 0,
-      total_fat REAL DEFAULT 0,
-      meals_json TEXT NOT NULL,
-      created_at TEXT DEFAULT (datetime('now'))
-    );
-
-    CREATE TABLE IF NOT EXISTS custom_foods (
-      id TEXT PRIMARY KEY,
-      user_id TEXT NOT NULL REFERENCES users(id),
-      name TEXT NOT NULL,
-      category TEXT DEFAULT 'Outro',
-      calories REAL DEFAULT 0,
-      protein REAL DEFAULT 0,
-      carbs REAL DEFAULT 0,
-      fat REAL DEFAULT 0
-    );
-
-    CREATE TABLE IF NOT EXISTS weight_history (
-      id TEXT PRIMARY KEY,
-      user_id TEXT NOT NULL REFERENCES users(id),
-      date TEXT NOT NULL,
-      weight REAL NOT NULL,
-      body_fat REAL,
-      UNIQUE(user_id, date)
-    );
-
-    CREATE TABLE IF NOT EXISTS body_measurements (
-      id TEXT PRIMARY KEY,
-      user_id TEXT NOT NULL REFERENCES users(id),
-      date TEXT NOT NULL,
-      weight REAL,
-      height REAL,
-      body_fat REAL,
-      body_fat_method TEXT DEFAULT 'visual',
-      -- Bioimpedance
-      resistance REAL,
-      reactance REAL,
-      phase_angle REAL,
-      -- Full composition from BLE scales
-      muscle_mass REAL,
-      skeletal_muscle REAL,
-      water_percent REAL,
-      water_kg REAL,
-      bone_mass REAL,
-      protein_percent REAL,
-      protein_mass REAL,
-      basal_metabolism REAL,
-      visceral_fat_grade INTEGER,
-      -- Skinfolds (mm) - Padrão CREF
-      triceps REAL,
-      biceps REAL,
-      subscapular REAL,
-      suprailiac REAL,
-      abdominal REAL,
-      chest_skinfold REAL,
-      axillary_mid REAL,
-      thigh_skinfold REAL,
-      calf_skinfold REAL,
-      -- Circumferences (cm) - Padrão CREF
-      -- Membro Superior
-      arm_relaxed_right REAL,
-      arm_relaxed_left REAL,
-      arm_flexed_right REAL,
-      arm_flexed_left REAL,
-      forearm_right REAL,
-      forearm_left REAL,
-      wrist_right REAL,
-      wrist_left REAL,
-      -- Tronco
-      chest_circumference REAL,
-      waist_circumference REAL,
-      abdomen_circumference REAL,
-      hip_circumference REAL,
-      -- Membro Inferior
-      thigh_proximal_right REAL,
-      thigh_proximal_left REAL,
-      thigh_mid_right REAL,
-      thigh_mid_left REAL,
-      calf_right REAL,
-      calf_left REAL,
-      ankle_right REAL,
-      ankle_left REAL,
-      -- Calculated
-      lean_mass REAL,
-      fat_mass REAL,
-      bmi REAL,
-      waist_hip_ratio REAL,
-      -- Notes
-      notes TEXT,
-      created_at TEXT DEFAULT (datetime('now')),
-      UNIQUE(user_id, date)
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_daily_logs_user ON daily_logs(user_id, date);
-    CREATE INDEX IF NOT EXISTS idx_meals_log ON meals(daily_log_id);
-    CREATE INDEX IF NOT EXISTS idx_workouts_log ON workouts(daily_log_id);
-    CREATE INDEX IF NOT EXISTS idx_meal_plans_user ON meal_plans(user_id);
-    CREATE INDEX IF NOT EXISTS idx_weight_user ON weight_history(user_id, date);
-    CREATE INDEX IF NOT EXISTS idx_body_measurements_user ON body_measurements(user_id, date);
-  `);
 }
 
 // ============================================================
 // AUTHENTICATION
 // ============================================================
 
-// PBKDF2-like hashing using multiple rounds of SHA256
-// Uses a unique salt per user for security
-const HASH_ITERATIONS = 10000;
-const SALT_LENGTH = 32;
-
-async function generateSalt(): Promise<string> {
-  const bytes = await Crypto.digestStringAsync(
-    Crypto.CryptoDigestAlgorithm.SHA256,
-    Crypto.randomUUID() + Date.now().toString()
-  );
-  return bytes.substring(0, SALT_LENGTH);
-}
-
-async function hashPassword(password: string, salt: string): Promise<string> {
-  // PBKDF2-like: multiple rounds of SHA256 with salt
-  let hash = password + salt;
-  for (let i = 0; i < HASH_ITERATIONS; i++) {
-    hash = await Crypto.digestStringAsync(
-      Crypto.CryptoDigestAlgorithm.SHA256,
-      hash + salt
-    );
-  }
-  return hash;
-}
-
 export async function createUser(
   name: string,
   email: string,
   password: string
 ): Promise<{ id: string; name: string; email: string } | null> {
-  if (!db) await initDatabase();
-
-  // Web: call API route
-  if (isWeb) {
-    try {
-      const response = await fetch(`${API_BASE}/users/create`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password }),
-      });
-      
-      if (response.status === 409) return null; // Email already exists
-      if (!response.ok) throw new Error(`API error: ${response.status}`);
-      
-      return await response.json();
-    } catch (error) {
-      console.error('API createUser error:', error);
-      // Fallback: use AsyncStorage
-      const id = Crypto.randomUUID();
-      const salt = await generateSalt();
-      const passwordHash = await hashPassword(password, salt);
-      const storedHash = `${salt}:${passwordHash}`;
-      
-      const users = await loadTableFromStorage('users');
-      const exists = users.find((u: any) => u.email === email.toLowerCase().trim());
-      if (exists) return null;
-      const user = { id, name: name.trim(), email: email.toLowerCase().trim(), password_hash: storedHash };
-      users.push(user);
-      await saveTableToStorage('users', users);
-      return { id, name: name.trim(), email: email.toLowerCase().trim() };
-    }
-  }
-
-  const id = Crypto.randomUUID();
-  const salt = await generateSalt();
-  const passwordHash = await hashPassword(password, salt);
-  const storedHash = `${salt}:${passwordHash}`;
-
   try {
-    await db!.runAsync(
-      'INSERT INTO users (id, name, email, password_hash) VALUES (?, ?, ?, ?)',
-      [id, name.trim(), email.toLowerCase().trim(), storedHash]
-    );
-    return { id, name: name.trim(), email: email.toLowerCase().trim() };
-  } catch (error: any) {
-    if (error.message?.includes('UNIQUE')) {
-      return null; // Email already exists
+    const response = await fetch(`${API_BASE}/users/create`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, password }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      console.error('Create user error:', error);
+      return null;
     }
-    throw error;
+
+    const user = await response.json();
+    
+    // Cache user data
+    await saveToCache(`user_${user.id}`, user);
+    
+    return user;
+  } catch (error) {
+    console.error('Create user error:', error);
+    return null;
   }
 }
 
@@ -383,91 +63,59 @@ export async function authenticateUser(
   email: string,
   password: string
 ): Promise<{ id: string; name: string; email: string } | null> {
-  if (!db) await initDatabase();
+  try {
+    const response = await fetch(`${API_BASE}/users/auth`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
 
-  // Web: call API route
-  if (isWeb) {
-    try {
-      const response = await fetch(`${API_BASE}/users/auth`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-      
-      if (response.status === 401) return null; // Invalid credentials
-      if (!response.ok) throw new Error(`API error: ${response.status}`);
-      
-      return await response.json();
-    } catch (error) {
-      console.error('API authenticateUser error:', error);
-      // Fallback: use AsyncStorage
-      const users = await loadTableFromStorage('users');
-      const user = users.find((u: any) => u.email === email.toLowerCase().trim());
-      if (!user) return null;
-
-      const [salt] = user.password_hash.split(':');
-      const computedHash = await hashPassword(password, salt);
-      if (user.password_hash !== `${salt}:${computedHash}`) return null;
-
-      return { id: user.id, name: user.name, email: user.email };
+    if (!response.ok) {
+      return null;
     }
+
+    const user = await response.json();
+    
+    // Cache user data
+    await saveToCache(`user_${user.id}`, user);
+    
+    return user;
+  } catch (error) {
+    console.error('Authenticate user error:', error);
+    return null;
   }
-
-  const user = await db!.getFirstAsync(
-    'SELECT id, name, email, password_hash FROM users WHERE email = ?',
-    [email.toLowerCase().trim()]
-  );
-
-  if (!user) return null;
-
-  const u = user as { id: string; name: string; email: string; password_hash: string };
-  const [salt] = u.password_hash.split(':');
-  const computedHash = await hashPassword(password, salt);
-
-  if (u.password_hash !== `${salt}:${computedHash}`) return null;
-
-  return { id: u.id, name: u.name, email: u.email };
 }
 
 export async function getUserByEmail(email: string): Promise<{ id: string; name: string; email: string } | null> {
-  if (!db) await initDatabase();
+  try {
+    const response = await fetch(`${API_BASE}/users/get-by-email?email=${encodeURIComponent(email)}`);
 
-  if (isWeb) {
-    const users = await loadTableFromStorage('users');
-    const user = users.find((u: any) => u.email === email.toLowerCase().trim());
-    if (!user) return null;
-    return { id: user.id, name: user.name, email: user.email };
+    if (!response.ok) {
+      return null;
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Get user by email error:', error);
+    return null;
   }
-
-  const user = await db!.getFirstAsync(
-    'SELECT id, name, email FROM users WHERE email = ?',
-    [email.toLowerCase().trim()]
-  );
-
-  if (!user) return null;
-  return user as { id: string; name: string; email: string };
 }
 
 export async function resetPassword(userId: string, newPassword: string): Promise<void> {
-  if (!db) await initDatabase();
+  try {
+    const response = await fetch(`${API_BASE}/users/reset-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, newPassword }),
+    });
 
-  const salt = await generateSalt();
-  const passwordHash = await hashPassword(newPassword, salt);
-  const storedHash = `${salt}:${passwordHash}`;
-
-  if (isWeb) {
-    const users = await loadTableFromStorage('users');
-    const userIndex = users.findIndex((u: any) => u.id === userId);
-    if (userIndex === -1) throw new Error('User not found');
-    users[userIndex].password_hash = storedHash;
-    await saveTableToStorage('users', users);
-    return;
+    if (!response.ok) {
+      throw new Error('Failed to reset password');
+    }
+  } catch (error) {
+    console.error('Reset password error:', error);
+    throw error;
   }
-
-  await db!.runAsync(
-    'UPDATE users SET password_hash = ? WHERE id = ?',
-    [storedHash, userId]
-  );
 }
 
 // ============================================================
@@ -475,118 +123,48 @@ export async function resetPassword(userId: string, newPassword: string): Promis
 // ============================================================
 
 export async function getUserById(userId: string): Promise<UserProfile | null> {
-  if (!db) await initDatabase();
+  try {
+    const response = await fetch(`${API_BASE}/users/get?userId=${encodeURIComponent(userId)}`);
 
-  // Web: call API route
-  if (isWeb) {
-    try {
-      const response = await fetch(`${API_BASE}/users/get?userId=${encodeURIComponent(userId)}`);
-      
-      if (response.status === 404) return null;
-      if (!response.ok) throw new Error(`API error: ${response.status}`);
-      
-      return await response.json();
-    } catch (error) {
-      console.error('API getUserById error:', error);
-      // Fallback: use AsyncStorage
-      const users = await loadTableFromStorage('users');
-      const user = users.find((u: any) => u.id === userId);
-      if (!user) return null;
-      return {
-        name: user.name,
-        age: user.age || 0,
-        weight: user.weight || 0,
-        height: user.height || 0,
-        gender: user.gender || 'male',
-        activityLevel: user.activity_level || 'moderate',
-        goal: user.goal || 'maintenance',
-        sport: user.sport || 'bodybuilding',
-      };
-    }
+    if (response.status === 404) return null;
+    if (!response.ok) throw new Error(`API error: ${response.status}`);
+
+    const profile = await response.json();
+    
+    // Cache profile
+    await saveToCache(`profile_${userId}`, profile);
+    
+    return profile;
+  } catch (error) {
+    console.error('Get user by id error:', error);
+    // Try cache
+    return await loadFromCache<UserProfile>(`profile_${userId}`);
   }
-
-  const user = await db!.getFirstAsync(
-    'SELECT name, age, weight, height, gender, activity_level, goal, sport FROM users WHERE id = ?',
-    [userId]
-  );
-
-  if (!user) return null;
-
-  const u = user as any;
-  return {
-    name: u.name,
-    age: u.age || 0,
-    weight: u.weight || 0,
-    height: u.height || 0,
-    gender: u.gender || 'male',
-    activityLevel: u.activity_level || 'moderate',
-    goal: u.goal || 'maintenance',
-    sport: u.sport || 'bodybuilding',
-  };
 }
 
 export async function updateUser(
   userId: string,
   fields: Partial<UserProfile>
 ): Promise<void> {
-  if (!db) await initDatabase();
+  try {
+    const response = await fetch(`${API_BASE}/users/update`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, fields }),
+    });
 
-  // Web: call API route
-  if (isWeb) {
-    try {
-      const response = await fetch(`${API_BASE}/users/update`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, fields }),
-      });
-      
-      if (!response.ok) throw new Error(`API error: ${response.status}`);
-      return;
-    } catch (error) {
-      console.error('API updateUser error:', error);
-      // Fallback: use AsyncStorage
-      const users = await loadTableFromStorage('users');
-      const userIndex = users.findIndex((u: any) => u.id === userId);
-      if (userIndex === -1) return;
+    if (!response.ok) throw new Error(`API error: ${response.status}`);
 
-      const user = users[userIndex];
-      if (fields.name !== undefined) user.name = fields.name;
-      if (fields.age !== undefined) user.age = fields.age;
-      if (fields.weight !== undefined) user.weight = fields.weight;
-      if (fields.height !== undefined) user.height = fields.height;
-      if (fields.gender !== undefined) user.gender = fields.gender;
-      if (fields.activityLevel !== undefined) user.activity_level = fields.activityLevel;
-      if (fields.goal !== undefined) user.goal = fields.goal;
-      if (fields.sport !== undefined) user.sport = fields.sport;
-      user.updated_at = new Date().toISOString();
-
-      users[userIndex] = user;
-      await saveTableToStorage('users', users);
-      return;
+    // Update cache
+    const cached = await loadFromCache<UserProfile>(`profile_${userId}`);
+    if (cached) {
+      const updated = { ...cached, ...fields };
+      await saveToCache(`profile_${userId}`, updated);
     }
+  } catch (error) {
+    console.error('Update user error:', error);
+    throw error;
   }
-
-  const updates: string[] = [];
-  const values: any[] = [];
-
-  if (fields.name !== undefined) { updates.push('name = ?'); values.push(fields.name); }
-  if (fields.age !== undefined) { updates.push('age = ?'); values.push(fields.age); }
-  if (fields.weight !== undefined) { updates.push('weight = ?'); values.push(fields.weight); }
-  if (fields.height !== undefined) { updates.push('height = ?'); values.push(fields.height); }
-  if (fields.gender !== undefined) { updates.push('gender = ?'); values.push(fields.gender); }
-  if (fields.activityLevel !== undefined) { updates.push('activity_level = ?'); values.push(fields.activityLevel); }
-  if (fields.goal !== undefined) { updates.push('goal = ?'); values.push(fields.goal); }
-  if (fields.sport !== undefined) { updates.push('sport = ?'); values.push(fields.sport); }
-
-  if (updates.length === 0) return;
-
-  updates.push("updated_at = datetime('now')");
-  values.push(userId);
-
-  await db!.runAsync(
-    `UPDATE users SET ${updates.join(', ')} WHERE id = ?`,
-    values
-  );
 }
 
 // ============================================================
@@ -594,167 +172,43 @@ export async function updateUser(
 // ============================================================
 
 export async function saveDailyLog(userId: string, log: DailyLog): Promise<void> {
-  if (!db) await initDatabase();
+  try {
+    const response = await fetch(`${API_BASE}/users/daily-logs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, log }),
+    });
 
-  const logId = `${userId}_${log.date}`;
+    if (!response.ok) throw new Error(`API error: ${response.status}`);
 
-  // Use transaction for batch operations - much faster
-  await db!.withTransactionAsync(async () => {
-    // Upsert daily log
-    await db!.runAsync(
-      `INSERT INTO daily_logs (id, user_id, date, weight, notes)
-       VALUES (?, ?, ?, ?, ?)
-       ON CONFLICT(user_id, date) DO UPDATE SET weight = ?, notes = ?`,
-      [logId, userId, log.date, log.weight || null, log.notes || null, log.weight || null, log.notes || null]
-    );
-
-    // Delete existing meals and workouts for this log
-    await db!.runAsync('DELETE FROM meal_foods WHERE meal_id IN (SELECT id FROM meals WHERE daily_log_id = ?)', [logId]);
-    await db!.runAsync('DELETE FROM meals WHERE daily_log_id = ?', [logId]);
-    await db!.runAsync('DELETE FROM workouts WHERE daily_log_id = ?', [logId]);
-
-    // Batch insert meals
-    for (const meal of log.meals) {
-      await db!.runAsync(
-        'INSERT INTO meals (id, daily_log_id, name, timing, total_calories, total_protein, total_carbs, total_fat, time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [meal.id, logId, meal.name, meal.timing, meal.totalMacros.calories, meal.totalMacros.protein, meal.totalMacros.carbs, meal.totalMacros.fat, meal.time || null]
-      );
-
-      // Batch insert foods for this meal
-      for (const food of meal.foods) {
-        await db!.runAsync(
-          'INSERT INTO meal_foods (id, meal_id, food_id, food_name, food_category, grams, calories, protein, carbs, fat) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-          [`${meal.id}_${food.food.id}`, meal.id, food.food.id, food.food.name, food.food.category, food.grams, food.macros.calories, food.macros.protein, food.macros.carbs, food.macros.fat]
-        );
-      }
-    }
-
-    // Batch insert workouts
-    for (const workout of log.workouts) {
-      await db!.runAsync(
-        'INSERT INTO workouts (id, daily_log_id, name, type, duration, intensity, time) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [workout.id, logId, workout.name, workout.type, workout.duration, workout.intensity, workout.time || null]
-      );
-    }
-  });
+    // Update cache
+    const cached = await loadFromCache<DailyLog[]>(`daily_logs_${userId}`) || [];
+    const filtered = cached.filter(l => l.date !== log.date);
+    filtered.push(log);
+    await saveToCache(`daily_logs_${userId}`, filtered);
+  } catch (error) {
+    console.error('Save daily log error:', error);
+    throw error;
+  }
 }
 
 export async function getDailyLogs(userId: string, limit: number = 30): Promise<DailyLog[]> {
-  if (!db) await initDatabase();
+  try {
+    const response = await fetch(`${API_BASE}/users/daily-logs?userId=${encodeURIComponent(userId)}&limit=${limit}`);
 
-  // Single query with JOINs to get all data at once
-  const rows = await db!.getAllAsync(
-    `SELECT
-      dl.id as log_id, dl.date, dl.weight as log_weight, dl.notes,
-      m.id as meal_id, m.name as meal_name, m.timing, m.time as meal_time,
-      m.total_calories, m.total_protein, m.total_carbs, m.total_fat,
-      mf.id as food_id, mf.food_id as food_ref_id, mf.food_name, mf.food_category,
-      mf.grams, mf.calories, mf.protein, mf.carbs, mf.fat,
-      w.id as workout_id, w.name as workout_name, w.type, w.duration, w.intensity, w.time as workout_time
-    FROM daily_logs dl
-    LEFT JOIN meals m ON m.daily_log_id = dl.id
-    LEFT JOIN meal_foods mf ON mf.meal_id = m.id
-    LEFT JOIN workouts w ON w.daily_log_id = dl.id
-    WHERE dl.user_id = ?
-    ORDER BY dl.date DESC, m.id, w.id`,
-    [userId]
-  );
+    if (!response.ok) throw new Error(`API error: ${response.status}`);
 
-  // Group the flat rows into structured DailyLog objects
-  const logsMap = new Map<string, DailyLog>();
-  const mealsMap = new Map<string, Meal>();
-  const mealFoodsMap = new Map<string, { food: FoodPortion[] }>();
-  const workoutsSet = new Map<string, Set<string>>();
-
-  for (const row of rows as any[]) {
-    // Get or create daily log
-    let log = logsMap.get(row.log_id);
-    if (!log) {
-      log = {
-        date: row.date,
-        meals: [],
-        workouts: [],
-        weight: row.log_weight || undefined,
-        totalMacros: { calories: 0, protein: 0, carbs: 0, fat: 0 },
-        notes: row.notes || undefined,
-      };
-      logsMap.set(row.log_id, log);
-      workoutsSet.set(row.log_id, new Set());
-    }
-
-    // Process meal if exists
-    if (row.meal_id && !mealsMap.has(row.meal_id)) {
-      const meal: Meal = {
-        id: row.meal_id,
-        name: row.meal_name,
-        timing: row.timing,
-        foods: [],
-        totalMacros: {
-          calories: row.total_calories || 0,
-          protein: row.total_protein || 0,
-          carbs: row.total_carbs || 0,
-          fat: row.total_fat || 0,
-        },
-        time: row.meal_time || undefined,
-      };
-      mealsMap.set(row.meal_id, meal);
-      log.meals.push(meal);
-    }
-
-    // Process food if exists
-    if (row.food_id && row.meal_id) {
-      const meal = mealsMap.get(row.meal_id);
-      if (meal) {
-        const foodPortion: FoodPortion = {
-          food: {
-            id: row.food_ref_id,
-            name: row.food_name,
-            category: row.food_category || '',
-            macros: { calories: row.calories || 0, protein: row.protein || 0, carbs: row.carbs || 0, fat: row.fat || 0 },
-          },
-          grams: row.grams || 0,
-          macros: { calories: row.calories || 0, protein: row.protein || 0, carbs: row.carbs || 0, fat: row.fat || 0 },
-        };
-        // Avoid duplicate food entries
-        if (!meal.foods.some(f => f.food.id === foodPortion.food.id && f.grams === foodPortion.grams)) {
-          meal.foods.push(foodPortion);
-        }
-      }
-    }
-
-    // Process workout if exists
-    if (row.workout_id) {
-      const logWorkouts = workoutsSet.get(row.log_id)!;
-      if (!logWorkouts.has(row.workout_id)) {
-        logWorkouts.add(row.workout_id);
-        log.workouts.push({
-          id: row.workout_id,
-          name: row.workout_name,
-          type: row.type,
-          duration: row.duration || 0,
-          intensity: row.intensity || 'medium',
-          time: row.workout_time || undefined,
-        });
-      }
-    }
+    const logs = await response.json();
+    
+    // Cache logs
+    await saveToCache(`daily_logs_${userId}`, logs);
+    
+    return logs;
+  } catch (error) {
+    console.error('Get daily logs error:', error);
+    // Try cache
+    return await loadFromCache<DailyLog[]>(`daily_logs_${userId}`) || [];
   }
-
-  // Calculate totalMacros for each log
-  const result: DailyLog[] = [];
-  for (const log of logsMap.values()) {
-    log.totalMacros = log.meals.reduce(
-      (acc, m) => ({
-        calories: acc.calories + m.totalMacros.calories,
-        protein: acc.protein + m.totalMacros.protein,
-        carbs: acc.carbs + m.totalMacros.carbs,
-        fat: acc.fat + m.totalMacros.fat,
-      }),
-      { calories: 0, protein: 0, carbs: 0, fat: 0 }
-    );
-    result.push(log);
-  }
-
-  return result;
 }
 
 // ============================================================
@@ -762,32 +216,56 @@ export async function getDailyLogs(userId: string, limit: number = 30): Promise<
 // ============================================================
 
 export async function saveMealPlan(userId: string, plan: MealPlan): Promise<void> {
-  if (!db) await initDatabase();
+  try {
+    const response = await fetch(`${API_BASE}/users/meal-plans`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, plan }),
+    });
 
-  await db!.runAsync(
-    'INSERT OR REPLACE INTO meal_plans (id, user_id, name, goal, total_calories, total_protein, total_carbs, total_fat, meals_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [plan.id, userId, plan.name, plan.goal, plan.totalMacros.calories, plan.totalMacros.protein, plan.totalMacros.carbs, plan.totalMacros.fat, JSON.stringify(plan.meals)]
-  );
+    if (!response.ok) throw new Error(`API error: ${response.status}`);
+
+    // Update cache
+    const cached = await loadFromCache<MealPlan[]>(`meal_plans_${userId}`) || [];
+    const filtered = cached.filter(p => p.id !== plan.id);
+    filtered.push(plan);
+    await saveToCache(`meal_plans_${userId}`, filtered);
+  } catch (error) {
+    console.error('Save meal plan error:', error);
+    throw error;
+  }
 }
 
 export async function getMealPlans(userId: string): Promise<MealPlan[]> {
-  if (!db) await initDatabase();
+  try {
+    const response = await fetch(`${API_BASE}/users/meal-plans?userId=${encodeURIComponent(userId)}`);
 
-  const plans = await db!.getAllAsync('SELECT * FROM meal_plans WHERE user_id = ? ORDER BY created_at DESC', [userId]);
+    if (!response.ok) throw new Error(`API error: ${response.status}`);
 
-  return (plans as any[]).map(p => ({
-    id: p.id,
-    name: p.name,
-    goal: p.goal,
-    meals: JSON.parse(p.meals_json),
-    totalMacros: { calories: p.total_calories, protein: p.total_protein, carbs: p.total_carbs, fat: p.total_fat },
-    createdAt: p.created_at,
-  }));
+    const plans = await response.json();
+    
+    // Cache plans
+    await saveToCache(`meal_plans_${userId}`, plans);
+    
+    return plans;
+  } catch (error) {
+    console.error('Get meal plans error:', error);
+    // Try cache
+    return await loadFromCache<MealPlan[]>(`meal_plans_${userId}`) || [];
+  }
 }
 
 export async function deleteMealPlan(planId: string): Promise<void> {
-  if (!db) await initDatabase();
-  await db!.runAsync('DELETE FROM meal_plans WHERE id = ?', [planId]);
+  try {
+    const response = await fetch(`${API_BASE}/users/meal-plans/${planId}`, {
+      method: 'DELETE',
+    });
+
+    if (!response.ok) throw new Error(`API error: ${response.status}`);
+  } catch (error) {
+    console.error('Delete meal plan error:', error);
+    throw error;
+  }
 }
 
 // ============================================================
@@ -795,49 +273,43 @@ export async function deleteMealPlan(planId: string): Promise<void> {
 // ============================================================
 
 export async function saveCustomFood(userId: string, food: Food): Promise<void> {
-  if (!db) await initDatabase();
+  try {
+    const response = await fetch(`${API_BASE}/users/custom-foods`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, food }),
+    });
 
-  // Web fallback
-  if (isWeb) {
-    const foods = getMemoryTable('custom_foods');
-    const existing = foods.findIndex(f => f.id === food.id && f.user_id === userId);
-    const item = { id: food.id, user_id: userId, name: food.name, category: food.category, ...food.macros };
-    if (existing >= 0) {
-      foods[existing] = item;
-    } else {
-      foods.push(item);
-    }
-    return;
+    if (!response.ok) throw new Error(`API error: ${response.status}`);
+
+    // Update cache
+    const cached = await loadFromCache<Food[]>(`custom_foods_${userId}`) || [];
+    const filtered = cached.filter(f => f.id !== food.id);
+    filtered.push(food);
+    await saveToCache(`custom_foods_${userId}`, filtered);
+  } catch (error) {
+    console.error('Save custom food error:', error);
+    throw error;
   }
-
-  await db!.runAsync(
-    'INSERT OR REPLACE INTO custom_foods (id, user_id, name, category, calories, protein, carbs, fat) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-    [food.id, userId, food.name, food.category, food.macros.calories, food.macros.protein, food.macros.carbs, food.macros.fat]
-  );
 }
 
 export async function getCustomFoods(userId: string): Promise<Food[]> {
-  if (!db) await initDatabase();
+  try {
+    const response = await fetch(`${API_BASE}/users/custom-foods?userId=${encodeURIComponent(userId)}`);
 
-  // Web fallback
-  if (isWeb) {
-    const foods = getMemoryTable('custom_foods');
-    return foods.filter(f => f.user_id === userId).map(f => ({
-      id: f.id,
-      name: f.name,
-      category: f.category,
-      macros: { calories: f.calories, protein: f.protein, carbs: f.carbs, fat: f.fat },
-    }));
+    if (!response.ok) throw new Error(`API error: ${response.status}`);
+
+    const foods = await response.json();
+    
+    // Cache foods
+    await saveToCache(`custom_foods_${userId}`, foods);
+    
+    return foods;
+  } catch (error) {
+    console.error('Get custom foods error:', error);
+    // Try cache
+    return await loadFromCache<Food[]>(`custom_foods_${userId}`) || [];
   }
-
-  const foods = await db!.getAllAsync('SELECT * FROM custom_foods WHERE user_id = ?', [userId]);
-
-  return (foods as any[]).map(f => ({
-    id: f.id,
-    name: f.name,
-    category: f.category,
-    macros: { calories: f.calories, protein: f.protein, carbs: f.carbs, fat: f.fat },
-  }));
 }
 
 // ============================================================
@@ -845,47 +317,43 @@ export async function getCustomFoods(userId: string): Promise<Food[]> {
 // ============================================================
 
 export async function saveWeightEntry(userId: string, entry: { date: string; weight: number; bodyFat?: number }): Promise<void> {
-  if (!db) await initDatabase();
+  try {
+    const response = await fetch(`${API_BASE}/users/weight-history`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, entry }),
+    });
 
-  // Web fallback
-  if (isWeb) {
-    const entries = getMemoryTable('weight_history');
-    const existing = entries.findIndex(e => e.user_id === userId && e.date === entry.date);
-    const item = { id: `${userId}_${entry.date}`, user_id: userId, date: entry.date, weight: entry.weight, body_fat: entry.bodyFat || null };
-    if (existing >= 0) {
-      entries[existing] = item;
-    } else {
-      entries.push(item);
-    }
-    return;
+    if (!response.ok) throw new Error(`API error: ${response.status}`);
+
+    // Update cache
+    const cached = await loadFromCache<any[]>(`weight_history_${userId}`) || [];
+    const filtered = cached.filter(e => e.date !== entry.date);
+    filtered.push({ ...entry, id: `${userId}_${entry.date}` });
+    await saveToCache(`weight_history_${userId}`, filtered);
+  } catch (error) {
+    console.error('Save weight entry error:', error);
+    throw error;
   }
-
-  await db!.runAsync(
-    'INSERT INTO weight_history (id, user_id, date, weight, body_fat) VALUES (?, ?, ?, ?, ?) ON CONFLICT(user_id, date) DO UPDATE SET weight = ?, body_fat = ?',
-    [`${userId}_${entry.date}`, userId, entry.date, entry.weight, entry.bodyFat || null, entry.weight, entry.bodyFat || null]
-  );
 }
 
 export async function getWeightHistory(userId: string): Promise<{ date: string; weight: number; bodyFat?: number }[]> {
-  if (!db) await initDatabase();
+  try {
+    const response = await fetch(`${API_BASE}/users/weight-history?userId=${encodeURIComponent(userId)}`);
 
-  // Web fallback
-  if (isWeb) {
-    const entries = getMemoryTable('weight_history');
-    return entries.filter(e => e.user_id === userId).sort((a, b) => a.date.localeCompare(b.date)).map(e => ({
-      date: e.date,
-      weight: e.weight,
-      bodyFat: e.body_fat || undefined,
-    }));
+    if (!response.ok) throw new Error(`API error: ${response.status}`);
+
+    const history = await response.json();
+    
+    // Cache history
+    await saveToCache(`weight_history_${userId}`, history);
+    
+    return history;
+  } catch (error) {
+    console.error('Get weight history error:', error);
+    // Try cache
+    return await loadFromCache<any[]>(`weight_history_${userId}`) || [];
   }
-
-  const entries = await db!.getAllAsync('SELECT * FROM weight_history WHERE user_id = ? ORDER BY date ASC', [userId]);
-
-  return (entries as any[]).map(e => ({
-    date: e.date,
-    weight: e.weight,
-    bodyFat: e.body_fat || undefined,
-  }));
 }
 
 // ============================================================
@@ -898,11 +366,9 @@ export interface BodyMeasurement {
   height?: number;
   bodyFat?: number;
   bodyFatMethod?: 'visual' | 'skinfold' | 'bioimpedance';
-  // Bioimpedance
   resistance?: number;
   reactance?: number;
   phaseAngle?: number;
-  // Full composition from BLE scales
   muscleMass?: number;
   skeletalMuscle?: number;
   waterPercent?: number;
@@ -912,7 +378,6 @@ export interface BodyMeasurement {
   proteinMass?: number;
   basalMetabolism?: number;
   visceralFat?: number;
-  // Skinfolds (mm) - Padrão CREF
   triceps?: number;
   biceps?: number;
   subscapular?: number;
@@ -922,7 +387,6 @@ export interface BodyMeasurement {
   axillaryMid?: number;
   thighSkinfold?: number;
   calfSkinfold?: number;
-  // Circumferences (cm) - Padrão CREF
   armRelaxedRight?: number;
   armRelaxedLeft?: number;
   armFlexedRight?: number;
@@ -943,7 +407,6 @@ export interface BodyMeasurement {
   calfLeft?: number;
   ankleRight?: number;
   ankleLeft?: number;
-  // Calculated
   leanMass?: number;
   fatMass?: number;
   bmi?: number;
@@ -952,203 +415,41 @@ export interface BodyMeasurement {
 }
 
 export async function saveBodyMeasurement(userId: string, measurement: BodyMeasurement): Promise<void> {
-  if (!db) await initDatabase();
+  try {
+    const response = await fetch(`${API_BASE}/users/body-measurements`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, measurement }),
+    });
 
-  const id = `${userId}_${measurement.date}`;
-  const h = measurement.height || 170;
-  const leanMass = measurement.weight * (1 - (measurement.bodyFat || 0) / 100);
-  const fatMass = measurement.weight * ((measurement.bodyFat || 0) / 100);
-  const bmi = measurement.weight / Math.pow(h / 100, 2);
-  const waistHipRatio = (measurement.waistCircumference && measurement.hipCircumference)
-    ? measurement.waistCircumference / measurement.hipCircumference : undefined;
+    if (!response.ok) throw new Error(`API error: ${response.status}`);
 
-  const fields = [
-    id, userId, measurement.date, measurement.weight, measurement.height || null,
-    measurement.bodyFat || null, measurement.bodyFatMethod || 'visual',
-    measurement.resistance || null, measurement.reactance || null, measurement.phaseAngle || null,
-    measurement.muscleMass || null, measurement.skeletalMuscle || null,
-    measurement.waterPercent || null, measurement.waterKg || null,
-    measurement.boneMass || null, measurement.proteinPercent || null,
-    measurement.proteinMass || null, measurement.basalMetabolism || null,
-    measurement.visceralFat || null,
-    measurement.triceps || null, measurement.biceps || null, measurement.subscapular || null,
-    measurement.suprailiac || null, measurement.abdominal || null, measurement.chestSkinfold || null,
-    measurement.axillaryMid || null, measurement.thighSkinfold || null, measurement.calfSkinfold || null,
-    measurement.armRelaxedRight || null, measurement.armRelaxedLeft || null,
-    measurement.armFlexedRight || null, measurement.armFlexedLeft || null,
-    measurement.forearmRight || null, measurement.forearmLeft || null,
-    measurement.wristRight || null, measurement.wristLeft || null,
-    measurement.chestCircumference || null, measurement.waistCircumference || null,
-    measurement.abdomenCircumference || null, measurement.hipCircumference || null,
-    measurement.thighProximalRight || null, measurement.thighProximalLeft || null,
-    measurement.thighMidRight || null, measurement.thighMidLeft || null,
-    measurement.calfRight || null, measurement.calfLeft || null,
-    measurement.ankleRight || null, measurement.ankleLeft || null,
-    leanMass, fatMass, bmi, waistHipRatio || null, measurement.notes || null,
-  ];
-
-  if (isWeb) {
-    const measurements = getMemoryTable('body_measurements');
-    const existing = measurements.findIndex(m => m.user_id === userId && m.date === measurement.date);
-    const item: any = {
-      id, user_id: userId, date: measurement.date,
-      weight: measurement.weight, height: measurement.height || null,
-      body_fat: measurement.bodyFat || null, body_fat_method: measurement.bodyFatMethod || 'visual',
-      resistance: measurement.resistance || null, reactance: measurement.reactance || null, phase_angle: measurement.phaseAngle || null,
-      muscle_mass: measurement.muscleMass || null, skeletal_muscle: measurement.skeletalMuscle || null,
-      water_percent: measurement.waterPercent || null, water_kg: measurement.waterKg || null,
-      bone_mass: measurement.boneMass || null, protein_percent: measurement.proteinPercent || null,
-      protein_mass: measurement.proteinMass || null, basal_metabolism: measurement.basalMetabolism || null,
-      visceral_fat_grade: measurement.visceralFat || null,
-      triceps: measurement.triceps || null, biceps: measurement.biceps || null,
-      subscapular: measurement.subscapular || null, suprailiac: measurement.suprailiac || null,
-      abdominal: measurement.abdominal || null, chest_skinfold: measurement.chestSkinfold || null,
-      axillary_mid: measurement.axillaryMid || null, thigh_skinfold: measurement.thighSkinfold || null, calf_skinfold: measurement.calfSkinfold || null,
-      arm_relaxed_right: measurement.armRelaxedRight || null, arm_relaxed_left: measurement.armRelaxedLeft || null,
-      arm_flexed_right: measurement.armFlexedRight || null, arm_flexed_left: measurement.armFlexedLeft || null,
-      forearm_right: measurement.forearmRight || null, forearm_left: measurement.forearmLeft || null,
-      wrist_right: measurement.wristRight || null, wrist_left: measurement.wristLeft || null,
-      chest_circumference: measurement.chestCircumference || null, waist_circumference: measurement.waistCircumference || null,
-      abdomen_circumference: measurement.abdomenCircumference || null, hip_circumference: measurement.hipCircumference || null,
-      thigh_proximal_right: measurement.thighProximalRight || null, thigh_proximal_left: measurement.thighProximalLeft || null,
-      thigh_mid_right: measurement.thighMidRight || null, thigh_mid_left: measurement.thighMidLeft || null,
-      calf_right: measurement.calfRight || null, calf_left: measurement.calfLeft || null,
-      ankle_right: measurement.ankleRight || null, ankle_left: measurement.ankleLeft || null,
-      lean_mass: leanMass, fat_mass: fatMass, bmi, waist_hip_ratio: waistHipRatio || null, notes: measurement.notes || null,
-    };
-    if (existing >= 0) { measurements[existing] = item; } else { measurements.push(item); }
-    console.log('Web saveBodyMeasurement success:', measurement.date);
-    return;
+    // Update cache
+    const cached = await loadFromCache<BodyMeasurement[]>(`body_measurements_${userId}`) || [];
+    const filtered = cached.filter(m => m.date !== measurement.date);
+    filtered.push(measurement);
+    await saveToCache(`body_measurements_${userId}`, filtered);
+  } catch (error) {
+    console.error('Save body measurement error:', error);
+    throw error;
   }
-
-  await db!.runAsync(
-    `INSERT INTO body_measurements (id, user_id, date, weight, height, body_fat, body_fat_method, resistance, reactance, phase_angle, muscle_mass, skeletal_muscle, water_percent, water_kg, bone_mass, protein_percent, protein_mass, basal_metabolism, visceral_fat_grade, triceps, biceps, subscapular, suprailiac, abdominal, chest_skinfold, axillary_mid, thigh_skinfold, calf_skinfold, arm_relaxed_right, arm_relaxed_left, arm_flexed_right, arm_flexed_left, forearm_right, forearm_left, wrist_right, wrist_left, chest_circumference, waist_circumference, abdomen_circumference, hip_circumference, thigh_proximal_right, thigh_proximal_left, thigh_mid_right, thigh_mid_left, calf_right, calf_left, ankle_right, ankle_left, lean_mass, fat_mass, bmi, waist_hip_ratio, notes)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-     ON CONFLICT(user_id, date) DO UPDATE SET weight=excluded.weight, height=excluded.height, body_fat=excluded.body_fat, body_fat_method=excluded.body_fat_method, resistance=excluded.resistance, reactance=excluded.reactance, phase_angle=excluded.phase_angle, muscle_mass=excluded.muscle_mass, skeletal_muscle=excluded.skeletal_muscle, water_percent=excluded.water_percent, water_kg=excluded.water_kg, bone_mass=excluded.bone_mass, protein_percent=excluded.protein_percent, protein_mass=excluded.protein_mass, basal_metabolism=excluded.basal_metabolism, visceral_fat_grade=excluded.visceral_fat_grade, triceps=excluded.triceps, biceps=excluded.biceps, subscapular=excluded.subscapular, suprailiac=excluded.suprailiac, abdominal=excluded.abdominal, chest_skinfold=excluded.chest_skinfold, axillary_mid=excluded.axillary_mid, thigh_skinfold=excluded.thigh_skinfold, calf_skinfold=excluded.calf_skinfold, arm_relaxed_right=excluded.arm_relaxed_right, arm_relaxed_left=excluded.arm_relaxed_left, arm_flexed_right=excluded.arm_flexed_right, arm_flexed_left=excluded.arm_flexed_left, forearm_right=excluded.forearm_right, forearm_left=excluded.forearm_left, wrist_right=excluded.wrist_right, wrist_left=excluded.wrist_left, chest_circumference=excluded.chest_circumference, waist_circumference=excluded.waist_circumference, abdomen_circumference=excluded.abdomen_circumference, hip_circumference=excluded.hip_circumference, thigh_proximal_right=excluded.thigh_proximal_right, thigh_proximal_left=excluded.thigh_proximal_left, thigh_mid_right=excluded.thigh_mid_right, thigh_mid_left=excluded.thigh_mid_left, calf_right=excluded.calf_right, calf_left=excluded.calf_left, ankle_right=excluded.ankle_right, ankle_left=excluded.ankle_left, lean_mass=excluded.lean_mass, fat_mass=excluded.fat_mass, bmi=excluded.bmi, waist_hip_ratio=excluded.waist_hip_ratio, notes=excluded.notes`,
-    fields
-  );
 }
 
 export async function getBodyMeasurements(userId: string, limit: number = 30): Promise<BodyMeasurement[]> {
-  if (!db) await initDatabase();
+  try {
+    const response = await fetch(`${API_BASE}/users/body-measurements?userId=${encodeURIComponent(userId)}&limit=${limit}`);
 
-  if (isWeb) {
-    const measurements = getMemoryTable('body_measurements');
-    return measurements
-      .filter(m => m.user_id === userId)
-      .sort((a, b) => b.date.localeCompare(a.date))
-      .slice(0, limit)
-      .map(m => ({
-        date: m.date,
-        weight: m.weight,
-        height: m.height,
-        bodyFat: m.body_fat,
-        bodyFatMethod: m.body_fat_method as 'visual' | 'skinfold' | 'bioimpedance',
-        resistance: m.resistance,
-        reactance: m.reactance,
-        phaseAngle: m.phase_angle,
-        muscleMass: m.muscle_mass,
-        skeletalMuscle: m.skeletal_muscle,
-        waterPercent: m.water_percent,
-        waterKg: m.water_kg,
-        boneMass: m.bone_mass,
-        proteinPercent: m.protein_percent,
-        proteinMass: m.protein_mass,
-        basalMetabolism: m.basal_metabolism,
-        visceralFat: m.visceral_fat_grade,
-        triceps: m.triceps,
-        biceps: m.biceps,
-        subscapular: m.subscapular,
-        suprailiac: m.suprailiac,
-        abdominal: m.abdominal,
-        chestSkinfold: m.chest_skinfold,
-        axillaryMid: m.axillary_mid,
-        thighSkinfold: m.thigh_skinfold,
-        calfSkinfold: m.calf_skinfold,
-        armRelaxedRight: m.arm_relaxed_right,
-        armRelaxedLeft: m.arm_relaxed_left,
-        armFlexedRight: m.arm_flexed_right,
-        armFlexedLeft: m.arm_flexed_left,
-        forearmRight: m.forearm_right,
-        forearmLeft: m.forearm_left,
-        wristRight: m.wrist_right,
-        wristLeft: m.wrist_left,
-        chestCircumference: m.chest_circumference,
-        waistCircumference: m.waist_circumference,
-        abdomenCircumference: m.abdomen_circumference,
-        hipCircumference: m.hip_circumference,
-        thighProximalRight: m.thigh_proximal_right,
-        thighProximalLeft: m.thigh_proximal_left,
-        thighMidRight: m.thigh_mid_right,
-        thighMidLeft: m.thigh_mid_left,
-        calfRight: m.calf_right,
-        calfLeft: m.calf_left,
-        ankleRight: m.ankle_right,
-        ankleLeft: m.ankle_left,
-        leanMass: m.lean_mass,
-        fatMass: m.fat_mass,
-        bmi: m.bmi,
-        waistHipRatio: m.waist_hip_ratio,
-        notes: m.notes,
-      }));
+    if (!response.ok) throw new Error(`API error: ${response.status}`);
+
+    const measurements = await response.json();
+    
+    // Cache measurements
+    await saveToCache(`body_measurements_${userId}`, measurements);
+    
+    return measurements;
+  } catch (error) {
+    console.error('Get body measurements error:', error);
+    // Try cache
+    return await loadFromCache<BodyMeasurement[]>(`body_measurements_${userId}`) || [];
   }
-
-  const rows = await db!.getAllAsync(
-    'SELECT * FROM body_measurements WHERE user_id = ? ORDER BY date DESC LIMIT ?',
-    [userId, limit]
-  );
-
-  return (rows as any[]).map(r => ({
-    date: r.date,
-    weight: r.weight,
-    height: r.height,
-    bodyFat: r.body_fat,
-    bodyFatMethod: r.body_fat_method as 'visual' | 'skinfold' | 'bioimpedance',
-    resistance: r.resistance,
-    reactance: r.reactance,
-    phaseAngle: r.phase_angle,
-    muscleMass: r.muscle_mass,
-    skeletalMuscle: r.skeletal_muscle,
-    waterPercent: r.water_percent,
-    waterKg: r.water_kg,
-    boneMass: r.bone_mass,
-    proteinPercent: r.protein_percent,
-    proteinMass: r.protein_mass,
-    basalMetabolism: r.basal_metabolism,
-    visceralFat: r.visceral_fat_grade,
-    triceps: r.triceps,
-    biceps: r.biceps,
-    subscapular: r.subscapular,
-    suprailiac: r.suprailiac,
-    abdominal: r.abdominal,
-    chestSkinfold: r.chest_skinfold,
-    axillaryMid: r.axillary_mid,
-    thighSkinfold: r.thigh_skinfold,
-    calfSkinfold: r.calf_skinfold,
-    armRelaxedRight: r.arm_relaxed_right,
-    armRelaxedLeft: r.arm_relaxed_left,
-    armFlexedRight: r.arm_flexed_right,
-    armFlexedLeft: r.arm_flexed_left,
-    forearmRight: r.forearm_right,
-    forearmLeft: r.forearm_left,
-    wristRight: r.wrist_right,
-    wristLeft: r.wrist_left,
-    chestCircumference: r.chest_circumference,
-    waistCircumference: r.waist_circumference,
-    abdomenCircumference: r.abdomen_circumference,
-    hipCircumference: r.hip_circumference,
-    thighProximalRight: r.thigh_proximal_right,
-    thighProximalLeft: r.thigh_proximal_left,
-    thighMidRight: r.thigh_mid_right,
-    thighMidLeft: r.thigh_mid_left,
-    calfRight: r.calf_right,
-    calfLeft: r.calf_left,
-    ankleRight: r.ankle_right,
-    ankleLeft: r.ankle_left,
-    leanMass: r.lean_mass,
-    fatMass: r.fat_mass,
-    bmi: r.bmi,
-    waistHipRatio: r.waist_hip_ratio,
-    notes: r.notes,
-  }));
 }
