@@ -79,6 +79,18 @@ export const registerRateLimit = rateLimit({
   message: 'Too many registration attempts. Please try again in 10 minutes.',
 });
 
+export const forgotPasswordRateLimit = rateLimit({
+  maxRequests: 3,
+  windowMs: 60 * 60 * 1000, // 1 hour
+  message: 'Too many password reset attempts. Please try again in 1 hour.',
+});
+
+export const resetPasswordRateLimit = rateLimit({
+  maxRequests: 5,
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  message: 'Too many password reset attempts. Please try again in 15 minutes.',
+});
+
 export const generalRateLimit = rateLimit({
   maxRequests: 30,
   windowMs: 60 * 1000, // 1 minute

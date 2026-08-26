@@ -1,15 +1,14 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../constants/theme';
-import * as Database from '../services/database';
 
 export default function ForgotPasswordScreen({ navigation }: any) {
   const [email, setEmail] = useState('');
+  const [token, setToken] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [step, setStep] = useState<'email' | 'reset'>('email');
+  const [step, setStep] = useState<'email' | 'token' | 'reset'>('email');
   const [loading, setLoading] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
 
   const handleVerifyEmail = async () => {
     if (!email.trim() || !email.includes('@')) {
@@ -19,23 +18,51 @@ export default function ForgotPasswordScreen({ navigation }: any) {
 
     setLoading(true);
     try {
-      const user = await Database.getUserByEmail(email.trim());
-      if (user) {
-        setUserId(user.id);
-        setStep('reset');
-      } else {
-        Alert.alert('Erro', 'Email não encontrado');
-      }
+      // Call API to send reset email
+      const response = await fetch('/api/users/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim() }),
+      });
+
+      const data = await response.json();
+
+      // Always show success message to prevent email enumeration
+      Alert.alert(
+        'Email Enviado',
+        'Se o email estiver cadastrado, você receberá um link de recuperação com um código de 64 caracteres.',
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              // In development, auto-fill token if returned
+              if (data.token) {
+                setToken(data.token);
+              }
+              setStep('token');
+            },
+          },
+        ]
+      );
     } catch (error) {
-      Alert.alert('Erro', 'Não foi possível verificar o email');
+      console.error('Forgot password error:', error);
+      Alert.alert('Erro', 'Não foi possível processar sua solicitação. Tente novamente.');
     } finally {
       setLoading(false);
     }
   };
 
+  const handleVerifyToken = () => {
+    if (!token.trim() || token.length < 64) {
+      Alert.alert('Erro', 'Digite o código de recuperação completo');
+      return;
+    }
+    setStep('reset');
+  };
+
   const handleResetPassword = async () => {
-    if (!newPassword || newPassword.length < 6) {
-      Alert.alert('Erro', 'A senha deve ter pelo menos 6 caracteres');
+    if (!newPassword || newPassword.length < 8) {
+      Alert.alert('Erro', 'A senha deve ter pelo menos 8 caracteres');
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -45,14 +72,31 @@ export default function ForgotPasswordScreen({ navigation }: any) {
 
     setLoading(true);
     try {
-      if (userId) {
-        await Database.resetPassword(userId, newPassword);
-        Alert.alert('Sucesso', 'Senha alterada com sucesso!', [
-          { text: 'OK', onPress: () => navigation.goBack() }
-        ]);
+      const response = await fetch('/api/users/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: token.trim(), newPassword }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to reset password');
       }
-    } catch (error) {
-      Alert.alert('Erro', 'Não foi possível alterar a senha');
+
+      Alert.alert('Sucesso', 'Senha alterada com sucesso!', [
+        { text: 'OK', onPress: () => navigation.goBack() },
+      ]);
+    } catch (error: any) {
+      console.error('Reset password error:', error);
+      if (error.message === 'Token expired') {
+        Alert.alert('Erro', 'O código de recuperação expirou. Solicite um novo.');
+        setStep('email');
+      } else if (error.message === 'Invalid or expired token') {
+        Alert.alert('Erro', 'Código de recuperação inválido. Verifique e tente novamente.');
+      } else {
+        Alert.alert('Erro', 'Não foi possível alterar a senha. Tente novamente.');
+      }
     } finally {
       setLoading(false);
     }
@@ -73,7 +117,7 @@ export default function ForgotPasswordScreen({ navigation }: any) {
         {step === 'email' ? (
           <>
             <Text style={styles.subtitle}>
-              Digite seu email para verificar sua conta
+              Digite seu email para receber o código de recuperação
             </Text>
 
             <TextInput
@@ -91,7 +135,39 @@ export default function ForgotPasswordScreen({ navigation }: any) {
               onPress={handleVerifyEmail}
               disabled={loading}
             >
-              <Text style={styles.buttonText}>{loading ? 'Verificando...' : 'Verificar Email'}</Text>
+              <Text style={styles.buttonText}>{loading ? 'Enviando...' : 'Enviar Código'}</Text>
+            </TouchableOpacity>
+          </>
+        ) : step === 'token' ? (
+          <>
+            <Text style={styles.subtitle}>
+              Digite o código de recuperação enviado para seu email
+            </Text>
+
+            <TextInput
+              style={[styles.input, styles.tokenInput]}
+              placeholder="Código de 64 caracteres"
+              placeholderTextColor={COLORS.textMuted}
+              value={token}
+              onChangeText={setToken}
+              autoCapitalize="none"
+              autoCorrect={false}
+              multiline
+            />
+
+            <TouchableOpacity
+              style={[styles.button, loading && styles.buttonDisabled]}
+              onPress={handleVerifyToken}
+              disabled={loading}
+            >
+              <Text style={styles.buttonText}>Verificar Código</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.linkButton}
+              onPress={() => setStep('email')}
+            >
+              <Text style={styles.linkText}>Reenviar código</Text>
             </TouchableOpacity>
           </>
         ) : (
@@ -102,7 +178,7 @@ export default function ForgotPasswordScreen({ navigation }: any) {
 
             <TextInput
               style={styles.input}
-              placeholder="Nova senha (mínimo 6 caracteres)"
+              placeholder="Nova senha (mínimo 8 caracteres)"
               placeholderTextColor={COLORS.textMuted}
               value={newPassword}
               onChangeText={setNewPassword}
@@ -167,6 +243,20 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontSize: FONT_SIZE.md,
     marginBottom: SPACING.md,
+  },
+  tokenInput: {
+    minHeight: 80,
+    textAlignVertical: 'top',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    fontSize: FONT_SIZE.sm,
+  },
+  linkButton: {
+    marginTop: SPACING.md,
+    alignItems: 'center',
+  },
+  linkText: {
+    color: COLORS.primary,
+    fontSize: FONT_SIZE.md,
   },
   button: {
     backgroundColor: COLORS.primary,
