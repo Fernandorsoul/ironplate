@@ -11,9 +11,24 @@ jobs:
   deploy:
     name: Deploy to Vercel
     runs-on: ubuntu-latest
+    
+    # Only deploy if the tag/release is on master branch
+    if: github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v')
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.target_commitish || github.ref }}
+
+      - name: Verify branch is master
+        run: |
+          echo "Deploying from: ${{ github.ref }}"
+          echo "Release target: ${{ github.event.release.target_commitish || 'N/A' }}"
+          if [[ "${{ github.event_name }}" == "release" && "${{ github.event.release.target_commitish }}" != "master" ]]; then
+            echo " Release is not targeting master branch. Aborting deploy."
+            exit 1
+          fi
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -52,5 +67,5 @@ jobs:
               repo: context.repo.repo,
               ref: context.sha,
               environment: 'production',
-              description: `Deployed from release/tag: ${{ github.ref_name }}`
+              description: `Deployed from release/tag: ${{ github.ref_name }} (branch: ${{ github.event.release.target_commitish || 'tag' }})`
             });
