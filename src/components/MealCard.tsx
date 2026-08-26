@@ -35,6 +35,13 @@ export function MealCard({ meal, onDelete }: MealCardProps) {
         <Text style={[styles.macro, { color: COLORS.carbs }]}>C: {meal.totalMacros.carbs}g</Text>
         <Text style={[styles.macro, { color: COLORS.fat }]}>G: {meal.totalMacros.fat}g</Text>
       </View>
+      {meal.foods.map((portion, index) => (
+        <Text key={index} style={styles.portion}>
+          {portion.quantity && portion.unit
+            ? portion.quantity + ' ' + portion.unit + ' de ' + portion.food.name
+            : portion.grams + 'g de ' + portion.food.name}
+        </Text>
+      ))}
     </View>
   );
 }
@@ -79,4 +86,5 @@ const styles = StyleSheet.create({
   macro: {
     fontSize: FONT_SIZE.sm,
   },
+  portion: { color: COLORS.textSecondary, fontSize: FONT_SIZE.xs, marginTop: SPACING.xs },
 });

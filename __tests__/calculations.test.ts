@@ -6,6 +6,8 @@ import {
   calculatePortionMacros,
   sumMacros,
   getMacroPercentages,
+  calculateWorkoutCalories,
+  calculateDailyEnergyExpenditure,
 } from '../src/utils/calculations';
 import { UserProfile } from '../src/types';
 
@@ -68,6 +70,23 @@ describe('Nutrition Calculations', () => {
       const sedentary = { ...maleProfile, activityLevel: 'sedentary' as const };
       const veryActive = { ...maleProfile, activityLevel: 'very_active' as const };
       expect(calculateTDEE(veryActive)).toBeGreaterThan(calculateTDEE(sedentary));
+    });
+  });
+
+  describe('workout energy expenditure', () => {
+    it('uses workout type, duration, intensity and body weight', () => {
+      const strength = { id: '1', name: 'Força', type: 'strength' as const, duration: 60, intensity: 'medium' as const };
+      const bjj = { ...strength, id: '2', type: 'bjj' as const };
+      expect(calculateWorkoutCalories(strength, 80)).toBe(504);
+      expect(calculateWorkoutCalories(bjj, 80)).toBe(865);
+    });
+
+    it('adds workout calories to a sedentary daily baseline', () => {
+      const workout = { id: '1', name: 'Cardio', type: 'cardio' as const, duration: 30, intensity: 'high' as const };
+      const result = calculateDailyEnergyExpenditure(maleProfile, [workout]);
+      expect(result.baseExpenditure).toBe(Math.round(calculateBMR(maleProfile) * 1.2));
+      expect(result.workoutExpenditure).toBe(calculateWorkoutCalories(workout, maleProfile.weight));
+      expect(result.totalExpenditure).toBe(result.baseExpenditure + result.workoutExpenditure);
     });
   });
 

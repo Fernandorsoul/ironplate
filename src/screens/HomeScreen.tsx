@@ -1,13 +1,18 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../constants/theme';
 import { useApp } from '../context/AppContext';
 import { MacroCard, ActionButton, MealCard } from '../components';
 import { useMacros } from '../hooks';
+import { calculateDailyEnergyExpenditure, calculateWorkoutCalories } from '../utils/calculations';
 
 export default function HomeScreen({ navigation }: any) {
   const { profile, targetMacros, todayLog, removeMealFromToday } = useApp();
   const { current, percentages } = useMacros(targetMacros, todayLog);
+  const dailyExpenditure = useMemo(
+    () => profile ? calculateDailyEnergyExpenditure(profile, todayLog?.workouts || []) : null,
+    [profile, todayLog?.workouts],
+  );
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
@@ -38,6 +43,18 @@ export default function HomeScreen({ navigation }: any) {
           <View style={[styles.calorieBarFill, { width: `${Math.min(percentages.calories, 100)}%` }]} />
         </View>
       </View>
+
+      {dailyExpenditure && (
+        <View style={styles.expenditureCard}>
+          <Text style={styles.expenditureTitle}>Gasto diário estimado</Text>
+          <Text style={styles.expenditureValue}>{dailyExpenditure.totalExpenditure} kcal</Text>
+          <View style={styles.expenditureBreakdown}>
+            <Text style={styles.expenditureDetail}>Base: {dailyExpenditure.baseExpenditure} kcal</Text>
+            <Text style={styles.expenditureDetail}>Treinos: +{dailyExpenditure.workoutExpenditure} kcal</Text>
+          </View>
+          <Text style={styles.estimateNote}>Estimativa baseada no tipo, intensidade e duração dos treinos.</Text>
+        </View>
+      )}
 
       {/* Macros Grid */}
       <View style={styles.macrosGrid}>
@@ -81,6 +98,9 @@ export default function HomeScreen({ navigation }: any) {
         todayLog?.workouts.map((workout, index) => (
           <View key={index} style={styles.workoutCard}>
             <Text style={styles.workoutName}>{workout.name}</Text>
+            <Text style={styles.workoutCalories}>
+              {profile ? calculateWorkoutCalories(workout, profile.weight) : 0} kcal estimadas
+            </Text>
             <Text style={styles.workoutDetails}>{workout.duration} min • {workout.intensity}</Text>
           </View>
         ))
@@ -137,6 +157,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: SPACING.md,
   },
+  expenditureCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: BORDER_RADIUS.lg,
+    padding: SPACING.lg,
+    marginBottom: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.accent,
+  },
+  expenditureTitle: { color: COLORS.textSecondary, fontSize: FONT_SIZE.sm, textAlign: 'center' },
+  expenditureValue: { color: COLORS.accent, fontSize: FONT_SIZE.xxl, fontWeight: 'bold', textAlign: 'center', marginVertical: SPACING.sm },
+  expenditureBreakdown: { flexDirection: 'row', justifyContent: 'space-between' },
+  expenditureDetail: { color: COLORS.textSecondary, fontSize: FONT_SIZE.xs },
+  estimateNote: { color: COLORS.textMuted, fontSize: 10, textAlign: 'center', marginTop: SPACING.sm },
   calorieCircle: {
     alignItems: 'center',
     marginBottom: SPACING.md,
@@ -217,4 +250,5 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     marginTop: SPACING.xs,
   },
+  workoutCalories: { color: COLORS.accent, fontSize: FONT_SIZE.sm, fontWeight: '600', marginTop: SPACING.xs },
 });
