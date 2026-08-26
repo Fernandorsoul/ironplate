@@ -27,16 +27,25 @@ export interface Macros {
   fat: number; // grams;
 }
 
+export interface FoodPortionDef {
+  unit: 'unidade' | 'fatia' | 'colher' | 'xicara' | 'ml' | 'g' | 'dente';
+  gramsPerUnit: number;
+  label?: string; // e.g., "1 ovo (~50g)"
+}
+
 export interface Food {
   id: string;
   name: string;
   macros: Macros; // per 100g
   category: string;
+  portions?: FoodPortionDef[];
 }
 
 export interface FoodPortion {
   food: Food;
   grams: number;
+  quantity?: number;
+  unit?: 'unidade' | 'fatia' | 'colher' | 'xicara' | 'ml' | 'g' | 'dente';
   macros: Macros; // calculated for portion
 }
 
@@ -56,6 +65,16 @@ export interface MealPlan {
   meals: Meal[];
   totalMacros: Macros;
   createdAt: string;
+  isActive?: boolean;
+  supplements?: SupplementRecommendation[];
+}
+
+export interface SupplementRecommendation {
+  name: string;
+  dose: string;
+  timing: string;
+  reason: string;
+  caution?: string;
 }
 
 export interface Workout {
