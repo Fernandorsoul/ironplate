@@ -17,5 +17,14 @@
     { "src": "/api/(.*)", "dest": "/api/$1" },
     { "handle": "filesystem" },
     { "src": "/((?!api/).*)", "dest": "/index.html" }
-  ]
+  ],
+  "git": {
+    "deploymentEnabled": {
+      "master": true,
+      "dev": false,
+      "staging": false,
+      "feat/*": false,
+      "feature/*": false
+    }
+  }
 }
