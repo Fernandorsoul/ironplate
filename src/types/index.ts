@@ -27,18 +27,25 @@ export interface Macros {
   fat: number; // grams;
 }
 
+export interface FoodPortionDef {
+  unit: 'unidade' | 'fatia' | 'colher' | 'xicara' | 'ml' | 'g' | 'dente';
+  gramsPerUnit: number;
+  label?: string; // e.g., "1 ovo (~50g)"
+}
+
 export interface Food {
   id: string;
   name: string;
   macros: Macros; // per 100g
   category: string;
+  portions?: FoodPortionDef[];
 }
 
 export interface FoodPortion {
   food: Food;
   grams: number;
   quantity?: number;
-  unit?: 'unidade' | 'fatia' | 'colher' | 'xicara' | 'ml' | 'g';
+  unit?: 'unidade' | 'fatia' | 'colher' | 'xicara' | 'ml' | 'g' | 'dente';
   macros: Macros; // calculated for portion
 }
 

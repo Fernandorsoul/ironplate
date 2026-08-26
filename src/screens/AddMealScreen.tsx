@@ -5,11 +5,12 @@ import { FOOD_DATABASE, MEAL_TIMING_LABELS } from '../constants/foods';
 import { useApp } from '../context/AppContext';
 import { useFoodSearch, useOnlineFoodSearch } from '../hooks';
 import { calculatePortionMacros, sumMacros } from '../utils/calculations';
+import { findPortionsForFood } from '../constants/portions';
 import { Food, Meal, MealTiming } from '../types';
 import * as Crypto from 'expo-crypto';
 
-type PortionUnit = 'unidade' | 'fatia' | 'colher' | 'xicara' | 'ml' | 'g';
-const PORTION_UNITS: PortionUnit[] = ['unidade', 'fatia', 'colher', 'xicara', 'ml', 'g'];
+type PortionUnit = 'unidade' | 'fatia' | 'colher' | 'xicara' | 'ml' | 'g' | 'dente';
+const PORTION_UNITS: PortionUnit[] = ['unidade', 'fatia', 'colher', 'xicara', 'ml', 'g', 'dente'];
 
 export default function AddMealScreen({ navigation }: any) {
   const { addMealToToday, customFoods } = useApp();
@@ -35,7 +36,10 @@ export default function AddMealScreen({ navigation }: any) {
   }, [searchOnline, clearOnlineResults]);
 
   const addFood = (food: Food) => {
-    setSelectedFoods(prev => [...prev, { food, grams: 100, quantity: 1, unit: 'unidade' }]);
+    const portions = food.portions || findPortionsForFood(food.name);
+    const defaultUnit = portions?.[0]?.unit || 'g';
+    const defaultGrams = portions?.[0]?.gramsPerUnit || 100;
+    setSelectedFoods(prev => [...prev, { food, grams: defaultGrams, quantity: 1, unit: defaultUnit }]);
     setSearchQuery('');
     setShowOnlineResults(false);
     clearOnlineResults();
@@ -54,11 +58,23 @@ export default function AddMealScreen({ navigation }: any) {
 
   const updateQuantity = (index: number, quantity: string) => {
     const value = parseFloat(quantity.replace(',', '.')) || 0;
-    setSelectedFoods(prev => prev.map((item, i) => i === index ? { ...item, quantity: value } : item));
+    setSelectedFoods(prev => prev.map((item, i) => {
+      if (i !== index) return item;
+      const portions = item.food.portions || findPortionsForFood(item.food.name);
+      const portionDef = portions?.find(p => p.unit === item.unit);
+      const newGrams = portionDef ? Math.round(value * portionDef.gramsPerUnit) : item.grams;
+      return { ...item, quantity: value, grams: newGrams };
+    }));
   };
 
   const updateUnit = (index: number, unit: PortionUnit) => {
-    setSelectedFoods(prev => prev.map((item, i) => i === index ? { ...item, unit } : item));
+    setSelectedFoods(prev => prev.map((item, i) => {
+      if (i !== index) return item;
+      const portions = item.food.portions || findPortionsForFood(item.food.name);
+      const portionDef = portions?.find(p => p.unit === unit);
+      const newGrams = portionDef ? Math.round(item.quantity * portionDef.gramsPerUnit) : item.grams;
+      return { ...item, unit, grams: newGrams };
+    }));
   };
 
   const totalMacros = sumMacros(
@@ -141,46 +157,57 @@ export default function AddMealScreen({ navigation }: any) {
             <Text style={styles.emptySubtext}>Busque um alimento abaixo para adicionar</Text>
           </View>
         ) : (
-          selectedFoods.map((item, index) => (
-            <View key={index} style={styles.foodItem}>
-              <View style={styles.foodInfo}>
-                <Text style={styles.foodName}>{item.food.name}</Text>
-                <Text style={styles.foodMacros}>
-                  {calculatePortionMacros(item.food, item.grams).calories} kcal
-                </Text>
+          selectedFoods.map((item, index) => {
+            const portions = item.food.portions || findPortionsForFood(item.food.name);
+            const availableUnits = portions
+              ? [...new Set([...portions.map(p => p.unit), 'g'])]
+              : PORTION_UNITS;
+            const portionDef = portions?.find(p => p.unit === item.unit);
+
+            return (
+              <View key={index} style={styles.foodItem}>
+                <View style={styles.foodInfo}>
+                  <Text style={styles.foodName}>{item.food.name}</Text>
+                  <Text style={styles.foodMacros}>
+                    {calculatePortionMacros(item.food, item.grams).calories} kcal
+                  </Text>
+                </View>
+                <View style={styles.foodActions}>
+                  <TextInput
+                    style={styles.quantityInput}
+                    keyboardType={'decimal-pad'}
+                    value={item.quantity.toString()}
+                    onChangeText={(value) => updateQuantity(index, value)}
+                  />
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.unitPicker}>
+                    {availableUnits.map(unit => (
+                      <TouchableOpacity
+                        key={unit}
+                        style={[styles.unitButton, item.unit === unit && styles.unitButtonActive]}
+                        onPress={() => updateUnit(index, unit as PortionUnit)}
+                      >
+                        <Text style={[styles.unitButtonText, item.unit === unit && styles.unitButtonTextActive]}>{unit}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                  {portionDef && (
+                    <Text style={styles.portionHint}>{portionDef.label || `~${portionDef.gramsPerUnit}g cada`}</Text>
+                  )}
+                  <Text style={styles.gramsHint}>equivale a</Text>
+                  <TextInput
+                    style={styles.gramsInput}
+                    keyboardType="numeric"
+                    value={item.grams.toString()}
+                    onChangeText={(g) => updateGrams(index, g)}
+                  />
+                  <Text style={styles.gramsLabel}>g</Text>
+                  <TouchableOpacity onPress={() => removeFood(index)}>
+                    <Text style={styles.removeButton}>✕</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
-              <View style={styles.foodActions}>
-                <TextInput
-                  style={styles.quantityInput}
-                  keyboardType={'decimal-pad'}
-                  value={item.quantity.toString()}
-                  onChangeText={(value) => updateQuantity(index, value)}
-                />
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.unitPicker}>
-                  {PORTION_UNITS.map(unit => (
-                    <TouchableOpacity
-                      key={unit}
-                      style={[styles.unitButton, item.unit === unit && styles.unitButtonActive]}
-                      onPress={() => updateUnit(index, unit)}
-                    >
-                      <Text style={[styles.unitButtonText, item.unit === unit && styles.unitButtonTextActive]}>{unit}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-                <Text style={styles.gramsHint}>equivale a</Text>
-                <TextInput
-                  style={styles.gramsInput}
-                  keyboardType="numeric"
-                  value={item.grams.toString()}
-                  onChangeText={(g) => updateGrams(index, g)}
-                />
-                <Text style={styles.gramsLabel}>g</Text>
-                <TouchableOpacity onPress={() => removeFood(index)}>
-                  <Text style={styles.removeButton}>✕</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ))
+            );
+          })
         )}
 
         {/* Total Macros */}
@@ -412,6 +439,7 @@ const styles = StyleSheet.create({
   unitButtonActive: { borderColor: COLORS.primary, backgroundColor: COLORS.surfaceLight },
   unitButtonText: { color: COLORS.textSecondary, fontSize: FONT_SIZE.xs },
   unitButtonTextActive: { color: COLORS.primary, fontWeight: '700' },
+  portionHint: { color: COLORS.primary, fontSize: FONT_SIZE.xs, fontStyle: 'italic' },
   gramsHint: { width: '100%', color: COLORS.textMuted, fontSize: FONT_SIZE.xs, textAlign: 'right' },
   gramsInput: {
     backgroundColor: COLORS.surfaceLight,

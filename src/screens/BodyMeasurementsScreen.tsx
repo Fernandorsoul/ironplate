@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Platform } from 'react-native';
+import React, { useState, useRef, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Platform, Alert, RefreshControl } from 'react-native';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../constants/theme';
 import { useApp } from '../context/AppContext';
 import { saveBodyMeasurement } from '../services/database';
 import { generatePDF } from '../utils/pdfGenerator';
+import { connectToWeightScale, type ScaleReadout } from '../services/bluetoothScale';
 
 const InputField = React.memo(({ label, value, onChangeText, placeholder }: any) => (
   <View style={styles.fieldContainer}>
@@ -20,7 +21,7 @@ const InputField = React.memo(({ label, value, onChangeText, placeholder }: any)
 ));
 
 const BodyMeasurementsScreen = ({ navigation }: any) => {
-  const { userId, profile, setTodayWeight } = useApp();
+  const { userId, profile, weightHistory, setTodayWeight } = useApp();
   
   // Basic
   const [weight, setWeight] = useState(profile?.weight?.toString() || '');
@@ -79,6 +80,51 @@ const BodyMeasurementsScreen = ({ navigation }: any) => {
   const [saving, setSaving] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
   const [statusType, setStatusType] = useState<'success' | 'error' | ''>('');
+  const [scaleSyncing, setScaleSyncing] = useState(false);
+  const stopScaleRef = useRef<(() => void) | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Cleanup BLE on unmount
+  useEffect(() => () => stopScaleRef.current?.(), []);
+
+  // ── Sync from BLE Scale ──────────────────────────────────────
+  const handleSyncScale = async () => {
+    setScaleSyncing(true);
+    setStatusMessage('');
+    try {
+      stopScaleRef.current = await connectToWeightScale({
+        onWeight: (rd: ScaleReadout) => {
+          // Auto-fill bioimpedance fields
+          if (rd.resistance != null && rd.resistance > 0) setResistance(rd.resistance.toString());
+          if (rd.reactance != null && rd.reactance > 0) setReactance(rd.reactance.toString());
+          if (rd.phaseAngle != null && rd.phaseAngle > 0) setPhaseAngle(rd.phaseAngle.toFixed(1));
+          if (rd.bodyFat != null && rd.bodyFat > 0) setBodyFat(rd.bodyFat.toString());
+          if (rd.weight != null && rd.weight > 30) {
+            setWeight(rd.weight.toFixed(2));
+            if (!profile || Math.abs(profile.weight - rd.weight) > 0.5) {
+              setTodayWeight(rd.weight);
+            }
+          }
+          setStatusMessage(`${Object.keys(rd).length} métrica(s) recebida(s) da balança`);
+          setStatusType('success');
+        },
+        onStatus: (msg) => setStatusMessage(msg),
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erro ao conectar à balança.';
+      setStatusMessage(msg);
+      setStatusType('error');
+    } finally {
+      setScaleSyncing(false);
+    }
+  };
+
+  // ── Pull-to-refresh ──────────────────────────────────────────
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await handleSyncScale();
+    setRefreshing(false);
+  };
 
   const handleSave = async () => {
     setStatusMessage('');
@@ -173,6 +219,11 @@ const BodyMeasurementsScreen = ({ navigation }: any) => {
         profile, weight: parseFloat(weight) || 0, height: parseFloat(height) || profile?.height || 0,
         bodyFat: parseFloat(bodyFat) || undefined, bodyFatMethod,
         resistance: parseFloat(resistance) || undefined, reactance: parseFloat(reactance) || undefined, phaseAngle: parseFloat(phaseAngle) || undefined,
+        // New BLE scale composition fields
+        muscleMass: undefined, skeletalMuscle: undefined,
+        waterPercent: undefined, waterKg: undefined,
+        boneMass: undefined, proteinPercent: undefined, proteinMass: undefined,
+        basalMetabolism: undefined, visceralFat: undefined,
         triceps: parseFloat(triceps) || undefined, biceps: parseFloat(biceps) || undefined,
         subscapular: parseFloat(subscapular) || undefined, suprailiac: parseFloat(suprailiac) || undefined,
         abdominal: parseFloat(abdominal) || undefined, thighSkinfold: parseFloat(thighSkinfold) || undefined,
@@ -197,7 +248,7 @@ const BodyMeasurementsScreen = ({ navigation }: any) => {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView contentContainerStyle={styles.container} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
       <View style={styles.headerRow}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Text style={styles.backButton}>← Voltar</Text>
@@ -205,7 +256,7 @@ const BodyMeasurementsScreen = ({ navigation }: any) => {
         <Text style={styles.header}>Avaliação Antropométrica</Text>
         <View style={{ width: 60 }} />
       </View>
-      <Text style={styles.subtitle}>Padrão CREF/CRN</Text>
+      <Text style={styles.subtitle}>Padrão CREF/CRN · Sincronização BLE</Text>
 
       {statusMessage ? (
         <View style={[styles.statusCard, statusType === 'success' ? styles.statusSuccess : styles.statusError]}>
@@ -237,6 +288,17 @@ const BodyMeasurementsScreen = ({ navigation }: any) => {
       {bodyFatMethod === 'bioimpedance' && (
         <>
           <Text style={styles.sectionTitle}>Bioimpedância</Text>
+          <View style={styles.syncRow}>
+            <TouchableOpacity
+              style={[styles.syncButton, scaleSyncing && styles.syncButtonDisabled]}
+              onPress={handleSyncScale}
+              disabled={scaleSyncing}
+            >
+              <Text style={styles.syncButtonText}>
+                {scaleSyncing ? 'Conectando…' : '📡 Sincronizar da Balança'}
+              </Text>
+            </TouchableOpacity>
+          </View>
           <View style={styles.row}>
             <InputField label="Resistência (Ω)" value={resistance} onChangeText={setResistance} placeholder="500" />
             <InputField label="Reactância (Ω)" value={reactance} onChangeText={setReactance} placeholder="50" />
@@ -401,6 +463,10 @@ const styles = StyleSheet.create({
   methodButtonActive: { borderColor: COLORS.primary, backgroundColor: COLORS.surfaceLight },
   methodText: { color: COLORS.textSecondary, fontSize: FONT_SIZE.sm },
   methodTextActive: { color: COLORS.primary, fontWeight: 'bold' },
+  syncRow: { marginBottom: SPACING.md, marginTop: SPACING.xs },
+  syncButton: { backgroundColor: COLORS.primary, borderRadius: BORDER_RADIUS.md, paddingVertical: SPACING.sm, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
+  syncButtonDisabled: { opacity: 0.5 },
+  syncButtonText: { color: COLORS.background, fontSize: FONT_SIZE.sm, fontWeight: '600' },
   calculatedSection: { backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg, padding: SPACING.lg, marginTop: SPACING.md, marginBottom: SPACING.md },
   calculatedTitle: { fontSize: FONT_SIZE.lg, fontWeight: 'bold', color: COLORS.text, marginBottom: SPACING.md },
   calculatedRow: { flexDirection: 'row', justifyContent: 'space-between' },
