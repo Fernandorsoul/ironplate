@@ -1,6 +1,7 @@
 // AsyncStorage service for offline persistence
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { UserProfile, DailyLog, MealPlan, WeightEntry, Food } from '../types';
 
 const KEYS = {
   USER_PROFILE: '@ironplate_user_profile',
@@ -8,6 +9,7 @@ const KEYS = {
   MEAL_PLANS: '@ironplate_meal_plans',
   WEIGHT_HISTORY: '@ironplate_weight_history',
   CUSTOM_FOODS: '@ironplate_custom_foods',
+  USER_ID: '@ironplate_user_id',
 } as const;
 
 export async function saveData<T>(key: string, data: T): Promise<void> {
@@ -39,48 +41,61 @@ export async function removeData(key: string): Promise<void> {
 }
 
 // User Profile
-export async function saveUserProfile(profile: any): Promise<void> {
+export async function saveUserProfile(profile: UserProfile): Promise<void> {
   await saveData(KEYS.USER_PROFILE, profile);
 }
 
-export async function loadUserProfile(): Promise<any> {
-  return await loadData(KEYS.USER_PROFILE);
+export async function loadUserProfile(): Promise<UserProfile | null> {
+  return await loadData<UserProfile>(KEYS.USER_PROFILE);
 }
 
 // Daily Logs
-export async function saveDailyLogs(logs: any[]): Promise<void> {
+export async function saveDailyLogs(logs: DailyLog[]): Promise<void> {
   await saveData(KEYS.DAILY_LOGS, logs);
 }
 
-export async function loadDailyLogs(): Promise<any[]> {
-  return (await loadData(KEYS.DAILY_LOGS)) || [];
+export async function loadDailyLogs(): Promise<DailyLog[]> {
+  return (await loadData<DailyLog[]>(KEYS.DAILY_LOGS)) || [];
 }
 
 // Meal Plans
-export async function saveMealPlans(plans: any[]): Promise<void> {
+export async function saveMealPlans(plans: MealPlan[]): Promise<void> {
   await saveData(KEYS.MEAL_PLANS, plans);
 }
 
-export async function loadMealPlans(): Promise<any[]> {
-  return (await loadData(KEYS.MEAL_PLANS)) || [];
+export async function loadMealPlans(): Promise<MealPlan[]> {
+  return (await loadData<MealPlan[]>(KEYS.MEAL_PLANS)) || [];
 }
 
 // Weight History
-export async function saveWeightHistory(entries: any[]): Promise<void> {
+export async function saveWeightHistory(entries: WeightEntry[]): Promise<void> {
   await saveData(KEYS.WEIGHT_HISTORY, entries);
 }
 
-export async function loadWeightHistory(): Promise<any[]> {
-  return (await loadData(KEYS.WEIGHT_HISTORY)) || [];
+export async function loadWeightHistory(): Promise<WeightEntry[]> {
+  return (await loadData<WeightEntry[]>(KEYS.WEIGHT_HISTORY)) || [];
 }
 
 // Custom Foods
-export async function saveCustomFoods(foods: any[]): Promise<void> {
+export async function saveCustomFoods(foods: Food[]): Promise<void> {
   await saveData(KEYS.CUSTOM_FOODS, foods);
 }
 
-export async function loadCustomFoods(): Promise<any[]> {
-  return (await loadData(KEYS.CUSTOM_FOODS)) || [];
+export async function loadCustomFoods(): Promise<Food[]> {
+  return (await loadData<Food[]>(KEYS.CUSTOM_FOODS)) || [];
+}
+
+// User ID
+export async function saveUserId(userId: string): Promise<void> {
+  await saveData(KEYS.USER_ID, userId);
+}
+
+export async function loadUserId(): Promise<string | null> {
+  return await loadData<string>(KEYS.USER_ID);
+}
+
+export async function removeUserId(): Promise<void> {
+  await removeData(KEYS.USER_ID);
 }
 
 export { KEYS };
