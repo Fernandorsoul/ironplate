@@ -11,6 +11,7 @@ interface AppContextType {
   login: (email: string, password: string) => Promise<boolean>;
   register: (name: string, email: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
+  deleteAccount: () => Promise<boolean>;
 
   // User
   profile: UserProfile | null;
@@ -168,6 +169,45 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await Storage.removeUserId();
   }, []);
 
+  const deleteAccount = useCallback(async (): Promise<boolean> => {
+    try {
+      if (!userId) return false;
+
+      // Chamar API para deletar conta no servidor
+      const response = await fetch('/api/users/delete', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete account');
+      }
+
+      // Limpar todos os dados locais
+      await Storage.removeUserId();
+      await Storage.removeUserProfile();
+      await Storage.removeDailyLogs();
+      await Storage.removeMealPlans();
+      await Storage.removeWeightHistory();
+      await Storage.removeCustomFoods();
+
+      // Resetar estado
+      setUserId(null);
+      setProfileState(null);
+      setTargetMacros(null);
+      setDailyLogs([]);
+      setMealPlans([]);
+      setWeightHistory([]);
+      setCustomFoods([]);
+
+      return true;
+    } catch (error) {
+      console.error('Delete account error:', error);
+      return false;
+    }
+  }, [userId]);
+
   const setProfile = useCallback(async (newProfile: UserProfile) => {
     setProfileState(newProfile);
     setTargetMacros(calculateMacros(newProfile));
@@ -315,6 +355,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         login,
         register,
         logout,
+        deleteAccount,
         profile,
         setProfile,
         targetMacros,

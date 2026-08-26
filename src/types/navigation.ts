@@ -15,6 +15,7 @@ export type RootStackParamList = {
   Login: undefined;
   Register: undefined;
   ForgotPassword: undefined;
+  PrivacyPolicy: undefined;
   Onboarding: undefined;
   BodyMeasurements: undefined;
   MainTabs: NavigatorScreenParams<TabParamList>;
