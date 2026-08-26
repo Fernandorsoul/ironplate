@@ -8,6 +8,16 @@ interface WeightTrend {
   stats: { min: number; max: number; current: number } | null;
 }
 
+function getMinMax(arr: number[]): { min: number; max: number } {
+  let min = arr[0];
+  let max = arr[0];
+  for (let i = 1; i < arr.length; i++) {
+    if (arr[i] < min) min = arr[i];
+    if (arr[i] > max) max = arr[i];
+  }
+  return { min, max };
+}
+
 export function useWeightTrend(weightHistory: WeightEntry[]): WeightTrend {
   return useMemo(() => {
     const last7Days = weightHistory.slice(-7);
@@ -22,11 +32,8 @@ export function useWeightTrend(weightHistory: WeightEntry[]): WeightTrend {
     const trend = last - first;
 
     const weights = last30Days.map(e => e.weight);
-    const stats = {
-      min: Math.min(...weights),
-      max: Math.max(...weights),
-      current: last,
-    };
+    const { min, max } = getMinMax(weights);
+    const stats = { min, max, current: last };
 
     return { last7Days, last30Days, trend, stats };
   }, [weightHistory]);

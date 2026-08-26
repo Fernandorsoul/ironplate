@@ -1,0 +1,352 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Plano Alimentar - IronPlate</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; padding: 25px; color: #333; line-height: 1.4; font-size: 11px; }
+    .header { text-align: center; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 3px solid #FF6B35; }
+    .header h1 { color: #FF6B35; font-size: 20px; margin-bottom: 3px; }
+    .header p { color: #666; font-size: 10px; }
+    .section { margin-bottom: 15px; page-break-inside: avoid; }
+    .section-title { background: #1A1A2E; color: white; padding: 6px 10px; font-size: 12px; font-weight: bold; margin-bottom: 8px; border-radius: 4px; }
+    .info-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
+    .info-card { background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 5px; padding: 8px; text-align: center; }
+    .info-card label { display: block; font-size: 9px; color: #666; margin-bottom: 2px; text-transform: uppercase; }
+    .info-card .value { font-size: 14px; font-weight: bold; color: #1A1A2E; }
+    .info-card .unit { font-size: 10px; color: #666; }
+    .highlight { background: #FF6B3515; border-color: #FF6B35; }
+    .highlight .value { color: #FF6B35; }
+    .option-section { margin-bottom: 25px; border: 2px solid #FF6B35; border-radius: 8px; padding: 15px; page-break-before: always; }
+    .option-header { background: #FF6B35; color: white; padding: 8px 12px; border-radius: 5px; margin-bottom: 12px; }
+    .option-header h2 { font-size: 16px; margin: 0; }
+    .macros-summary { display: flex; gap: 10px; margin-bottom: 15px; }
+    .macro-box { flex: 1; text-align: center; padding: 10px 5px; border-radius: 6px; }
+    .cal-box { background: #00CEC920; border: 1px solid #00CEC9; }
+    .prot-box { background: #E1705520; border: 1px solid #E17055; }
+    .carb-box { background: #FDCB6E20; border: 1px solid #FDCB6E; }
+    .fat-box { background: #A29BFE20; border: 1px solid #A29BFE; }
+    .macro-val { font-size: 18px; font-weight: bold; }
+    .cal-box .macro-val { color: #00CEC9; }
+    .prot-box .macro-val { color: #E17055; }
+    .carb-box .macro-val { color: #FDCB6E; }
+    .fat-box .macro-val { color: #A29BFE; }
+    .macro-lbl { font-size: 9px; color: #666; margin-top: 3px; }
+    .meal { background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 6px; padding: 10px; margin-bottom: 8px; }
+    .meal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; border-bottom: 1px solid #e9ecef; padding-bottom: 6px; }
+    .meal-name { font-size: 13px; font-weight: bold; color: #1A1A2E; }
+    .meal-timing { font-size: 9px; color: #666; background: #e9ecef; padding: 2px 6px; border-radius: 8px; }
+    .meal-macros { display: flex; gap: 12px; margin-bottom: 6px; }
+    .macro { font-size: 10px; }
+    .macro span { font-weight: bold; }
+    .macro.cal { color: #00CEC9; }
+    .macro.prot { color: #E17055; }
+    .macro.carb { color: #FDCB6E; }
+    .macro.fat { color: #A29BFE; }
+    .food-table { width: 100%; border-collapse: collapse; font-size: 10px; }
+    .food-table th { background: #e9ecef; padding: 4px 6px; text-align: left; font-size: 9px; text-transform: uppercase; color: #666; }
+    .food-table td { padding: 4px 6px; border-bottom: 1px dotted #e9ecef; }
+    .food-grams { font-weight: bold; color: #FF6B35; }
+    .footer { margin-top: 20px; padding-top: 12px; border-top: 2px solid #e9ecef; text-align: center; color: #666; font-size: 9px; }
+    .notes { background: #fff3cd; border: 1px solid #ffc107; border-radius: 5px; padding: 8px; margin-top: 12px; font-size: 10px; color: #856404; }
+    @media print { body { padding: 15px; } .no-print { display: none; } .option-section { page-break-before: always; } .option-section:first-of-type { page-break-before: auto; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>IRONPLATE - Plano Alimentar</h1>
+    <p>3 Opções de Cardápio</p>
+    <p>quarta-feira, 7 de agosto de 2026</p>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Dados do Paciente</div>
+    <div class="info-grid">
+      <div class="info-card"><label>Nome</label><div class="value">Fernando</div></div>
+      <div class="info-card"><label>Idade</label><div class="value">25 <span class="unit">anos</span></div></div>
+      <div class="info-card"><label>Peso</label><div class="value">80 <span class="unit">kg</span></div></div>
+      <div class="info-card"><label>Altura</label><div class="value">175 <span class="unit">cm</span></div></div>
+    </div>
+    <div class="info-grid">
+      <div class="info-card"><label>Gênero</label><div class="value">Masculino</div></div>
+      <div class="info-card"><label>Modalidade</label><div class="value">Bodybuilding</div></div>
+      <div class="info-card"><label>Atividade</label><div class="value">moderate</div></div>
+      <div class="info-card"><label>Objetivo</label><div class="value" style="font-size:10px">Bulking (+15% superávit calórico)</div></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Metas Calóricas</div>
+    <div class="info-grid">
+      <div class="info-card"><label>TDEE</label><div class="value">2378 <span class="unit">kcal</span></div></div>
+      <div class="info-card highlight"><label>Meta Diária</label><div class="value">2735 <span class="unit">kcal</span></div></div>
+      <div class="info-card"><label>Refeições/Dia</label><div class="value">6</div></div>
+      <div class="info-card"><label>Opções</label><div class="value">3</div></div>
+    </div>
+  </div>
+
+  <!-- OPÇÃO 1 -->
+  <div class="option-section">
+    <div class="option-header">
+      <h2>Opção 1: Bulking Bodybuilding - Opção 1</h2>
+    </div>
+    <div class="macros-summary">
+      <div class="macro-box cal-box"><div class="macro-val">2735.000</div><div class="macro-lbl">Calorias</div></div>
+      <div class="macro-box prot-box"><div class="macro-val">160.000g</div><div class="macro-lbl">Proteína (23%)</div></div>
+      <div class="macro-box carb-box"><div class="macro-val">380.000g</div><div class="macro-lbl">Carboidratos (56%)</div></div>
+      <div class="macro-box fat-box"><div class="macro-val">85.000g</div><div class="macro-lbl">Gordura (28%)</div></div>
+    </div>
+
+    <div class="meal">
+      <div class="meal-header">
+        <span class="meal-name">Café da Manhã</span>
+        <span class="meal-timing">Refeição</span>
+      </div>
+      <div class="meal-macros">
+        <span class="macro cal">Cal: <span>547.000</span></span>
+        <span class="macro prot">P: <span>32.000g</span></span>
+        <span class="macro carb">C: <span>76.000g</span></span>
+        <span class="macro fat">G: <span>17.000g</span></span>
+      </div>
+      <table class="food-table">
+        <thead><tr><th>Alimento</th><th>Porção</th><th>Kcal</th><th>Prot</th><th>Carb</th><th>Gord</th></tr></thead>
+        <tbody>
+          <tr><td>Ovo inteiro</td><td class="food-grams">160g</td><td>248.000</td><td>20.800g</td><td>1.760g</td><td>17.600g</td></tr>
+          <tr><td>Aveia, flocos</td><td class="food-grams">80g</td><td>315.200</td><td>11.120g</td><td>53.280g</td><td>6.800g</td></tr>
+          <tr><td>Banana</td><td class="food-grams">120g</td><td>106.800</td><td>1.320g</td><td>27.720g</td><td>0.240g</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="meal">
+      <div class="meal-header">
+        <span class="meal-name">Almoço</span>
+        <span class="meal-timing">Refeição</span>
+      </div>
+      <div class="meal-macros">
+        <span class="macro cal">Cal: <span>684.000</span></span>
+        <span class="macro prot">P: <span>40.000g</span></span>
+        <span class="macro carb">C: <span>95.000g</span></span>
+        <span class="macro fat">G: <span>21.000g</span></span>
+      </div>
+      <table class="food-table">
+        <thead><tr><th>Alimento</th><th>Porção</th><th>Kcal</th><th>Prot</th><th>Carb</th><th>Gord</th></tr></thead>
+        <tbody>
+          <tr><td>Peito de frango</td><td class="food-grams">200g</td><td>330.000</td><td>62.000g</td><td>0.000g</td><td>7.200g</td></tr>
+          <tr><td>Arroz branco, cozido</td><td class="food-grams">200g</td><td>256.000</td><td>5.000g</td><td>56.200g</td><td>0.400g</td></tr>
+          <tr><td>Brócolis</td><td class="food-grams">100g</td><td>34.000</td><td>2.800g</td><td>6.600g</td><td>0.400g</td></tr>
+          <tr><td>Tomate</td><td class="food-grams">80g</td><td>15.200</td><td>0.720g</td><td>3.280g</td><td>0.160g</td></tr>
+          <tr><td>Azeite de oliva</td><td class="food-grams">10ml</td><td>88.400</td><td>0.000g</td><td>0.000g</td><td>10.000g</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="meal">
+      <div class="meal-header">
+        <span class="meal-name">Jantar</span>
+        <span class="meal-timing">Refeição</span>
+      </div>
+      <div class="meal-macros">
+        <span class="macro cal">Cal: <span>547.000</span></span>
+        <span class="macro prot">P: <span>32.000g</span></span>
+        <span class="macro carb">C: <span>76.000g</span></span>
+        <span class="macro fat">G: <span>17.000g</span></span>
+      </div>
+      <table class="food-table">
+        <thead><tr><th>Alimento</th><th>Porção</th><th>Kcal</th><th>Prot</th><th>Carb</th><th>Gord</th></tr></thead>
+        <tbody>
+          <tr><td>Salmão</td><td class="food-grams">180g</td><td>374.400</td><td>36.000g</td><td>0.000g</td><td>23.400g</td></tr>
+          <tr><td>Arroz integral, cozido</td><td class="food-grams">150g</td><td>186.000</td><td>3.900g</td><td>38.700g</td><td>1.500g</td></tr>
+          <tr><td>Espinafre</td><td class="food-grams">100g</td><td>25.000</td><td>2.900g</td><td>3.600g</td><td>0.400g</td></tr>
+          <tr><td>Cenoura</td><td class="food-grams">80g</td><td>26.400</td><td>0.480g</td><td>6.080g</td><td>0.080g</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- OPÇÃO 2 -->
+  <div class="option-section">
+    <div class="option-header">
+      <h2>Opção 2: Bulking Bodybuilding - Opção 2</h2>
+    </div>
+    <div class="macros-summary">
+      <div class="macro-box cal-box"><div class="macro-val">2735.000</div><div class="macro-lbl">Calorias</div></div>
+      <div class="macro-box prot-box"><div class="macro-val">160.000g</div><div class="macro-lbl">Proteína (23%)</div></div>
+      <div class="macro-box carb-box"><div class="macro-val">380.000g</div><div class="macro-lbl">Carboidratos (56%)</div></div>
+      <div class="macro-box fat-box"><div class="macro-val">85.000g</div><div class="macro-lbl">Gordura (28%)</div></div>
+    </div>
+
+    <div class="meal">
+      <div class="meal-header">
+        <span class="meal-name">Café da Manhã</span>
+        <span class="meal-timing">Refeição</span>
+      </div>
+      <div class="meal-macros">
+        <span class="macro cal">Cal: <span>547.000</span></span>
+        <span class="macro prot">P: <span>32.000g</span></span>
+        <span class="macro carb">C: <span>76.000g</span></span>
+        <span class="macro fat">G: <span>17.000g</span></span>
+      </div>
+      <table class="food-table">
+        <thead><tr><th>Alimento</th><th>Porção</th><th>Kcal</th><th>Prot</th><th>Carb</th><th>Gord</th></tr></thead>
+        <tbody>
+          <tr><td>Clara de ovo</td><td class="food-grams">200g</td><td>104.000</td><td>22.000g</td><td>1.400g</td><td>0.200g</td></tr>
+          <tr><td>Banana nanica</td><td class="food-grams">120g</td><td>106.800</td><td>1.320g</td><td>27.720g</td><td>0.240g</td></tr>
+          <tr><td>Amêndoas</td><td class="food-grams">25g</td><td>144.750</td><td>5.250g</td><td>5.500g</td><td>12.500g</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="meal">
+      <div class="meal-header">
+        <span class="meal-name">Almoço</span>
+        <span class="meal-timing">Refeição</span>
+      </div>
+      <div class="meal-macros">
+        <span class="macro cal">Cal: <span>684.000</span></span>
+        <span class="macro prot">P: <span>40.000g</span></span>
+        <span class="macro carb">C: <span>95.000g</span></span>
+        <span class="macro fat">G: <span>21.000g</span></span>
+      </div>
+      <table class="food-table">
+        <thead><tr><th>Alimento</th><th>Porção</th><th>Kcal</th><th>Prot</th><th>Carb</th><th>Gord</th></tr></thead>
+        <tbody>
+          <tr><td>Patinho</td><td class="food-grams">200g</td><td>326.000</td><td>52.000g</td><td>0.000g</td><td>12.000g</td></tr>
+          <tr><td>Batata-doce, cozida</td><td class="food-grams">250g</td><td>215.000</td><td>4.000g</td><td>50.250g</td><td>0.250g</td></tr>
+          <tr><td>Abobrinha</td><td class="food-grams">100g</td><td>19.000</td><td>1.200g</td><td>3.100g</td><td>0.300g</td></tr>
+          <tr><td>Alface</td><td class="food-grams">80g</td><td>10.400</td><td>0.800g</td><td>1.760g</td><td>0.080g</td></tr>
+          <tr><td>Azeite de oliva</td><td class="food-grams">12ml</td><td>106.080</td><td>0.000g</td><td>0.000g</td><td>12.000g</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="meal">
+      <div class="meal-header">
+        <span class="meal-name">Jantar</span>
+        <span class="meal-timing">Refeição</span>
+      </div>
+      <div class="meal-macros">
+        <span class="macro cal">Cal: <span>547.000</span></span>
+        <span class="macro prot">P: <span>32.000g</span></span>
+        <span class="macro carb">C: <span>76.000g</span></span>
+        <span class="macro fat">G: <span>17.000g</span></span>
+      </div>
+      <table class="food-table">
+        <thead><tr><th>Alimento</th><th>Porção</th><th>Kcal</th><th>Prot</th><th>Carb</th><th>Gord</th></tr></thead>
+        <tbody>
+          <tr><td>Tilápia</td><td class="food-grams">200g</td><td>218.000</td><td>42.000g</td><td>0.000g</td><td>4.600g</td></tr>
+          <tr><td>Quinoa, cozida</td><td class="food-grams">150g</td><td>180.000</td><td>6.600g</td><td>31.950g</td><td>2.700g</td></tr>
+          <tr><td>Couve-flor</td><td class="food-grams">100g</td><td>23.000</td><td>1.800g</td><td>4.100g</td><td>0.300g</td></tr>
+          <tr><td>Tomate</td><td class="food-grams">80g</td><td>15.200</td><td>0.720g</td><td>3.280g</td><td>0.160g</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- OPÇÃO 3 -->
+  <div class="option-section">
+    <div class="option-header">
+      <h2>Opção 3: Bulking Bodybuilding - Opção 3</h2>
+    </div>
+    <div class="macros-summary">
+      <div class="macro-box cal-box"><div class="macro-val">2735.000</div><div class="macro-lbl">Calorias</div></div>
+      <div class="macro-box prot-box"><div class="macro-val">160.000g</div><div class="macro-lbl">Proteína (23%)</div></div>
+      <div class="macro-box carb-box"><div class="macro-val">380.000g</div><div class="macro-lbl">Carboidratos (56%)</div></div>
+      <div class="macro-box fat-box"><div class="macro-val">85.000g</div><div class="macro-lbl">Gordura (28%)</div></div>
+    </div>
+
+    <div class="meal">
+      <div class="meal-header">
+        <span class="meal-name">Café da Manhã</span>
+        <span class="meal-timing">Refeição</span>
+      </div>
+      <div class="meal-macros">
+        <span class="macro cal">Cal: <span>547.000</span></span>
+        <span class="macro prot">P: <span>32.000g</span></span>
+        <span class="macro carb">C: <span>76.000g</span></span>
+        <span class="macro fat">G: <span>17.000g</span></span>
+      </div>
+      <table class="food-table">
+        <thead><tr><th>Alimento</th><th>Porção</th><th>Kcal</th><th>Prot</th><th>Carb</th><th>Gord</th></tr></thead>
+        <tbody>
+          <tr><td>Iogurte grego</td><td class="food-grams">200g</td><td>194.000</td><td>20.000g</td><td>7.200g</td><td>8.000g</td></tr>
+          <tr><td>Aveia, flocos</td><td class="food-grams">60g</td><td>236.400</td><td>8.340g</td><td>39.960g</td><td>5.100g</td></tr>
+          <tr><td>Banana</td><td class="food-grams">100g</td><td>89.000</td><td>1.100g</td><td>23.100g</td><td>0.300g</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="meal">
+      <div class="meal-header">
+        <span class="meal-name">Almoço</span>
+        <span class="meal-timing">Refeição</span>
+      </div>
+      <div class="meal-macros">
+        <span class="macro cal">Cal: <span>684.000</span></span>
+        <span class="macro prot">P: <span>40.000g</span></span>
+        <span class="macro carb">C: <span>95.000g</span></span>
+        <span class="macro fat">G: <span>21.000g</span></span>
+      </div>
+      <table class="food-table">
+        <thead><tr><th>Alimento</th><th>Porção</th><th>Kcal</th><th>Prot</th><th>Carb</th><th>Gord</th></tr></thead>
+        <tbody>
+          <tr><td>Alcatra</td><td class="food-grams">180g</td><td>342.000</td><td>46.800g</td><td>0.000g</td><td>16.200g</td></tr>
+          <tr><td>Arroz integral, cozido</td><td class="food-grams">200g</td><td>248.000</td><td>5.200g</td><td>51.600g</td><td>2.000g</td></tr>
+          <tr><td>Brócolis</td><td class="food-grams">100g</td><td>34.000</td><td>2.800g</td><td>6.600g</td><td>0.400g</td></tr>
+          <tr><td>Cenoura</td><td class="food-grams">80g</td><td>26.400</td><td>0.480g</td><td>6.080g</td><td>0.080g</td></tr>
+          <tr><td>Azeite de oliva</td><td class="food-grams">8ml</td><td>70.720</td><td>0.000g</td><td>0.000g</td><td>8.000g</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="meal">
+      <div class="meal-header">
+        <span class="meal-name">Jantar</span>
+        <span class="meal-timing">Refeição</span>
+      </div>
+      <div class="meal-macros">
+        <span class="macro cal">Cal: <span>547.000</span></span>
+        <span class="macro prot">P: <span>32.000g</span></span>
+        <span class="macro carb">C: <span>76.000g</span></span>
+        <span class="macro fat">G: <span>17.000g</span></span>
+      </div>
+      <table class="food-table">
+        <thead><tr><th>Alimento</th><th>Porção</th><th>Kcal</th><th>Prot</th><th>Carb</th><th>Gord</th></tr></thead>
+        <tbody>
+          <tr><td>Peito de frango</td><td class="food-grams">180g</td><td>297.000</td><td>55.800g</td><td>0.000g</td><td>6.480g</td></tr>
+          <tr><td>Macarrão, cozido</td><td class="food-grams">150g</td><td>196.500</td><td>6.900g</td><td>38.100g</td><td>1.650g</td></tr>
+          <tr><td>Espinafre</td><td class="food-grams">100g</td><td>25.000</td><td>2.900g</td><td>3.600g</td><td>0.400g</td></tr>
+          <tr><td>Abobrinha</td><td class="food-grams">80g</td><td>15.200</td><td>0.960g</td><td>2.480g</td><td>0.240g</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="notes">
+    <strong>Observações Importantes:</strong>
+    <ul style="margin-top:5px;margin-left:15px;">
+      <li>Todas as informações nutricionais são baseadas na <strong>Tabela TACO</strong> (UNICAMP - 4ª edição)</li>
+      <li>Porções em gramas (g) referem-se ao alimento cru, salvo indicação contrária</li>
+      <li>Hidratação: mínimo 2-3 litros de água por dia</li>
+      <li>Consulte um nutricionista para ajustes individualizados</li>
+      <li>Varie entre as opções ao longo da semana para melhor aderência</li>
+    </ul>
+  </div>
+
+  <div class="footer">
+    <p><strong>IronPlate</strong> - Sistema de Nutrição para Atletas</p>
+    <p>Plano gerado em quarta-feira, 7 de agosto de 2026 | Dados nutricionais: Tabela TACO (UNICAMP)</p>
+    <br/>
+    <p>_______________________________________________</p>
+    <p>Nutricionista Responsável</p>
+    <p>CRN: _____________</p>
+  </div>
+
+  <div class="no-print" style="text-align:center;margin-top:15px;position:sticky;bottom:0;background:white;padding:10px;">
+    <button onclick="window.print()" style="background:#FF6B35;color:white;border:none;padding:12px 30px;font-size:14px;border-radius:6px;cursor:pointer;font-weight:bold;">
+      Imprimir / Salvar PDF
+    </button>
+  </div>
+</body>
+</html>

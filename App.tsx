@@ -3,9 +3,15 @@ import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { Text } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { AppProvider, useApp } from './src/context/AppContext';
+import { AuthProvider } from './src/context/AuthContext';
+import { ProfileProvider } from './src/context/ProfileContext';
+import { DailyLogProvider } from './src/context/DailyLogContext';
 import { COLORS } from './src/constants/theme';
+import { ErrorBoundary } from './src/components/ErrorBoundary';
+import { CollapsibleSideBar } from './src/components/CollapsibleSideBar';
+import { RootStackParamList, TabParamList } from './src/types/navigation';
 
 // Screens
 import HomeScreen from './src/screens/HomeScreen';
@@ -25,24 +31,28 @@ import WorkoutDetailScreen from './src/screens/WorkoutDetailScreen';
 import DietAnalysisScreen from './src/screens/DietAnalysisScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
+import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
 import BodyMeasurementsScreen from './src/screens/BodyMeasurementsScreen';
 import EvolutionScreen from './src/screens/EvolutionScreen';
 import EditProfileScreen from './src/screens/EditProfileScreen';
 
-const Stack = createNativeStackNavigator();
-const Tab = createBottomTabNavigator();
+const Stack = createNativeStackNavigator<RootStackParamList>();
+const Tab = createBottomTabNavigator<TabParamList>();
 
 function HomeTabs() {
   return (
     <Tab.Navigator
+      tabBar={(props) => <CollapsibleSideBar {...props} />}
       screenOptions={{
+        tabBarPosition: 'left',
         tabBarStyle: {
           backgroundColor: COLORS.surface,
-          borderTopColor: COLORS.border,
-          height: 60,
-          paddingBottom: 8,
-          paddingTop: 8,
+          borderRightColor: COLORS.border,
+          width: 92,
+          paddingHorizontal: 6,
         },
+        tabBarItemStyle: { paddingVertical: 8 },
+        tabBarLabelStyle: { fontSize: 12, fontWeight: '600' },
         tabBarActiveTintColor: COLORS.primary,
         tabBarInactiveTintColor: COLORS.textMuted,
         headerShown: false,
@@ -52,24 +62,32 @@ function HomeTabs() {
         name="Home"
         component={HomeScreen}
         options={{
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 24, color }}>🏠</Text>,
-          tabBarLabel: 'Início',
+          tabBarIcon: ({ color, size }) => <Ionicons name={'grid-outline'} size={size} color={color} />,
+          tabBarLabel: 'Resumo',
         }}
       />
       <Tab.Screen
         name="MealPlan"
         component={MealPlanScreen}
         options={{
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 24, color }}>📋</Text>,
-          tabBarLabel: 'Planos',
+          tabBarIcon: ({ color, size }) => <Ionicons name={'restaurant-outline'} size={size} color={color} />,
+          tabBarLabel: 'Cardápio',
         }}
       />
       <Tab.Screen
         name="Weight"
         component={WeightScreen}
         options={{
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 24, color }}>⚖️</Text>,
+          tabBarIcon: ({ color, size }) => <Ionicons name={'scale-outline'} size={size} color={color} />,
           tabBarLabel: 'Peso',
+        }}
+      />
+      <Tab.Screen
+        name={'Workout'}
+        component={AddWorkoutScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => <Ionicons name={'barbell-outline'} size={size} color={color} />,
+          tabBarLabel: 'Treino',
         }}
       />
     </Tab.Navigator>
@@ -90,6 +108,7 @@ function AppNavigator() {
         <>
           <Stack.Screen name="Login" component={LoginScreen} />
           <Stack.Screen name="Register" component={RegisterScreen} />
+          <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
         </>
       ) : !isOnboarded ? (
         // Onboarding screen
@@ -121,11 +140,19 @@ function AppNavigator() {
 
 export default function App() {
   return (
-    <AppProvider>
-      <NavigationContainer>
-        <StatusBar style="light" />
-        <AppNavigator />
-      </NavigationContainer>
-    </AppProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <ProfileProvider>
+          <DailyLogProvider>
+            <AppProvider>
+              <NavigationContainer>
+                <StatusBar style="light" />
+                <AppNavigator />
+              </NavigationContainer>
+            </AppProvider>
+          </DailyLogProvider>
+        </ProfileProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }

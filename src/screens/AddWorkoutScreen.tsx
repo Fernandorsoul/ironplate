@@ -4,12 +4,13 @@ import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../constants/theme';
 import { useApp } from '../context/AppContext';
 import { Workout } from '../types';
 
-export default function AddWorkoutScreen({ navigation }: any) {
+export default function AddWorkoutScreen({ navigation, route }: any) {
   const { addWorkoutToToday } = useApp();
   const [name, setName] = useState('');
   const [type, setType] = useState<Workout['type']>('strength');
   const [duration, setDuration] = useState('');
   const [intensity, setIntensity] = useState<Workout['intensity']>('medium');
+  const [saving, setSaving] = useState(false);
 
   const workoutTypes = [
     { key: 'strength', label: 'Musculação', icon: '🏋️' },
@@ -36,15 +37,31 @@ export default function AddWorkoutScreen({ navigation }: any) {
 
     const workout: Workout = {
       id: Date.now().toString(),
-      name,
+      name: name.trim(),
       type,
       duration: parseInt(duration),
       intensity,
       time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
     };
 
-    await addWorkoutToToday(workout);
-    navigation.goBack();
+    setSaving(true);
+    try {
+      await addWorkoutToToday(workout);
+      setName('');
+      setDuration('');
+      setType('strength');
+      setIntensity('medium');
+      Alert.alert('Treino salvo', 'O treino foi registrado no resumo de hoje.');
+      if (route?.name === 'Workout') {
+        navigation.navigate('Home');
+      } else {
+        navigation.navigate('MainTabs', { screen: 'Home' });
+      }
+    } catch (error) {
+      Alert.alert('Erro', 'Não foi possível salvar o treino. Tente novamente.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -55,8 +72,8 @@ export default function AddWorkoutScreen({ navigation }: any) {
           <Text style={styles.backButton}>← Voltar</Text>
         </TouchableOpacity>
         <Text style={styles.title}>Novo Treino</Text>
-        <TouchableOpacity onPress={handleSave}>
-          <Text style={styles.saveButton}>Salvar</Text>
+        <TouchableOpacity onPress={handleSave} disabled={saving}>
+          <Text style={[styles.saveButton, saving && styles.saveButtonDisabled]}>{saving ? 'Salvando...' : 'Salvar'}</Text>
         </TouchableOpacity>
       </View>
 
@@ -163,6 +180,7 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZE.md,
     fontWeight: 'bold',
   },
+  saveButtonDisabled: { opacity: 0.5 },
   input: {
     backgroundColor: COLORS.surface,
     borderRadius: BORDER_RADIUS.md,

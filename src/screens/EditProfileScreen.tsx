@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Image, Alert } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../constants/theme';
 import { useApp } from '../context/AppContext';
 import { UserProfile, ActivityLevel, Goal, Sport } from '../types';
@@ -19,9 +20,25 @@ export default function EditProfileScreen({ navigation }: any) {
   const [activityLevel, setActivityLevel] = useState<ActivityLevel>(profile?.activityLevel || 'moderate');
   const [goal, setGoal] = useState<Goal>(profile?.goal || 'maintenance');
   const [sport, setSport] = useState<Sport>(profile?.sport || 'bodybuilding');
+  const [photoUri, setPhotoUri] = useState(profile?.photoUri);
   const [saving, setSaving] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
   const [statusType, setStatusType] = useState<'success' | 'error' | ''>('');
+
+  const handlePickPhoto = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Permissão necessária', 'Autorize o acesso às fotos para escolher uma imagem de perfil.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (!result.canceled) setPhotoUri(result.assets[0].uri);
+  };
 
   const handleSave = async () => {
     setStatusMessage('');
@@ -52,6 +69,7 @@ export default function EditProfileScreen({ navigation }: any) {
         activityLevel,
         goal,
         sport,
+        photoUri,
       };
       await setProfile(updatedProfile);
       setStatusMessage('Perfil salvo com sucesso!');
@@ -105,9 +123,16 @@ export default function EditProfileScreen({ navigation }: any) {
 
       {/* Photo */}
       <View style={styles.photoSection}>
-        <View style={styles.photoPlaceholder}>
-          <Text style={styles.photoPlaceholderText}>{name.charAt(0).toUpperCase() || '?'}</Text>
-        </View>
+        <TouchableOpacity style={styles.photoPlaceholder} onPress={handlePickPhoto}>
+          {photoUri ? (
+            <Image source={{ uri: photoUri }} style={styles.photoImage} />
+          ) : (
+            <Text style={styles.photoPlaceholderText}>{name.charAt(0).toUpperCase() || '?'}</Text>
+          )}
+        </TouchableOpacity>
+        <TouchableOpacity onPress={handlePickPhoto}>
+          <Text style={styles.changePhotoText}>Escolher foto de perfil</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Personal Info */}
@@ -205,7 +230,9 @@ const styles = StyleSheet.create({
   statusText: { color: COLORS.text, fontSize: FONT_SIZE.md, textAlign: 'center', fontWeight: '600' },
   photoSection: { alignItems: 'center', marginBottom: SPACING.xl },
   photoPlaceholder: { width: 100, height: 100, borderRadius: 50, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center' },
+  photoImage: { width: 100, height: 100, borderRadius: 50 },
   photoPlaceholderText: { fontSize: FONT_SIZE.hero, fontWeight: 'bold', color: COLORS.text },
+  changePhotoText: { color: COLORS.primary, marginTop: SPACING.sm, fontWeight: '600' },
   sectionTitle: { fontSize: FONT_SIZE.md, fontWeight: 'bold', color: COLORS.primary, marginTop: SPACING.lg, marginBottom: SPACING.md, borderBottomWidth: 1, borderBottomColor: COLORS.border, paddingBottom: SPACING.xs },
   label: { fontSize: FONT_SIZE.sm, color: COLORS.textSecondary, marginBottom: SPACING.xs },
   input: { backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.md, padding: SPACING.md, color: COLORS.text, fontSize: FONT_SIZE.md, marginBottom: SPACING.md, borderWidth: 1, borderColor: COLORS.border },

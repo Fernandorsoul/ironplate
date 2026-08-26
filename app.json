@@ -1,15 +1,19 @@
 {
   "expo": {
     "name": "ironplate",
-    "slug": "ironplate",
+    "slug": "fernando",
     "version": "1.0.0",
+    "versionCode": 1,
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "scheme": "ironplate",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.rsoul.ironplate"
     },
     "android": {
+      "package": "com.rsoul.ironplate",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -23,7 +27,38 @@
     },
     "plugins": [
       "expo-status-bar",
-      "expo-font"
-    ]
+      "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Permita acesso as fotos para definir sua foto de perfil.",
+          "cameraPermission": "Permita acesso a camera para tirar sua foto de perfil.",
+          "microphonePermission": false
+        }
+      ],
+      "react-native-ble-plx",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": false,
+            "permissions": [
+              "android.permission.BLUETOOTH",
+              "android.permission.BLUETOOTH_ADMIN",
+              "android.permission.BLUETOOTH_SCAN",
+              "android.permission.BLUETOOTH_CONNECT",
+              "android.permission.ACCESS_FINE_LOCATION",
+              "android.permission.ACCESS_COARSE_LOCATION"
+            ]
+          }
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "61e15f61-c0fc-47bd-8b0e-003e3a8de2f7"
+      }
+    },
+    "owner": "fernandorsouls-team"
   }
 }
