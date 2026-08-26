@@ -1,12 +1,48 @@
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Alert } from 'react-native';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../constants/theme';
 import { useApp } from '../context/AppContext';
 
 export default function ProfileScreen({ navigation }: any) {
-  const { profile, targetMacros, getWeeklySummary, weightHistory } = useApp();
+  const { profile, targetMacros, getWeeklySummary, weightHistory, deleteAccount } = useApp();
 
   const summary = useMemo(() => getWeeklySummary(), [getWeeklySummary, targetMacros]);
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Excluir Conta',
+      'Tem certeza que deseja excluir sua conta? Esta ação não pode ser desfeita e todos os seus dados serão permanentemente removidos.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Sim, excluir minha conta',
+          style: 'destructive',
+          onPress: async () => {
+            Alert.alert(
+              'Confirmação Final',
+              'Esta ação é irreversível. Todos os seus dados (perfil, refeições, histórico de peso, medidas) serão excluídos permanentemente.',
+              [
+                { text: 'Cancelar', style: 'cancel' },
+                {
+                  text: 'Sim, excluir permanentemente',
+                  style: 'destructive',
+                  onPress: async () => {
+                    const success = await deleteAccount();
+                    if (success) {
+                      Alert.alert('Sucesso', 'Sua conta foi excluída com sucesso.');
+                      navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
+                    } else {
+                      Alert.alert('Erro', 'Não foi possível excluir sua conta. Tente novamente.');
+                    }
+                  },
+                },
+              ]
+            );
+          },
+        },
+      ]
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -32,33 +68,41 @@ export default function ProfileScreen({ navigation }: any) {
             </TouchableOpacity>
           </View>
 
-<TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('BodyMeasurements')}>
-  <Text style={styles.menuText}>Medidas Corporais</Text>
-</TouchableOpacity>
+          <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('BodyMeasurements')}>
+            <Text style={styles.menuText}>Medidas Corporais</Text>
+          </TouchableOpacity>
 
-<View style={styles.cardsContainer}>
-  <View style={styles.card}>
-    <Text style={[styles.cardTitle, { color: COLORS.calories }]}>Calorias</Text>
-    <Text style={styles.cardValue}>{Math.round(targetMacros?.calories || 0)}</Text>
-  </View>
-  <View style={styles.card}>
-    <Text style={[styles.cardTitle, { color: COLORS.protein }]}>Proteína</Text>
-    <Text style={styles.cardValue}>{Math.round(targetMacros?.protein || 0)}g</Text>
-  </View>
-  <View style={styles.card}>
-    <Text style={[styles.cardTitle, { color: COLORS.carbs }]}>Carboidratos</Text>
-    <Text style={styles.cardValue}>{Math.round(targetMacros?.carbs || 0)}g</Text>
-  </View>
-  <View style={styles.card}>
-    <Text style={[styles.cardTitle, { color: summary.adherencePercent >= 80 ? COLORS.success : summary.adherencePercent >= 50 ? COLORS.warning : COLORS.error }]}>Aderência</Text>
-    <Text style={styles.cardValue}>{Math.round(summary.adherencePercent || 0)}%</Text>
-  </View>
-</View>
+          <View style={styles.cardsContainer}>
+            <View style={styles.card}>
+              <Text style={[styles.cardTitle, { color: COLORS.calories }]}>Calorias</Text>
+              <Text style={styles.cardValue}>{Math.round(targetMacros?.calories || 0)}</Text>
+            </View>
+            <View style={styles.card}>
+              <Text style={[styles.cardTitle, { color: COLORS.protein }]}>Proteína</Text>
+              <Text style={styles.cardValue}>{Math.round(targetMacros?.protein || 0)}g</Text>
+            </View>
+            <View style={styles.card}>
+              <Text style={[styles.cardTitle, { color: COLORS.carbs }]}>Carboidratos</Text>
+              <Text style={styles.cardValue}>{Math.round(targetMacros?.carbs || 0)}g</Text>
+            </View>
+            <View style={styles.card}>
+              <Text style={[styles.cardTitle, { color: summary.adherencePercent >= 80 ? COLORS.success : summary.adherencePercent >= 50 ? COLORS.warning : COLORS.error }]}>Aderência</Text>
+              <Text style={styles.cardValue}>{Math.round(summary.adherencePercent || 0)}%</Text>
+            </View>
+          </View>
+
           <View style={styles.statsRow}>
             <Text style={styles.statItem}>Último Peso: {weightHistory.length > 0 ? Math.round(weightHistory[weightHistory.length - 1].weight) : '-'}</Text>
             <Text style={styles.statItem}>Altura: {profile.height} cm</Text>
             <Text style={styles.statItem}>Idade: {profile.age} anos</Text>
           </View>
+
+          <TouchableOpacity
+            style={styles.deleteButton}
+            onPress={handleDeleteAccount}
+          >
+            <Text style={styles.deleteButtonText}>Excluir Minha Conta</Text>
+          </TouchableOpacity>
         </>
       ) : (
         <Text style={styles.emptyState}>Carregando...</Text>
@@ -148,5 +192,17 @@ const styles = StyleSheet.create({
   },
   menuText: {
     fontSize: FONT_SIZE.md, color: COLORS.textSecondary,
+  },
+  deleteButton: {
+    backgroundColor: COLORS.error,
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md,
+    alignItems: 'center',
+    marginTop: SPACING.xxl,
+  },
+  deleteButtonText: {
+    color: COLORS.text,
+    fontSize: FONT_SIZE.md,
+    fontWeight: 'bold',
   },
 });
