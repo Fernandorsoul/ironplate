@@ -98,4 +98,24 @@ export async function removeUserId(): Promise<void> {
   await removeData(KEYS.USER_ID);
 }
 
+export async function removeUserProfile(): Promise<void> {
+  await removeData(KEYS.USER_PROFILE);
+}
+
+export async function removeDailyLogs(): Promise<void> {
+  await removeData(KEYS.DAILY_LOGS);
+}
+
+export async function removeMealPlans(): Promise<void> {
+  await removeData(KEYS.MEAL_PLANS);
+}
+
+export async function removeWeightHistory(): Promise<void> {
+  await removeData(KEYS.WEIGHT_HISTORY);
+}
+
+export async function removeCustomFoods(): Promise<void> {
+  await removeData(KEYS.CUSTOM_FOODS);
+}
+
 export { KEYS };
