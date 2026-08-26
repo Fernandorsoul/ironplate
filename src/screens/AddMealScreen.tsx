@@ -9,8 +9,8 @@ import { findPortionsForFood } from '../constants/portions';
 import { Food, Meal, MealTiming } from '../types';
 import * as Crypto from 'expo-crypto';
 
-type PortionUnit = 'unidade' | 'fatia' | 'colher' | 'xicara' | 'ml' | 'g';
-const PORTION_UNITS: PortionUnit[] = ['unidade', 'fatia', 'colher', 'xicara', 'ml', 'g'];
+type PortionUnit = 'unidade' | 'fatia' | 'colher' | 'xicara' | 'ml' | 'g' | 'dente';
+const PORTION_UNITS: PortionUnit[] = ['unidade', 'fatia', 'colher', 'xicara', 'ml', 'g', 'dente'];
 
 export default function AddMealScreen({ navigation }: any) {
   const { addMealToToday, customFoods } = useApp();
