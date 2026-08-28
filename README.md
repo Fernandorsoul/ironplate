@@ -58,7 +58,8 @@ Consulte o [CHANGELOG.md](CHANGELOG.md) para ver o registro técnico da alteraç
 | Expo | 57.0.10 | Build e desenvolvimento |
 | TypeScript | 6.0.3 | Type safety |
 | React Navigation | 7.x | Navegação |
-| AsyncStorage | 2.2.0 | Persistência offline |
+| Neon Postgres | Serverless | Fonte de verdade dos dados |
+| Expo SecureStore | 57.0.2 | Sessão criptografada no dispositivo |
 | Victory Native | 41.26.0 | Gráficos |
 | Playwright | 1.62.1 | Testes E2E |
 | Jest | 29.x | Testes unitários |
@@ -66,7 +67,7 @@ Consulte o [CHANGELOG.md](CHANGELOG.md) para ver o registro técnico da alteraç
 ## Como Rodar
 
 ### Pré-requisitos
-- Node.js 18+
+- Node.js 22.13+
 - npm ou yarn
 - Expo CLI (opcional)
 
@@ -143,8 +144,9 @@ ironplate/
 │   │   ├── EditProfileScreen.tsx
 │   │   └── ...
 │   ├── services/                # Serviços de dados
-│   │   ├── database.ts          # SQLite + fallback web
-│   │   └── storage.ts           # AsyncStorage
+│   │   ├── database.ts          # Cliente autenticado da API
+│   │   ├── session.ts           # SecureStore / sessão web temporária
+│   │   └── storage.ts           # Limpeza de caches legados
 │   ├── types/                   # Definições TypeScript
 │   │   └── index.ts
 │   └── utils/                   # Funções utilitárias

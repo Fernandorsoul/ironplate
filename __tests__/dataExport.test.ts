@@ -2,7 +2,7 @@ import {
   buildExportFileName,
   buildExportPayload,
   parseMealsJson,
-} from '../api/users/export';
+} from '../api/services/exportData';
 
 describe('LGPD data export helpers', () => {
   describe('buildExportFileName', () => {

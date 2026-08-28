@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../constants/theme';
+import { requestPasswordReset, resetPassword } from '../services/database';
 
 export default function ForgotPasswordScreen({ navigation }: any) {
   const [email, setEmail] = useState('');
@@ -18,14 +19,7 @@ export default function ForgotPasswordScreen({ navigation }: any) {
 
     setLoading(true);
     try {
-      // Call API to send reset email
-      const response = await fetch('/api/users/forgot-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim() }),
-      });
-
-      const data = await response.json();
+      await requestPasswordReset(email.trim());
 
       // Always show success message to prevent email enumeration
       Alert.alert(
@@ -35,10 +29,6 @@ export default function ForgotPasswordScreen({ navigation }: any) {
           {
             text: 'OK',
             onPress: () => {
-              // In development, auto-fill token if returned
-              if (data.token) {
-                setToken(data.token);
-              }
               setStep('token');
             },
           },
@@ -65,6 +55,10 @@ export default function ForgotPasswordScreen({ navigation }: any) {
       Alert.alert('Erro', 'A senha deve ter pelo menos 8 caracteres');
       return;
     }
+    if (!/[A-Za-z]/.test(newPassword) || !/\d/.test(newPassword)) {
+      Alert.alert('Erro', 'A senha deve conter pelo menos uma letra e um número');
+      return;
+    }
     if (newPassword !== confirmPassword) {
       Alert.alert('Erro', 'As senhas não coincidem');
       return;
@@ -72,31 +66,14 @@ export default function ForgotPasswordScreen({ navigation }: any) {
 
     setLoading(true);
     try {
-      const response = await fetch('/api/users/reset-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: token.trim(), newPassword }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to reset password');
-      }
+      await resetPassword(token.trim(), newPassword);
 
       Alert.alert('Sucesso', 'Senha alterada com sucesso!', [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Reset password error:', error);
-      if (error.message === 'Token expired') {
-        Alert.alert('Erro', 'O código de recuperação expirou. Solicite um novo.');
-        setStep('email');
-      } else if (error.message === 'Invalid or expired token') {
-        Alert.alert('Erro', 'Código de recuperação inválido. Verifique e tente novamente.');
-      } else {
-        Alert.alert('Erro', 'Não foi possível alterar a senha. Tente novamente.');
-      }
+      Alert.alert('Erro', 'Não foi possível alterar a senha. Solicite um novo código e tente novamente.');
     } finally {
       setLoading(false);
     }

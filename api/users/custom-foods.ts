@@ -1,10 +1,18 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { neon } from '@neondatabase/serverless';
 import { generalRateLimit } from '../middleware/rateLimit';
-
-const sql = neon(process.env.DATABASE_URL!);
+import { applyCors } from '../middleware/cors';
+import { getSql } from '../middleware/db';
+import { customFoodPostSchema, userIdSchema, validationError } from '../middleware/validation';
+import { requireUserAccess } from '../middleware/auth';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (applyCors(req, res, ['GET', 'POST'])) return;
+
+  const sql = getSql();
+  if (!sql) {
+    return res.status(500).json({ error: 'Database not configured' });
+  }
+
   await generalRateLimit(req, res, async () => {
     if (req.method === 'GET') {
       try {
@@ -14,8 +22,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           return res.status(400).json({ error: 'Missing userId parameter' });
         }
 
+        const parsedUserId = userIdSchema.safeParse(userId);
+        if (!parsedUserId.success) {
+          return validationError(res, parsedUserId.error.issues);
+        }
+        if (!await requireUserAccess(req, res, parsedUserId.data)) return;
+
         const foods = await sql`
-          SELECT * FROM custom_foods WHERE user_id = ${userId as string}
+          SELECT * FROM custom_foods WHERE user_id = ${parsedUserId.data}
         `;
 
         const result = (foods as any[]).map(f => ({
@@ -34,15 +48,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (req.method === 'POST') {
       try {
-        const { userId, food } = req.body;
-
-        if (!userId || !food) {
-          return res.status(400).json({ error: 'Missing required fields' });
+        const parsed = customFoodPostSchema.safeParse(req.body);
+        if (!parsed.success) {
+          return validationError(res, parsed.error.issues);
         }
 
+        const { userId } = parsed.data;
+        if (!await requireUserAccess(req, res, userId)) return;
+        const food = parsed.data.food as Record<string, any>;
+
+        // INSERT OR REPLACE (SQLite) is not valid PostgreSQL; use upsert semantics instead
         await sql`
-          INSERT OR REPLACE INTO custom_foods (id, user_id, name, category, calories, protein, carbs, fat)
+          INSERT INTO custom_foods (id, user_id, name, category, calories, protein, carbs, fat)
           VALUES (${food.id}, ${userId}, ${food.name}, ${food.category}, ${food.macros.calories}, ${food.macros.protein}, ${food.macros.carbs}, ${food.macros.fat})
+          ON CONFLICT (id) DO UPDATE SET
+            name = EXCLUDED.name,
+            category = EXCLUDED.category,
+            calories = EXCLUDED.calories,
+            protein = EXCLUDED.protein,
+            carbs = EXCLUDED.carbs,
+            fat = EXCLUDED.fat
+          WHERE custom_foods.user_id = EXCLUDED.user_id
         `;
 
         return res.status(201).json({ success: true });

@@ -9,17 +9,16 @@ function buildExportFileName(date: Date): string {
 }
 
 export default function ProfileScreen({ navigation }: any) {
-  const { profile, targetMacros, getWeeklySummary, weightHistory, deleteAccount, userId } = useApp();
+  const { profile, targetMacros, getWeeklySummary, weightHistory, deleteAccount } = useApp();
   const [isExporting, setIsExporting] = useState(false);
 
   const summary = useMemo(() => getWeeklySummary(), [getWeeklySummary, targetMacros]);
 
   const handleExportData = async () => {
-    if (!userId || isExporting) return;
+    if (isExporting) return;
     setIsExporting(true);
     try {
-      const data = await exportUserData(userId);
-      const json = JSON.stringify(data, null, 2);
+      const json = JSON.stringify(await exportUserData(), null, 2);
       const fileName = buildExportFileName(new Date());
 
       if (Platform.OS === 'web') {

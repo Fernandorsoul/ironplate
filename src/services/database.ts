@@ -1,472 +1,216 @@
-import { UserProfile, DailyLog, MealPlan, Food, Macros } from '../types';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { DailyLog, Food, MealPlan, UserProfile } from '../types';
+import type { BodyMeasurement } from './measurementTypes';
+import { clearSession, getAccessToken } from './session';
 
-// API base URL
-const API_BASE = '/api';
+export type { BodyMeasurement } from './measurementTypes';
 
-// AsyncStorage keys for offline cache
-const CACHE_PREFIX = '@ironplate_cache_';
+const configuredApiBase = process.env.EXPO_PUBLIC_API_BASE_URL?.replace(/\/$/, '') ?? '';
+const API_BASE = `${configuredApiBase}/api`;
 
-// Cache helpers
-async function saveToCache<T>(key: string, data: T): Promise<void> {
-  try {
-    await AsyncStorage.setItem(`${CACHE_PREFIX}${key}`, JSON.stringify(data));
-  } catch (error) {
-    console.error(`Error saving to cache ${key}:`, error);
+export interface AuthenticatedUser {
+  id: string;
+  name: string;
+  email: string;
+  accessToken: string;
+}
+
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+  ) {
+    super(message);
+    this.name = 'ApiError';
   }
 }
 
-async function loadFromCache<T>(key: string): Promise<T | null> {
-  try {
-    const data = await AsyncStorage.getItem(`${CACHE_PREFIX}${key}`);
-    return data ? JSON.parse(data) : null;
-  } catch {
-    return null;
+async function apiFetch(
+  path: string,
+  init: RequestInit = {},
+  authenticated = true,
+): Promise<Response> {
+  const headers: Record<string, string> = {
+    ...(init.body ? { 'Content-Type': 'application/json' } : {}),
+    ...(init.headers as Record<string, string> | undefined),
+  };
+
+  if (authenticated) {
+    const token = await getAccessToken();
+    if (!token) throw new ApiError('Authentication required', 401);
+    headers.Authorization = `Bearer ${token}`;
   }
+
+  const response = await fetch(`${API_BASE}${path}`, { ...init, headers });
+  if (response.status === 401 && authenticated) {
+    await clearSession();
+  }
+  return response;
 }
 
-// ============================================================
-// AUTHENTICATION
-// ============================================================
+async function expectOk(response: Response): Promise<void> {
+  if (response.ok) return;
+  throw new ApiError(`API request failed with status ${response.status}`, response.status);
+}
 
-export async function createUser(
-  name: string,
-  email: string,
-  password: string
-): Promise<{ id: string; name: string; email: string } | null> {
+async function authenticate(
+  path: '/users/create' | '/users/auth',
+  body: Record<string, string>,
+): Promise<AuthenticatedUser | null> {
   try {
-    const response = await fetch(`${API_BASE}/users/create`, {
+    const response = await apiFetch(path, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email, password }),
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      console.error('Create user error:', error);
-      return null;
-    }
-
-    const user = await response.json();
-    
-    // Cache user data
-    await saveToCache(`user_${user.id}`, user);
-    
-    return user;
+      body: JSON.stringify(body),
+    }, false);
+    if (!response.ok) return null;
+    return await response.json() as AuthenticatedUser;
   } catch (error) {
-    console.error('Create user error:', error);
+    console.error('Authentication request failed:', error);
     return null;
   }
 }
 
-export async function authenticateUser(
-  email: string,
-  password: string
-): Promise<{ id: string; name: string; email: string } | null> {
-  try {
-    const response = await fetch(`${API_BASE}/users/auth`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    });
-
-    if (!response.ok) {
-      return null;
-    }
-
-    const user = await response.json();
-    
-    // Cache user data
-    await saveToCache(`user_${user.id}`, user);
-    
-    return user;
-  } catch (error) {
-    console.error('Authenticate user error:', error);
-    return null;
-  }
+export function createUser(name: string, email: string, password: string) {
+  return authenticate('/users/create', { name, email, password });
 }
 
-export async function getUserByEmail(email: string): Promise<{ id: string; name: string; email: string } | null> {
-  try {
-    const response = await fetch(`${API_BASE}/users/get-by-email?email=${encodeURIComponent(email)}`);
-
-    if (!response.ok) {
-      return null;
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.error('Get user by email error:', error);
-    return null;
-  }
+export function authenticateUser(email: string, password: string) {
+  return authenticate('/users/auth', { email, password });
 }
 
-export async function resetPassword(userId: string, newPassword: string): Promise<void> {
-  try {
-    const response = await fetch(`${API_BASE}/users/reset-password`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, newPassword }),
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to reset password');
-    }
-  } catch (error) {
-    console.error('Reset password error:', error);
-    throw error;
-  }
+export async function requestPasswordReset(email: string): Promise<void> {
+  const response = await apiFetch('/users/forgot-password', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  }, false);
+  await expectOk(response);
 }
 
-// ============================================================
-// USER PROFILE
-// ============================================================
+export async function resetPassword(token: string, newPassword: string): Promise<void> {
+  const response = await apiFetch('/users/reset-password', {
+    method: 'POST',
+    body: JSON.stringify({ token, newPassword }),
+  }, false);
+  await expectOk(response);
+}
 
 export async function getUserById(userId: string): Promise<UserProfile | null> {
-  try {
-    const response = await fetch(`${API_BASE}/users/get?userId=${encodeURIComponent(userId)}`);
-
-    if (response.status === 404) return null;
-    if (!response.ok) throw new Error(`API error: ${response.status}`);
-
-    const profile = await response.json();
-    
-    // Cache profile
-    await saveToCache(`profile_${userId}`, profile);
-    
-    return profile;
-  } catch (error) {
-    console.error('Get user by id error:', error);
-    // Try cache
-    return await loadFromCache<UserProfile>(`profile_${userId}`);
-  }
+  const response = await apiFetch(`/users/get?userId=${encodeURIComponent(userId)}`);
+  if (response.status === 404) return null;
+  await expectOk(response);
+  return await response.json() as UserProfile;
 }
 
-export async function updateUser(
-  userId: string,
-  fields: Partial<UserProfile>
-): Promise<void> {
-  try {
-    const response = await fetch(`${API_BASE}/users/update`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, fields }),
-    });
-
-    if (!response.ok) throw new Error(`API error: ${response.status}`);
-
-    // Update cache
-    const cached = await loadFromCache<UserProfile>(`profile_${userId}`);
-    if (cached) {
-      const updated = { ...cached, ...fields };
-      await saveToCache(`profile_${userId}`, updated);
-    }
-  } catch (error) {
-    console.error('Update user error:', error);
-    throw error;
-  }
+export async function updateUser(userId: string, fields: Partial<UserProfile>): Promise<void> {
+  const response = await apiFetch('/users/update', {
+    method: 'PUT',
+    body: JSON.stringify({ userId, fields }),
+  });
+  await expectOk(response);
 }
 
-// ============================================================
-// DAILY LOGS
-// ============================================================
+export async function deleteAccount(userId: string): Promise<void> {
+  const response = await apiFetch('/users/delete', {
+    method: 'DELETE',
+    body: JSON.stringify({ userId }),
+  });
+  await expectOk(response);
+}
+
+export async function exportUserData(): Promise<Record<string, unknown>> {
+  const response = await apiFetch('/users/export');
+  await expectOk(response);
+  return await response.json() as Record<string, unknown>;
+}
 
 export async function saveDailyLog(userId: string, log: DailyLog): Promise<void> {
-  try {
-    const response = await fetch(`${API_BASE}/users/daily-logs`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, log }),
-    });
-
-    if (!response.ok) throw new Error(`API error: ${response.status}`);
-
-    // Update cache
-    const cached = await loadFromCache<DailyLog[]>(`daily_logs_${userId}`) || [];
-    const filtered = cached.filter(l => l.date !== log.date);
-    filtered.push(log);
-    await saveToCache(`daily_logs_${userId}`, filtered);
-  } catch (error) {
-    console.error('Save daily log error:', error);
-    throw error;
-  }
+  const response = await apiFetch('/users/daily-logs', {
+    method: 'POST',
+    body: JSON.stringify({ userId, log }),
+  });
+  await expectOk(response);
 }
 
-export async function getDailyLogs(userId: string, limit: number = 30): Promise<DailyLog[]> {
-  try {
-    const response = await fetch(`${API_BASE}/users/daily-logs?userId=${encodeURIComponent(userId)}&limit=${limit}`);
-
-    if (!response.ok) throw new Error(`API error: ${response.status}`);
-
-    const logs = await response.json();
-    
-    // Cache logs
-    await saveToCache(`daily_logs_${userId}`, logs);
-    
-    return logs;
-  } catch (error) {
-    console.error('Get daily logs error:', error);
-    // Try cache
-    return await loadFromCache<DailyLog[]>(`daily_logs_${userId}`) || [];
-  }
+export async function getDailyLogs(userId: string, limit = 30): Promise<DailyLog[]> {
+  const response = await apiFetch(
+    `/users/daily-logs?userId=${encodeURIComponent(userId)}&limit=${limit}`,
+  );
+  await expectOk(response);
+  return await response.json() as DailyLog[];
 }
-
-// ============================================================
-// MEAL PLANS
-// ============================================================
 
 export async function saveMealPlan(userId: string, plan: MealPlan): Promise<void> {
-  try {
-    const response = await fetch(`${API_BASE}/users/meal-plans`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, plan }),
-    });
-
-    if (!response.ok) throw new Error(`API error: ${response.status}`);
-
-    // Update cache
-    const cached = await loadFromCache<MealPlan[]>(`meal_plans_${userId}`) || [];
-    const filtered = cached.filter(p => p.id !== plan.id);
-    filtered.push(plan);
-    await saveToCache(`meal_plans_${userId}`, filtered);
-  } catch (error) {
-    console.error('Save meal plan error:', error);
-    throw error;
-  }
+  const response = await apiFetch('/users/meal-plans', {
+    method: 'POST',
+    body: JSON.stringify({ userId, plan }),
+  });
+  await expectOk(response);
 }
 
 export async function getMealPlans(userId: string): Promise<MealPlan[]> {
-  try {
-    const response = await fetch(`${API_BASE}/users/meal-plans?userId=${encodeURIComponent(userId)}`);
-
-    if (!response.ok) throw new Error(`API error: ${response.status}`);
-
-    const plans = await response.json();
-    
-    // Cache plans
-    await saveToCache(`meal_plans_${userId}`, plans);
-    
-    return plans;
-  } catch (error) {
-    console.error('Get meal plans error:', error);
-    // Try cache
-    return await loadFromCache<MealPlan[]>(`meal_plans_${userId}`) || [];
-  }
+  const response = await apiFetch(`/users/meal-plans?userId=${encodeURIComponent(userId)}`);
+  await expectOk(response);
+  return await response.json() as MealPlan[];
 }
 
-export async function deleteMealPlan(planId: string): Promise<void> {
-  try {
-    const response = await fetch(`${API_BASE}/users/meal-plans/${planId}`, {
-      method: 'DELETE',
-    });
-
-    if (!response.ok) throw new Error(`API error: ${response.status}`);
-  } catch (error) {
-    console.error('Delete meal plan error:', error);
-    throw error;
-  }
+export async function deleteMealPlan(userId: string, planId: string): Promise<void> {
+  const response = await apiFetch('/users/meal-plans', {
+    method: 'DELETE',
+    body: JSON.stringify({ userId, planId }),
+  });
+  await expectOk(response);
 }
-
-// ============================================================
-// CUSTOM FOODS
-// ============================================================
 
 export async function saveCustomFood(userId: string, food: Food): Promise<void> {
-  try {
-    const response = await fetch(`${API_BASE}/users/custom-foods`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, food }),
-    });
-
-    if (!response.ok) throw new Error(`API error: ${response.status}`);
-
-    // Update cache
-    const cached = await loadFromCache<Food[]>(`custom_foods_${userId}`) || [];
-    const filtered = cached.filter(f => f.id !== food.id);
-    filtered.push(food);
-    await saveToCache(`custom_foods_${userId}`, filtered);
-  } catch (error) {
-    console.error('Save custom food error:', error);
-    throw error;
-  }
+  const response = await apiFetch('/users/custom-foods', {
+    method: 'POST',
+    body: JSON.stringify({ userId, food }),
+  });
+  await expectOk(response);
 }
 
 export async function getCustomFoods(userId: string): Promise<Food[]> {
-  try {
-    const response = await fetch(`${API_BASE}/users/custom-foods?userId=${encodeURIComponent(userId)}`);
-
-    if (!response.ok) throw new Error(`API error: ${response.status}`);
-
-    const foods = await response.json();
-    
-    // Cache foods
-    await saveToCache(`custom_foods_${userId}`, foods);
-    
-    return foods;
-  } catch (error) {
-    console.error('Get custom foods error:', error);
-    // Try cache
-    return await loadFromCache<Food[]>(`custom_foods_${userId}`) || [];
-  }
+  const response = await apiFetch(`/users/custom-foods?userId=${encodeURIComponent(userId)}`);
+  await expectOk(response);
+  return await response.json() as Food[];
 }
 
-// ============================================================
-// WEIGHT HISTORY
-// ============================================================
-
-export async function saveWeightEntry(userId: string, entry: { date: string; weight: number; bodyFat?: number }): Promise<void> {
-  try {
-    const response = await fetch(`${API_BASE}/users/weight-history`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, entry }),
-    });
-
-    if (!response.ok) throw new Error(`API error: ${response.status}`);
-
-    // Update cache
-    const cached = await loadFromCache<any[]>(`weight_history_${userId}`) || [];
-    const filtered = cached.filter(e => e.date !== entry.date);
-    filtered.push({ ...entry, id: `${userId}_${entry.date}` });
-    await saveToCache(`weight_history_${userId}`, filtered);
-  } catch (error) {
-    console.error('Save weight entry error:', error);
-    throw error;
-  }
+export async function saveWeightEntry(
+  userId: string,
+  entry: { date: string; weight: number; bodyFat?: number },
+): Promise<void> {
+  const response = await apiFetch('/users/weight-history', {
+    method: 'POST',
+    body: JSON.stringify({ userId, entry }),
+  });
+  await expectOk(response);
 }
 
-export async function getWeightHistory(userId: string): Promise<{ date: string; weight: number; bodyFat?: number }[]> {
-  try {
-    const response = await fetch(`${API_BASE}/users/weight-history?userId=${encodeURIComponent(userId)}`);
-
-    if (!response.ok) throw new Error(`API error: ${response.status}`);
-
-    const history = await response.json();
-    
-    // Cache history
-    await saveToCache(`weight_history_${userId}`, history);
-    
-    return history;
-  } catch (error) {
-    console.error('Get weight history error:', error);
-    // Try cache
-    return await loadFromCache<any[]>(`weight_history_${userId}`) || [];
-  }
+export async function getWeightHistory(
+  userId: string,
+): Promise<{ date: string; weight: number; bodyFat?: number }[]> {
+  const response = await apiFetch(`/users/weight-history?userId=${encodeURIComponent(userId)}`);
+  await expectOk(response);
+  return await response.json() as { date: string; weight: number; bodyFat?: number }[];
 }
 
-// ============================================================
-// BODY MEASUREMENTS
-// ============================================================
-
-export interface BodyMeasurement {
-  date: string;
-  weight: number;
-  height?: number;
-  bodyFat?: number;
-  bodyFatMethod?: 'visual' | 'skinfold' | 'bioimpedance';
-  resistance?: number;
-  reactance?: number;
-  phaseAngle?: number;
-  muscleMass?: number;
-  skeletalMuscle?: number;
-  waterPercent?: number;
-  waterKg?: number;
-  boneMass?: number;
-  proteinPercent?: number;
-  proteinMass?: number;
-  basalMetabolism?: number;
-  visceralFat?: number;
-  triceps?: number;
-  biceps?: number;
-  subscapular?: number;
-  suprailiac?: number;
-  abdominal?: number;
-  chestSkinfold?: number;
-  axillaryMid?: number;
-  thighSkinfold?: number;
-  calfSkinfold?: number;
-  armRelaxedRight?: number;
-  armRelaxedLeft?: number;
-  armFlexedRight?: number;
-  armFlexedLeft?: number;
-  forearmRight?: number;
-  forearmLeft?: number;
-  wristRight?: number;
-  wristLeft?: number;
-  chestCircumference?: number;
-  waistCircumference?: number;
-  abdomenCircumference?: number;
-  hipCircumference?: number;
-  thighProximalRight?: number;
-  thighProximalLeft?: number;
-  thighMidRight?: number;
-  thighMidLeft?: number;
-  calfRight?: number;
-  calfLeft?: number;
-  ankleRight?: number;
-  ankleLeft?: number;
-  leanMass?: number;
-  fatMass?: number;
-  bmi?: number;
-  waistHipRatio?: number;
-  notes?: string;
+export async function saveBodyMeasurement(
+  userId: string,
+  measurement: BodyMeasurement,
+): Promise<void> {
+  const response = await apiFetch('/users/body-measurements', {
+    method: 'POST',
+    body: JSON.stringify({ userId, measurement }),
+  });
+  await expectOk(response);
 }
 
-export async function saveBodyMeasurement(userId: string, measurement: BodyMeasurement): Promise<void> {
-  try {
-    const response = await fetch(`${API_BASE}/users/body-measurements`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, measurement }),
-    });
-
-    if (!response.ok) throw new Error(`API error: ${response.status}`);
-
-    // Update cache
-    const cached = await loadFromCache<BodyMeasurement[]>(`body_measurements_${userId}`) || [];
-    const filtered = cached.filter(m => m.date !== measurement.date);
-    filtered.push(measurement);
-    await saveToCache(`body_measurements_${userId}`, filtered);
-  } catch (error) {
-    console.error('Save body measurement error:', error);
-    throw error;
-  }
-}
-
-export async function getBodyMeasurements(userId: string, limit: number = 30): Promise<BodyMeasurement[]> {
-  try {
-    const response = await fetch(`${API_BASE}/users/body-measurements?userId=${encodeURIComponent(userId)}&limit=${limit}`);
-
-    if (!response.ok) throw new Error(`API error: ${response.status}`);
-
-    const measurements = await response.json();
-    
-    // Cache measurements
-    await saveToCache(`body_measurements_${userId}`, measurements);
-    
-    return measurements;
-  } catch (error) {
-    console.error('Get body measurements error:', error);
-    // Try cache
-    return await loadFromCache<BodyMeasurement[]>(`body_measurements_${userId}`) || [];
-  }
-}
-
-// ============================================================
-// DATA EXPORT (LGPD)
-// ============================================================
-
-export async function exportUserData(userId: string): Promise<any> {
-  try {
-    const response = await fetch(`${API_BASE}/users/export?userId=${encodeURIComponent(userId)}`);
-
-    if (!response.ok) throw new Error(`API error: ${response.status}`);
-
-    return await response.json();
-  } catch (error) {
-    console.error('Export user data error:', error);
-    throw error;
-  }
+export async function getBodyMeasurements(
+  userId: string,
+  limit = 30,
+): Promise<BodyMeasurement[]> {
+  const response = await apiFetch(
+    `/users/body-measurements?userId=${encodeURIComponent(userId)}&limit=${limit}`,
+  );
+  await expectOk(response);
+  return await response.json() as BodyMeasurement[];
 }

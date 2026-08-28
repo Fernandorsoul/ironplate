@@ -1,24 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { neon } from '@neondatabase/serverless';
-import * as Crypto from 'crypto';
 import { resetPasswordRateLimit } from '../middleware/rateLimit';
-
-const sql = neon(process.env.DATABASE_URL!);
-
-const HASH_ITERATIONS = 10000;
-const SALT_LENGTH = 32;
-
-async function hashPassword(password: string, salt: string): Promise<string> {
-  let hash = password + salt;
-  for (let i = 0; i < HASH_ITERATIONS; i++) {
-    hash = Crypto.createHash('sha256').update(hash + salt).digest('hex');
-  }
-  return hash;
-}
-
-function generateSalt(): string {
-  return Crypto.randomBytes(SALT_LENGTH).toString('hex').substring(0, SALT_LENGTH);
-}
+import { applyCors } from '../middleware/cors';
+import { getSql } from '../middleware/db';
+import { resetPasswordSchema, validationError } from '../middleware/validation';
+import { hashPassword } from '../security/password';
+import { hashResetToken } from '../security/resetToken';
 
 /**
  * POST /api/users/reset-password
@@ -27,28 +13,33 @@ function generateSalt(): string {
  * Token is invalidated after use.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (applyCors(req, res, ['POST'])) return;
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  const sql = getSql();
+  if (!sql) {
+    return res.status(500).json({ error: 'Database not configured' });
   }
 
   // Apply rate limiting
   await resetPasswordRateLimit(req, res, async () => {
     try {
-      const { token, newPassword } = req.body;
-
-      if (!token || !newPassword) {
-        return res.status(400).json({ error: 'Missing required fields' });
+      const parsed = resetPasswordSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return validationError(res, parsed.error.issues);
       }
 
-      if (newPassword.length < 8) {
-        return res.status(400).json({ error: 'Password must be at least 8 characters' });
-      }
+      const { token, newPassword } = parsed.data;
+      const tokenHash = hashResetToken(token);
 
       // Find valid token
       const tokens = await sql`
         SELECT id, user_id, expires_at, used 
         FROM password_reset_tokens 
-        WHERE token = ${token} AND used = FALSE
+        WHERE token_hash = ${tokenHash} AND used = FALSE
       `;
 
       if (tokens.length === 0) {
@@ -78,23 +69,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const user = users[0];
 
-      // Generate new password hash
-      const salt = generateSalt();
-      const passwordHash = await hashPassword(newPassword, salt);
-      const storedHash = `${salt}:${passwordHash}`;
+      const storedHash = await hashPassword(newPassword);
 
-      // Update password
-      await sql`
-        UPDATE users SET password_hash = ${storedHash}, updated_at = NOW() WHERE id = ${user.id}
-      `;
-
-      // Mark token as used
-      await sql`
-        UPDATE password_reset_tokens SET used = TRUE WHERE id = ${tokenRecord.id}
-      `;
-
-      // Log successful reset
-      console.log(`[Password Reset] Password reset successfully for user ${user.id} (${user.email})`);
+      await sql.transaction(txn => [
+        txn`
+          UPDATE users
+          SET password_hash = ${storedHash}, updated_at = NOW()
+          WHERE id = ${user.id}
+        `,
+        txn`
+          UPDATE password_reset_tokens
+          SET used = TRUE
+          WHERE user_id = ${user.id} AND used = FALSE
+        `,
+      ]);
 
       return res.status(200).json({
         success: true,

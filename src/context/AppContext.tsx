@@ -1,8 +1,10 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
+import { Alert, Platform } from 'react-native';
 import { UserProfile, DailyLog, MealPlan, WeightEntry, Macros, Food, WeeklySummary, Meal, Workout } from '../types';
 import { calculateMacros } from '../utils/calculations';
-import * as Storage from '../services/storage';
 import * as Database from '../services/database';
+import { purgeLegacyLocalData } from '../services/storage';
+import { clearSession, loadSession, saveSession } from '../services/session';
 
 interface AppContextType {
   // Auth
@@ -51,6 +53,16 @@ interface AppContextType {
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
+let webSessionNoticeShown = false;
+
+function notifyTemporaryWebSession() {
+  if (Platform.OS !== 'web' || webSessionNoticeShown) return;
+  webSessionNoticeShown = true;
+  Alert.alert(
+    'Sessão temporária no navegador',
+    'Por segurança, sua sessão não será salva neste navegador. Ao recarregar a página, faça login novamente.',
+  );
+}
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [userId, setUserId] = useState<string | null>(null);
@@ -69,16 +81,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const loadAllData = async () => {
     try {
-      // First, load userId from AsyncStorage (this is the only thing we keep there)
-      const savedUserId = await Storage.loadUserId();
+      await purgeLegacyLocalData();
+      const session = await loadSession();
       
-      if (!savedUserId) {
-        console.log('No user logged in');
-        setIsLoading(false);
-        return;
-      }
-
-      console.log('Loading data for user:', savedUserId);
+      if (!session) return;
+      const savedUserId = session.userId;
 
       // Load all data from SQLite (mobile) or API (web)
       const [profile, logs, plans, weight, customFoods] = await Promise.all([
@@ -89,21 +96,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         Database.getCustomFoods(savedUserId),
       ]);
 
-      console.log('Data loaded:', {
-        profile: !!profile,
-        logs: logs?.length || 0,
-        plans: plans?.length || 0,
-        weight: weight?.length || 0,
-        customFoods: customFoods?.length || 0,
-      });
-
       setUserId(savedUserId);
       
       if (profile) {
         setProfileState(profile);
         setTargetMacros(calculateMacros(profile));
-        // Also save to AsyncStorage for backward compatibility
-        await Storage.saveUserProfile(profile);
       }
       
       dailyLogsRef.current = logs || [];
@@ -111,15 +108,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setMealPlans(plans || []);
       setWeightHistory(weight || []);
       setCustomFoods(customFoods || []);
-      
-      // Also save to AsyncStorage for backward compatibility
-      await Storage.saveDailyLogs(logs || []);
-      await Storage.saveMealPlans(plans || []);
-      await Storage.saveWeightHistory(weight || []);
-      await Storage.saveCustomFoods(customFoods || []);
-      
     } catch (error) {
       console.error('Error loading data:', error);
+      await clearSession();
     } finally {
       setIsLoading(false);
     }
@@ -144,28 +135,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [getTodayDate]);
 
   const updateTodayLog = useCallback(async (updater: (log: DailyLog) => DailyLog) => {
+    if (!userId) throw new Error('Authentication required');
     const today = getTodayDate();
     const currentLog = getTodayLog();
     const updated = updater(currentLog);
+    await Database.saveDailyLog(userId, updated);
     const newLogs = dailyLogsRef.current.filter(log => log.date !== today);
     newLogs.push(updated);
     dailyLogsRef.current = newLogs;
     setDailyLogs(newLogs);
-    await Storage.saveDailyLogs(newLogs);
-  }, [getTodayDate, getTodayLog]);
+  }, [getTodayDate, getTodayLog, userId]);
 
   const login = useCallback(async (email: string, password: string): Promise<boolean> => {
     try {
       const user = await Database.authenticateUser(email, password);
       if (!user) return false;
+      await saveSession({ userId: user.id, accessToken: user.accessToken });
+      notifyTemporaryWebSession();
       setUserId(user.id);
-      await Storage.saveUserId(user.id);
 
       const existingProfile = await Database.getUserById(user.id);
       if (existingProfile) {
         setProfileState(existingProfile);
         setTargetMacros(calculateMacros(existingProfile));
-        await Storage.saveUserProfile(existingProfile);
       }
       return true;
     } catch (error) {
@@ -178,8 +170,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       const user = await Database.createUser(name, email, password);
       if (!user) return false;
+      await saveSession({ userId: user.id, accessToken: user.accessToken });
+      notifyTemporaryWebSession();
       setUserId(user.id);
-      await Storage.saveUserId(user.id);
       return true;
     } catch (error) {
       console.error('Register error:', error);
@@ -195,31 +188,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setMealPlans([]);
     setWeightHistory([]);
     setCustomFoods([]);
-    await Storage.removeUserId();
+    dailyLogsRef.current = [];
+    await clearSession();
   }, []);
 
   const deleteAccount = useCallback(async (): Promise<boolean> => {
     try {
       if (!userId) return false;
 
-      // Chamar API para deletar conta no servidor
-      const response = await fetch('/api/users/delete', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete account');
-      }
-
-      // Limpar todos os dados locais
-      await Storage.removeUserId();
-      await Storage.removeUserProfile();
-      await Storage.removeDailyLogs();
-      await Storage.removeMealPlans();
-      await Storage.removeWeightHistory();
-      await Storage.removeCustomFoods();
+      await Database.deleteAccount(userId);
+      await clearSession();
+      await purgeLegacyLocalData();
 
       // Resetar estado
       setUserId(null);
@@ -229,6 +208,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setMealPlans([]);
       setWeightHistory([]);
       setCustomFoods([]);
+      dailyLogsRef.current = [];
 
       return true;
     } catch (error) {
@@ -238,10 +218,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [userId]);
 
   const setProfile = useCallback(async (newProfile: UserProfile) => {
+    if (!userId) throw new Error('Authentication required');
+    const { name, age, weight, height, gender, activityLevel, goal, sport } = newProfile;
+    await Database.updateUser(userId, {
+      name, age, weight, height, gender, activityLevel, goal, sport,
+    });
     setProfileState(newProfile);
     setTargetMacros(calculateMacros(newProfile));
-    await Storage.saveUserProfile(newProfile);
-  }, []);
+  }, [userId]);
 
   const addMealToToday = useCallback(async (meal: Meal) => {
     await updateTodayLog(log => ({
@@ -294,57 +278,45 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const setTodayWeight = useCallback(async (weight: number) => {
     await updateTodayLog(log => ({ ...log, weight }));
     const entry: WeightEntry = { date: getTodayDate(), weight };
-    setWeightHistory(prev => {
-      const newHistory = prev.filter(e => e.date !== entry.date);
-      newHistory.push(entry);
-      newHistory.sort((a, b) => a.date.localeCompare(b.date));
-      Storage.saveWeightHistory(newHistory);
-      return newHistory;
-    });
+    setWeightHistory(prev => [
+      ...prev.filter(e => e.date !== entry.date),
+      entry,
+    ].sort((a, b) => a.date.localeCompare(b.date)));
   }, [updateTodayLog, getTodayDate]);
 
   const saveMealPlan = useCallback(async (plan: MealPlan) => {
-    setMealPlans(prev => {
-      const newPlans = prev.filter(p => p.id !== plan.id);
-      newPlans.push(plan);
-      Storage.saveMealPlans(newPlans);
-      return newPlans;
-    });
-  }, []);
+    if (!userId) throw new Error('Authentication required');
+    await Database.saveMealPlan(userId, plan);
+    setMealPlans(prev => [...prev.filter(p => p.id !== plan.id), plan]);
+  }, [userId]);
 
   const deleteMealPlan = useCallback(async (id: string) => {
-    setMealPlans(prev => {
-      const newPlans = prev.filter(p => p.id !== id);
-      Storage.saveMealPlans(newPlans);
-      return newPlans;
-    });
-  }, []);
+    if (!userId) throw new Error('Authentication required');
+    await Database.deleteMealPlan(userId, id);
+    setMealPlans(prev => prev.filter(p => p.id !== id));
+  }, [userId]);
 
   const setActiveMealPlan = useCallback(async (id: string) => {
-    setMealPlans(prev => {
-      const newPlans = prev.map(plan => ({ ...plan, isActive: plan.id === id }));
-      Storage.saveMealPlans(newPlans);
-      return newPlans;
-    });
-  }, []);
+    if (!userId) throw new Error('Authentication required');
+    const updatedPlans = mealPlans.map(plan => ({ ...plan, isActive: plan.id === id }));
+    await Promise.all(updatedPlans.map(plan => Database.saveMealPlan(userId, plan)));
+    setMealPlans(updatedPlans);
+  }, [mealPlans, userId]);
 
   const addWeightEntry = useCallback(async (entry: WeightEntry) => {
-    setWeightHistory(prev => {
-      const newHistory = prev.filter(e => e.date !== entry.date);
-      newHistory.push(entry);
-      newHistory.sort((a, b) => a.date.localeCompare(b.date));
-      Storage.saveWeightHistory(newHistory);
-      return newHistory;
-    });
-  }, []);
+    if (!userId) throw new Error('Authentication required');
+    await Database.saveWeightEntry(userId, entry);
+    setWeightHistory(prev => [
+      ...prev.filter(e => e.date !== entry.date),
+      entry,
+    ].sort((a, b) => a.date.localeCompare(b.date)));
+  }, [userId]);
 
   const addCustomFood = useCallback(async (food: Food) => {
-    setCustomFoods(prev => {
-      const newFoods = [...prev, food];
-      Storage.saveCustomFoods(newFoods);
-      return newFoods;
-    });
-  }, []);
+    if (!userId) throw new Error('Authentication required');
+    await Database.saveCustomFood(userId, food);
+    setCustomFoods(prev => [...prev.filter(item => item.id !== food.id), food]);
+  }, [userId]);
 
   const getWeeklySummary = useCallback((): WeeklySummary => {
     const last7Days = dailyLogs.slice(-7);

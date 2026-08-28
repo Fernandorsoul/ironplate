@@ -3,6 +3,7 @@
 import { Platform, Alert } from 'react-native';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import { escapeHtml } from './html';
 
 interface PDFData {
   profile: any;
@@ -49,6 +50,8 @@ interface PDFData {
 
 export async function generatePDF(data: PDFData): Promise<void> {
   const { profile, weight, height, bodyFat, bodyFatMethod } = data;
+  const profileName = escapeHtml(profile?.name || '---');
+  const safeNotes = data.notes ? escapeHtml(data.notes) : '';
   
   const bmi = weight && height ? (weight / Math.pow(height / 100, 2)).toFixed(1) : '---';
   const leanMass = weight && bodyFat ? (weight * (1 - bodyFat / 100)).toFixed(1) : '---';
@@ -105,7 +108,7 @@ export async function generatePDF(data: PDFData): Promise<void> {
   <div class="section">
     <div class="section-title">Dados do Paciente</div>
     <div class="grid">
-      <div class="card"><label>Nome</label><div class="value">${profile?.name || '---'}</div></div>
+      <div class="card"><label>Nome</label><div class="value">${profileName}</div></div>
       <div class="card"><label>Idade</label><div class="value">${profile?.age || '---'} <span class="unit">anos</span></div></div>
       <div class="card"><label>Gênero</label><div class="value">${profile?.gender === 'male' ? 'Masculino' : 'Feminino'}</div></div>
       <div class="card"><label>Esporte</label><div class="value">${profile?.sport === 'bodybuilding' ? 'Bodybuilding' : profile?.sport === 'bjj' ? 'BJJ' : 'Atleta'}</div></div>
@@ -182,7 +185,7 @@ export async function generatePDF(data: PDFData): Promise<void> {
   ${data.notes ? `
   <div class="notes">
     <h4>Observações do Profissional</h4>
-    <p>${data.notes}</p>
+    <p>${safeNotes}</p>
   </div>` : ''}
 
   <div class="footer">
@@ -218,7 +221,6 @@ export async function generatePDF(data: PDFData): Promise<void> {
         dialogTitle: 'Compartilhar Avaliação Antropométrica',
         UTI: 'com.adobe.pdf',
       });
-      console.log('[PDF] Avaliação antropométrica gerada com sucesso:', uri);
     }
   } catch (error) {
     console.error('[PDF] Erro ao gerar PDF:', error);
