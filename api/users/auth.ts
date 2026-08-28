@@ -48,6 +48,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(401).json({ error: 'Invalid credentials' });
       }
 
+      // Record last login timestamp (LGPD export metadata). Best effort only:
+      // a failure here must never break the login flow.
+      try {
+        await sql`UPDATE users SET last_login = NOW() WHERE id = ${user.id}`;
+      } catch (error) {
+        console.error('Update last login error:', error);
+      }
+
       return res.status(200).json({ id: user.id, name: user.name, email: user.email });
     } catch (error) {
       console.error('Auth error:', error);
