@@ -9,8 +9,24 @@ Aplicativo móvel de nutrição para atletas de **Bodybuilding** e **BJJ** (Braz
 ### Planos Alimentares
 - **Geração automática** de 3 opções de cardápio
 - **Tabela TACO** (UNICAMP) como base de dados nutricional
-- **PDF exportável** com porções detalhadas em gramas
+- **Porções em medidas caseiras e gramas** nas dietas, refeições e PDFs
+- **PDF exportável** com porções detalhadas nas duas formas
 - **Análise de adequação** nutricional com score
+
+#### Medidas caseiras e gramas
+
+As porções dos planos alimentares são apresentadas simultaneamente em uma medida prática e no peso usado como referência nutricional. Exemplo:
+
+```text
+Banana, prata: aprox. 1 banana (120 g)
+```
+
+- As medidas caseiras são aproximadas; os gramas continuam sendo a referência para o cálculo dos macros.
+- O mesmo formato é usado nos planos gerados, no plano ativo, na edição do plano, nas refeições diárias e no PDF exportado.
+- Planos antigos que armazenam somente gramas também recebem a conversão durante a exibição.
+- A implementação é compartilhada entre web, Android e iOS.
+
+Consulte o [CHANGELOG.md](CHANGELOG.md) para ver o registro técnico da alteração.
 
 ### Tracking Nutricional
 - **Contagem de macros** (proteína, carboidratos, gordura)
@@ -109,6 +125,7 @@ ironplate/
 │   │   └── ScreenHeader.tsx
 │   ├── constants/               # Configurações estáticas
 │   │   ├── foods.ts             # Banco de alimentos legado
+│   │   ├── portions.ts          # Conversões para medidas caseiras
 │   │   ├── taco.ts              # Tabela TACO (UNICAMP)
 │   │   └── theme.ts             # Cores, spacing, fontes
 │   ├── context/                 # Estado global
@@ -136,6 +153,7 @@ ironplate/
 │       ├── calculations.ts      # Cálculos nutricionais
 │       ├── dietGenerator.ts     # Gerador de dietas
 │       ├── dietPdfGenerator.ts  # PDF de dietas
+│       ├── portionDisplay.ts     # Formatação de medida caseira + gramas
 │       └── pdfGenerator.ts      # PDF de medidas
 ├── App.tsx                      # Componente raiz
 ├── package.json

@@ -65,6 +65,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         `;
       }
 
+      // Record last login timestamp (LGPD export metadata). Best effort only:
+      // a failure here must never break the login flow.
       try {
         await sql`UPDATE users SET last_login = NOW() WHERE id = ${user.id}`;
       } catch (error) {

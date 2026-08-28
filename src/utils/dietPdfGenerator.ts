@@ -3,6 +3,7 @@
 import { Platform, Alert } from 'react-native';
 import { MealPlan, UserProfile } from '../types';
 import { calculateTDEE, calculateTargetCalories, getMacroPercentages } from './calculations';
+import { formatPortionAmount } from './portionDisplay';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { escapeHtml } from './html';
@@ -63,7 +64,7 @@ function generateMealHTML(meal: any): string {
         ${meal.foods.map((food: any) => `
         <tr>
           <td>${escapeHtml(food.food.name)}</td>
-          <td class="food-grams">${food.grams}g</td>
+          <td class="food-grams">${formatPortionAmount(food)}</td>
           <td>${food.macros.calories.toFixed(3)}</td>
           <td>${food.macros.protein.toFixed(3)}g</td>
           <td>${food.macros.carbs.toFixed(3)}g</td>
@@ -229,7 +230,7 @@ export async function generateDietOptionsPDF(plans: MealPlan[], profile: UserPro
     <strong>Observações Importantes:</strong>
     <ul style="margin-top:5px;margin-left:15px;">
       <li>Todas as informações nutricionais são baseadas na <strong>Tabela TACO</strong> (UNICAMP - 4ª edição)</li>
-      <li>Porções em gramas (g) referem-se ao alimento cru, salvo indicação contrária</li>
+      <li>As medidas caseiras são aproximadas; use o peso em gramas (g) como referência nutricional</li>
       <li>Hidratação: mínimo 2-3 litros de água por dia</li>
       <li>Consulte um nutricionista para ajustes individualizados</li>
       <li>Varie entre as opções ao longo da semana para melhor aderência</li>

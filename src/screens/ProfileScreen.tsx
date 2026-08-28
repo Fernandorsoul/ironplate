@@ -22,6 +22,7 @@ export default function ProfileScreen({ navigation }: any) {
       const fileName = buildExportFileName(new Date());
 
       if (Platform.OS === 'web') {
+        // Web: browser download through a Blob and a temporary anchor
         const blob = new Blob([json], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
@@ -32,6 +33,8 @@ export default function ProfileScreen({ navigation }: any) {
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
       } else {
+        // Mobile: write the JSON to the cache dir and share it.
+        // Native-only modules are imported lazily so web builds are not affected.
         const [{ File, Paths }, Sharing] = await Promise.all([
           import('expo-file-system'),
           import('expo-sharing'),

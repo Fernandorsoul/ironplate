@@ -94,10 +94,13 @@ src/services/storage.ts    # Limpeza do cache legado em AsyncStorage
 src/utils/calculations.ts    # Cálculos nutricionais
 src/utils/dietGenerator.ts   # Geração de dietas
 src/utils/dietPdfGenerator.ts # PDF de dietas
+src/utils/portionDisplay.ts  # Medidas caseiras + gramas
 src/utils/pdfGenerator.ts    # PDF de medidas
 ```
 
 **Responsabilidade:** Lógica de negócio pura, cálculos.
+
+`portionDisplay.ts` centraliza a resolução e a formatação das porções. O gerador persiste `quantity` e `unit` quando existe uma conversão conhecida, enquanto a camada de apresentação também consegue derivar a medida caseira a partir dos gramas para manter compatibilidade com planos antigos.
 
 ### 5. Hooks (Custom Hooks)
 

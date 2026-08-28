@@ -5,6 +5,7 @@ import { useApp } from '../context/AppContext';
 import { calculateMacros, calculateTDEE, calculateTargetCalories } from '../utils/calculations';
 import { generateDietOptions, analyzeDiet } from '../utils/dietGenerator';
 import { generateDietPDF, generateDietOptionsPDF } from '../utils/dietPdfGenerator';
+import { formatFoodPortion } from '../utils/portionDisplay';
 import { MealPlan, Goal } from '../types';
 
 export default function MealPlanScreen({ navigation }: any) {
@@ -97,7 +98,7 @@ export default function MealPlanScreen({ navigation }: any) {
                   <Text style={styles.mealPreviewCalories}>{Math.round(meal.totalMacros.calories)} kcal</Text>
                 </View>
                 {meal.foods.map((portion, index) => (
-                  <Text key={index} style={styles.mealPreviewFood}>{portion.grams}g {portion.food.name}</Text>
+                  <Text key={index} style={styles.mealPreviewFood}>{formatFoodPortion(portion)}</Text>
                 ))}
               </View>
             ))}
@@ -305,9 +306,7 @@ export default function MealPlanScreen({ navigation }: any) {
                       </View>
                       {meal.foods.map((food, j) => (
                         <Text key={j} style={styles.mealPreviewFood}>
-                          {food.quantity && food.unit
-                            ? food.quantity + ' ' + food.unit + ' de ' + food.food.name
-                            : food.grams + 'g ' + food.food.name}
+                          {formatFoodPortion(food)}
                         </Text>
                       ))}
                     </View>
