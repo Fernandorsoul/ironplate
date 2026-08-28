@@ -4,6 +4,7 @@
 import { Food, Meal, MealPlan, MealTiming, Macros, UserProfile, Goal } from '../types';
 import { TACO_DATABASE } from '../constants/taco';
 import { calculateMacros, calculatePortionMacros, sumMacros, calculateTDEE, calculateTargetCalories } from './calculations';
+import { getPortionQuantity } from './portionDisplay';
 import * as Crypto from 'expo-crypto';
 
 // ============================================================
@@ -302,6 +303,7 @@ function generateMeal(
     foods: optimizedFoods.map((f, i) => ({
       food: f.food,
       grams: f.grams,
+      ...getPortionQuantity(f.food, f.grams),
       macros: portionMacros[i],
     })),
     totalMacros,

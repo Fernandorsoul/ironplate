@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { Meal } from '../types';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../constants/theme';
+import { formatFoodPortion } from '../utils/portionDisplay';
 
 interface MealCardProps {
   meal: Meal;
@@ -37,9 +38,7 @@ export function MealCard({ meal, onDelete }: MealCardProps) {
       </View>
       {meal.foods.map((portion, index) => (
         <Text key={index} style={styles.portion}>
-          {portion.quantity && portion.unit
-            ? portion.quantity + ' ' + portion.unit + ' de ' + portion.food.name
-            : portion.grams + 'g de ' + portion.food.name}
+          {formatFoodPortion(portion)}
         </Text>
       ))}
     </View>
