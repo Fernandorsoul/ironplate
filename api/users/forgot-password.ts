@@ -1,9 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { neon } from '@neondatabase/serverless';
 import * as Crypto from 'crypto';
 import { forgotPasswordRateLimit } from '../middleware/rateLimit';
-
-const sql = neon(process.env.DATABASE_URL!);
+import { applyCors } from '../middleware/cors';
+import { getSql } from '../middleware/db';
 
 // Token expiration: 15 minutes
 const TOKEN_EXPIRATION_MS = 15 * 60 * 1000;
@@ -15,8 +14,15 @@ const TOKEN_EXPIRATION_MS = 15 * 60 * 1000;
  * Always returns success message to prevent email enumeration.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (applyCors(req, res, ['POST'])) return;
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  const sql = getSql();
+  if (!sql) {
+    return res.status(500).json({ error: 'Database not configured' });
   }
 
   // Apply rate limiting: 3 requests per hour per email

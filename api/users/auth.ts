@@ -1,9 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { neon } from '@neondatabase/serverless';
 import * as Crypto from 'crypto';
 import { authRateLimit } from '../middleware/rateLimit';
-
-const sql = neon(process.env.DATABASE_URL!);
+import { applyCors } from '../middleware/cors';
+import { getSql } from '../middleware/db';
 
 const HASH_ITERATIONS = 10000;
 const SALT_LENGTH = 32;
@@ -17,8 +16,15 @@ async function hashPassword(password: string, salt: string): Promise<string> {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (applyCors(req, res, ['POST'])) return;
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  const sql = getSql();
+  if (!sql) {
+    return res.status(500).json({ error: 'Database not configured' });
   }
 
   // Apply rate limiting

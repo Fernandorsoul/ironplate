@@ -1,12 +1,18 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { neon } from '@neondatabase/serverless';
 import { generalRateLimit } from '../middleware/rateLimit';
-
-const sql = neon(process.env.DATABASE_URL!);
+import { applyCors } from '../middleware/cors';
+import { getSql } from '../middleware/db';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (applyCors(req, res, ['PUT'])) return;
+
   if (req.method !== 'PUT') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  const sql = getSql();
+  if (!sql) {
+    return res.status(500).json({ error: 'Database not configured' });
   }
 
   // Apply rate limiting
