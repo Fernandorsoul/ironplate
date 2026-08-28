@@ -67,12 +67,12 @@ export default function HomeScreen({ navigation }: any) {
       <Text style={styles.sectionTitle}>Ações Rápidas</Text>
       <View style={styles.actionsGrid}>
         <ActionButton icon="+" label="Refeição" onPress={() => navigation.navigate('AddMeal')} color={COLORS.primary} />
-        <ActionButton icon="🏋️" label="Treino" onPress={() => navigation.navigate('AddWorkout')} color={COLORS.accent} />
-        <ActionButton icon="⚖️" label="Peso" onPress={() => navigation.navigate('Weight')} color={COLORS.calories} />
-        <ActionButton icon="📊" label="Plano" onPress={() => navigation.navigate('MealPlan')} color={COLORS.fat} />
-        <ActionButton icon="📈" label="Resumo" onPress={() => navigation.navigate('WeeklySummary')} color={COLORS.accent} />
-        <ActionButton icon="📏" label="Medidas" onPress={() => navigation.navigate('BodyMeasurements')} color={COLORS.accent} />
-        <ActionButton icon="📉" label="Evolução" onPress={() => navigation.navigate('Evolution')} color={COLORS.calories} />
+        <ActionButton icon="🏋️" label="Treino" onPress={() => navigation.navigate('AddWorkout')} color={COLORS.primary} />
+        <ActionButton icon="⚖️" label="Peso" onPress={() => navigation.navigate('Weight')} color={COLORS.primary} />
+        <ActionButton icon="📊" label="Plano" onPress={() => navigation.navigate('MealPlan')} color={COLORS.primary} />
+        <ActionButton icon="📈" label="Resumo" onPress={() => navigation.navigate('WeeklySummary')} color={COLORS.primary} />
+        <ActionButton icon="📏" label="Medidas" onPress={() => navigation.navigate('BodyMeasurements')} color={COLORS.primary} />
+        <ActionButton icon="📉" label="Evolução" onPress={() => navigation.navigate('Evolution')} color={COLORS.primary} />
       </View>
 
       {/* Today's Meals */}
