@@ -11,6 +11,7 @@ interface AppContextType {
   login: (email: string, password: string) => Promise<boolean>;
   register: (name: string, email: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
+  deleteAccount: () => Promise<boolean>;
 
   // User
   profile: UserProfile | null;
@@ -68,26 +69,55 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const loadAllData = async () => {
     try {
-      const [savedProfile, savedLogs, savedPlans, savedWeight, savedCustomFoods, savedUserId] = await Promise.all([
-        Storage.loadUserProfile(),
-        Storage.loadDailyLogs(),
-        Storage.loadMealPlans(),
-        Storage.loadWeightHistory(),
-        Storage.loadCustomFoods(),
-        Storage.loadUserId(),
+      // First, load userId from AsyncStorage (this is the only thing we keep there)
+      const savedUserId = await Storage.loadUserId();
+      
+      if (!savedUserId) {
+        console.log('No user logged in');
+        setIsLoading(false);
+        return;
+      }
+
+      console.log('Loading data for user:', savedUserId);
+
+      // Load all data from SQLite (mobile) or API (web)
+      const [profile, logs, plans, weight, customFoods] = await Promise.all([
+        Database.getUserById(savedUserId),
+        Database.getDailyLogs(savedUserId, 100),
+        Database.getMealPlans(savedUserId),
+        Database.getWeightHistory(savedUserId),
+        Database.getCustomFoods(savedUserId),
       ]);
-      if (savedProfile) {
-        setProfileState(savedProfile);
-        setTargetMacros(calculateMacros(savedProfile));
+
+      console.log('Data loaded:', {
+        profile: !!profile,
+        logs: logs?.length || 0,
+        plans: plans?.length || 0,
+        weight: weight?.length || 0,
+        customFoods: customFoods?.length || 0,
+      });
+
+      setUserId(savedUserId);
+      
+      if (profile) {
+        setProfileState(profile);
+        setTargetMacros(calculateMacros(profile));
+        // Also save to AsyncStorage for backward compatibility
+        await Storage.saveUserProfile(profile);
       }
-      dailyLogsRef.current = savedLogs;
-      setDailyLogs(savedLogs);
-      setMealPlans(savedPlans);
-      setWeightHistory(savedWeight);
-      setCustomFoods(savedCustomFoods);
-      if (savedUserId) {
-        setUserId(savedUserId);
-      }
+      
+      dailyLogsRef.current = logs || [];
+      setDailyLogs(logs || []);
+      setMealPlans(plans || []);
+      setWeightHistory(weight || []);
+      setCustomFoods(customFoods || []);
+      
+      // Also save to AsyncStorage for backward compatibility
+      await Storage.saveDailyLogs(logs || []);
+      await Storage.saveMealPlans(plans || []);
+      await Storage.saveWeightHistory(weight || []);
+      await Storage.saveCustomFoods(customFoods || []);
+      
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
@@ -167,6 +197,45 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setCustomFoods([]);
     await Storage.removeUserId();
   }, []);
+
+  const deleteAccount = useCallback(async (): Promise<boolean> => {
+    try {
+      if (!userId) return false;
+
+      // Chamar API para deletar conta no servidor
+      const response = await fetch('/api/users/delete', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete account');
+      }
+
+      // Limpar todos os dados locais
+      await Storage.removeUserId();
+      await Storage.removeUserProfile();
+      await Storage.removeDailyLogs();
+      await Storage.removeMealPlans();
+      await Storage.removeWeightHistory();
+      await Storage.removeCustomFoods();
+
+      // Resetar estado
+      setUserId(null);
+      setProfileState(null);
+      setTargetMacros(null);
+      setDailyLogs([]);
+      setMealPlans([]);
+      setWeightHistory([]);
+      setCustomFoods([]);
+
+      return true;
+    } catch (error) {
+      console.error('Delete account error:', error);
+      return false;
+    }
+  }, [userId]);
 
   const setProfile = useCallback(async (newProfile: UserProfile) => {
     setProfileState(newProfile);
@@ -315,6 +384,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         login,
         register,
         logout,
+        deleteAccount,
         profile,
         setProfile,
         targetMacros,

@@ -9,6 +9,7 @@ export default function RegisterScreen({ navigation }: any) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleRegister = async () => {
@@ -21,12 +22,16 @@ export default function RegisterScreen({ navigation }: any) {
       Alert.alert('Erro', 'Digite um email válido');
       return;
     }
-    if (password.length < 6) {
-      Alert.alert('Erro', 'A senha deve ter pelo menos 6 caracteres');
+    if (password.length < 8) {
+      Alert.alert('Erro', 'A senha deve ter pelo menos 8 caracteres');
       return;
     }
     if (password !== confirmPassword) {
       Alert.alert('Erro', 'As senhas não coincidem');
+      return;
+    }
+    if (!acceptedPrivacy) {
+      Alert.alert('Erro', 'Você deve aceitar a Política de Privacidade para continuar');
       return;
     }
 
@@ -92,6 +97,23 @@ export default function RegisterScreen({ navigation }: any) {
           secureTextEntry
         />
 
+        <View style={styles.checkboxContainer}>
+          <TouchableOpacity
+            style={[styles.checkbox, acceptedPrivacy && styles.checkboxChecked]}
+            onPress={() => setAcceptedPrivacy(!acceptedPrivacy)}
+          >
+            {acceptedPrivacy && <Text style={styles.checkmark}>✓</Text>}
+          </TouchableOpacity>
+          <View style={styles.checkboxLabelContainer}>
+            <Text style={styles.checkboxLabel}>
+              Li e aceito a{' '}
+            </Text>
+            <TouchableOpacity onPress={() => navigation.navigate('PrivacyPolicy')}>
+              <Text style={styles.linkText}>Política de Privacidade</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
         <TouchableOpacity
           style={[styles.button, loading && styles.buttonDisabled]}
           onPress={handleRegister}
@@ -138,6 +160,38 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontSize: FONT_SIZE.md,
     marginBottom: SPACING.md,
+  },
+  checkboxContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: SPACING.md,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderWidth: 2,
+    borderColor: COLORS.primary,
+    borderRadius: 4,
+    marginRight: SPACING.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxChecked: {
+    backgroundColor: COLORS.primary,
+  },
+  checkmark: {
+    color: COLORS.text,
+    fontSize: FONT_SIZE.md,
+    fontWeight: 'bold',
+  },
+  checkboxLabelContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  checkboxLabel: {
+    color: COLORS.textSecondary,
+    fontSize: FONT_SIZE.sm,
   },
   button: {
     backgroundColor: COLORS.primary,

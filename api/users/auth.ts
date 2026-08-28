@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
 import * as Crypto from 'crypto';
+import { authRateLimit } from '../middleware/rateLimit';
 
 const sql = neon(process.env.DATABASE_URL!);
 
@@ -20,34 +21,45 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  try {
-    const { email, password } = req.body;
+  // Apply rate limiting
+  await authRateLimit(req, res, async () => {
+    try {
+      const { email, password } = req.body;
 
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Missing required fields' });
+      if (!email || !password) {
+        return res.status(400).json({ error: 'Missing required fields' });
+      }
+
+      const users = await sql`
+        SELECT id, name, email, password_hash
+        FROM users
+        WHERE email = ${email.toLowerCase().trim()}
+      `;
+
+      if (users.length === 0) {
+        return res.status(401).json({ error: 'Invalid credentials' });
+      }
+
+      const user = users[0];
+      const [salt] = user.password_hash.split(':');
+      const computedHash = await hashPassword(password, salt);
+
+      if (user.password_hash !== `${salt}:${computedHash}`) {
+        return res.status(401).json({ error: 'Invalid credentials' });
+      }
+
+      // Record last login timestamp (LGPD export metadata). Best effort only:
+      // a failure here must never break the login flow.
+      try {
+        await sql`UPDATE users SET last_login = NOW() WHERE id = ${user.id}`;
+      } catch (error) {
+        console.error('Update last login error:', error);
+      }
+
+      return res.status(200).json({ id: user.id, name: user.name, email: user.email });
+    } catch (error) {
+      console.error('Auth error:', error);
+      return res.status(500).json({ error: 'Internal server error' });
     }
-
-    const users = await sql`
-      SELECT id, name, email, password_hash 
-      FROM users 
-      WHERE email = ${email.toLowerCase().trim()}
-    `;
-
-    if (users.length === 0) {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
-
-    const user = users[0];
-    const [salt] = user.password_hash.split(':');
-    const computedHash = await hashPassword(password, salt);
-
-    if (user.password_hash !== `${salt}:${computedHash}`) {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
-
-    return res.status(200).json({ id: user.id, name: user.name, email: user.email });
-  } catch (error) {
-    console.error('Auth error:', error);
-    return res.status(500).json({ error: 'Internal server error' });
-  }
+  });
 }

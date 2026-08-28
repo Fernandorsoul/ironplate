@@ -35,6 +35,7 @@ import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
 import BodyMeasurementsScreen from './src/screens/BodyMeasurementsScreen';
 import EvolutionScreen from './src/screens/EvolutionScreen';
 import EditProfileScreen from './src/screens/EditProfileScreen';
+import PrivacyPolicyScreen from './src/screens/PrivacyPolicyScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<TabParamList>();
@@ -109,6 +110,7 @@ function AppNavigator() {
           <Stack.Screen name="Login" component={LoginScreen} />
           <Stack.Screen name="Register" component={RegisterScreen} />
           <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+          <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} options={{ headerShown: true, title: 'Política de Privacidade' }} />
         </>
       ) : !isOnboarded ? (
         // Onboarding screen
@@ -132,6 +134,7 @@ function AppNavigator() {
           <Stack.Screen name="BodyMeasurements" component={BodyMeasurementsScreen} />
           <Stack.Screen name="Evolution" component={EvolutionScreen} />
           <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+          <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} options={{ headerShown: true, title: 'Política de Privacidade' }} />
         </>
       )}
     </Stack.Navigator>
