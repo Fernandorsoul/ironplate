@@ -1,12 +1,61 @@
-import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Alert } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Alert, Platform } from 'react-native';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../constants/theme';
 import { useApp } from '../context/AppContext';
+import { exportUserData } from '../services/database';
+
+function buildExportFileName(date: Date): string {
+  return `ironplate-export-${date.toISOString().slice(0, 10)}.json`;
+}
 
 export default function ProfileScreen({ navigation }: any) {
-  const { profile, targetMacros, getWeeklySummary, weightHistory, deleteAccount } = useApp();
+  const { profile, targetMacros, getWeeklySummary, weightHistory, deleteAccount, userId } = useApp();
+  const [isExporting, setIsExporting] = useState(false);
 
   const summary = useMemo(() => getWeeklySummary(), [getWeeklySummary, targetMacros]);
+
+  const handleExportData = async () => {
+    if (!userId || isExporting) return;
+    setIsExporting(true);
+    try {
+      const data = await exportUserData(userId);
+      const json = JSON.stringify(data, null, 2);
+      const fileName = buildExportFileName(new Date());
+
+      if (Platform.OS === 'web') {
+        // Web: browser download through a Blob and a temporary anchor
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      } else {
+        // Mobile: write the JSON to the cache dir and share it.
+        // Native-only modules are imported lazily so web builds are not affected.
+        const [{ File, Paths }, Sharing] = await Promise.all([
+          import('expo-file-system'),
+          import('expo-sharing'),
+        ]);
+        const file = new File(Paths.cache, fileName);
+        file.write(json);
+        await Sharing.shareAsync(file.uri, {
+          mimeType: 'application/json',
+          dialogTitle: 'Exportar meus dados',
+        });
+      }
+
+      Alert.alert('Sucesso', 'Seus dados foram exportados com sucesso.');
+    } catch (error) {
+      console.error('Export data error:', error);
+      Alert.alert('Erro', 'Não foi possível exportar seus dados. Tente novamente mais tarde.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const handleDeleteAccount = () => {
     Alert.alert(
@@ -96,6 +145,16 @@ export default function ProfileScreen({ navigation }: any) {
             <Text style={styles.statItem}>Altura: {profile.height} cm</Text>
             <Text style={styles.statItem}>Idade: {profile.age} anos</Text>
           </View>
+
+          <TouchableOpacity
+            style={[styles.exportButton, isExporting && styles.exportButtonDisabled]}
+            onPress={handleExportData}
+            disabled={isExporting}
+          >
+            <Text style={styles.exportButtonText}>
+              {isExporting ? 'Exportando...' : 'Exportar meus dados'}
+            </Text>
+          </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.deleteButton}
@@ -192,6 +251,21 @@ const styles = StyleSheet.create({
   },
   menuText: {
     fontSize: FONT_SIZE.md, color: COLORS.textSecondary,
+  },
+  exportButton: {
+    backgroundColor: COLORS.primary,
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md,
+    alignItems: 'center',
+    marginTop: SPACING.xl,
+  },
+  exportButtonDisabled: {
+    opacity: 0.6,
+  },
+  exportButtonText: {
+    color: COLORS.text,
+    fontSize: FONT_SIZE.md,
+    fontWeight: 'bold',
   },
   deleteButton: {
     backgroundColor: COLORS.error,

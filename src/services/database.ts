@@ -453,3 +453,20 @@ export async function getBodyMeasurements(userId: string, limit: number = 30): P
     return await loadFromCache<BodyMeasurement[]>(`body_measurements_${userId}`) || [];
   }
 }
+
+// ============================================================
+// DATA EXPORT (LGPD)
+// ============================================================
+
+export async function exportUserData(userId: string): Promise<any> {
+  try {
+    const response = await fetch(`${API_BASE}/users/export?userId=${encodeURIComponent(userId)}`);
+
+    if (!response.ok) throw new Error(`API error: ${response.status}`);
+
+    return await response.json();
+  } catch (error) {
+    console.error('Export user data error:', error);
+    throw error;
+  }
+}
