@@ -4,6 +4,7 @@ import { FoodPortionDef } from '../types';
 // Maps food name patterns to their portion definitions
 export const PORTION_DEFINITIONS: Record<string, FoodPortionDef[]> = {
   // Eggs
+  'ovo de galinha, clara': [{ unit: 'unidade', gramsPerUnit: 33, label: '1 clara (~33g)' }],
   'ovo': [{ unit: 'unidade', gramsPerUnit: 50, label: '1 ovo (~50g)' }],
   'ovos': [{ unit: 'unidade', gramsPerUnit: 50, label: '1 ovo (~50g)' }],
 
@@ -29,6 +30,7 @@ export const PORTION_DEFINITIONS: Record<string, FoodPortionDef[]> = {
   'queijo': [{ unit: 'fatia', gramsPerUnit: 30, label: '1 fatia (~30g)' }],
   'queijo mussarela': [{ unit: 'fatia', gramsPerUnit: 30, label: '1 fatia (~30g)' }],
   'queijo minas': [{ unit: 'fatia', gramsPerUnit: 30, label: '1 fatia (~30g)' }],
+  'queijo, cottage': [{ unit: 'colher', gramsPerUnit: 30, label: '1 colher de sopa (~30g)' }],
   'leite': [{ unit: 'ml', gramsPerUnit: 1, label: '1ml = 1g' }],
   'iogurte': [{ unit: 'unidade', gramsPerUnit: 170, label: '1 pote (~170g)' }],
 
@@ -37,6 +39,7 @@ export const PORTION_DEFINITIONS: Record<string, FoodPortionDef[]> = {
   'feijão': [{ unit: 'colher', gramsPerUnit: 100, label: '1 colher (~100g)' }],
   'feijao': [{ unit: 'colher', gramsPerUnit: 100, label: '1 colher (~100g)' }],
   'aveia': [{ unit: 'colher', gramsPerUnit: 20, label: '1 colher (~20g)' }],
+  'quinoa': [{ unit: 'colher', gramsPerUnit: 25, label: '1 colher de sopa (~25g)' }],
   'macarrão': [{ unit: 'xicara', gramsPerUnit: 200, label: '1 xícara (~200g)' }],
   'macarrao': [{ unit: 'xicara', gramsPerUnit: 200, label: '1 xícara (~200g)' }],
 
@@ -47,6 +50,11 @@ export const PORTION_DEFINITIONS: Record<string, FoodPortionDef[]> = {
   'carne moída': [{ unit: 'colher', gramsPerUnit: 100, label: '1 colher (~100g)' }],
   'carne moida': [{ unit: 'colher', gramsPerUnit: 100, label: '1 colher (~100g)' }],
   'peixe': [{ unit: 'unidade', gramsPerUnit: 150, label: '1 filé (~150g)' }],
+  'salmão': [{ unit: 'unidade', gramsPerUnit: 150, label: '1 filé (~150g)' }],
+  'salmao': [{ unit: 'unidade', gramsPerUnit: 150, label: '1 filé (~150g)' }],
+  'tilápia': [{ unit: 'unidade', gramsPerUnit: 150, label: '1 filé (~150g)' }],
+  'tilapia': [{ unit: 'unidade', gramsPerUnit: 150, label: '1 filé (~150g)' }],
+  'peito de peru': [{ unit: 'unidade', gramsPerUnit: 150, label: '1 filé (~150g)' }],
   'sardinha': [{ unit: 'unidade', gramsPerUnit: 40, label: '1 lata (~40g)' }],
 
   // Vegetables
@@ -58,10 +66,14 @@ export const PORTION_DEFINITIONS: Record<string, FoodPortionDef[]> = {
   'cenoura': [{ unit: 'unidade', gramsPerUnit: 100, label: '1 cenoura (~100g)' }],
   'brócolis': [{ unit: 'xicara', gramsPerUnit: 90, label: '1 xícara (~90g)' }],
   'brocolis': [{ unit: 'xicara', gramsPerUnit: 90, label: '1 xícara (~90g)' }],
+  'couve-flor': [{ unit: 'xicara', gramsPerUnit: 100, label: '1 xícara (~100g)' }],
+  'abobrinha': [{ unit: 'xicara', gramsPerUnit: 130, label: '1 xícara (~130g)' }],
+  'repolho': [{ unit: 'xicara', gramsPerUnit: 90, label: '1 xícara (~90g)' }],
   'alface': [{ unit: 'xicara', gramsPerUnit: 30, label: '1 xícara (~30g)' }],
   'pepino': [{ unit: 'unidade', gramsPerUnit: 100, label: '1 pepino (~100g)' }],
 
   // Nuts
+  'abacate': [{ unit: 'colher', gramsPerUnit: 45, label: '1 colher de sopa (~45g)' }],
   'amendoim': [{ unit: 'colher', gramsPerUnit: 15, label: '1 colher (~15g)' }],
   'castanha': [{ unit: 'unidade', gramsPerUnit: 3, label: '1 castanha (~3g)' }],
   'castanha de caju': [{ unit: 'unidade', gramsPerUnit: 3, label: '1 castanha (~3g)' }],
