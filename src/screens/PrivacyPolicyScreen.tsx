@@ -7,7 +7,7 @@ export default function PrivacyPolicyScreen({ navigation }: any) {
     <ScrollView style={styles.container}>
       <View style={styles.content}>
         <Text style={styles.title}>Política de Privacidade</Text>
-        <Text style={styles.lastUpdate}>Última atualização: 25/08/2026</Text>
+        <Text style={styles.lastUpdate}>Última atualização: 28/08/2026</Text>
 
         <Text style={styles.sectionTitle}>1. Dados Coletados</Text>
         <Text style={styles.text}>
@@ -83,12 +83,13 @@ export default function PrivacyPolicyScreen({ navigation }: any) {
         <Text style={styles.bullet}>• Armazenamento seguro de dados sensíveis</Text>
         <Text style={styles.bullet}>• Monitoramento de acesso</Text>
 
-        <Text style={styles.sectionTitle}>9. Contato do DPO</Text>
+        <Text style={styles.sectionTitle}>9. Encarregado de Proteção de Dados (DPO)</Text>
         <Text style={styles.text}>
-          Para exercer seus direitos ou tirar dúvidas sobre privacidade:
+          Para exercer seus direitos ou tirar dúvidas sobre privacidade, fale com o Encarregado de Proteção de Dados (DPO):
         </Text>
+        <Text style={styles.bullet}>Nome: Fernando Ramos</Text>
+        <Text style={styles.bullet}>Organização: RSoul Fábrica de Software</Text>
         <Text style={styles.bullet}>Email: privacy@rsoul.com.br</Text>
-        <Text style={styles.bullet}>Responsável: Departamento de Proteção de Dados - RSoul</Text>
 
         <Text style={styles.sectionTitle}>10. Alterações</Text>
         <Text style={styles.text}>
