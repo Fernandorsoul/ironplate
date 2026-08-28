@@ -5,9 +5,6 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { AppProvider, useApp } from './src/context/AppContext';
-import { AuthProvider } from './src/context/AuthContext';
-import { ProfileProvider } from './src/context/ProfileContext';
-import { DailyLogProvider } from './src/context/DailyLogContext';
 import { COLORS } from './src/constants/theme';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { CollapsibleSideBar } from './src/components/CollapsibleSideBar';
@@ -144,18 +141,12 @@ function AppNavigator() {
 export default function App() {
   return (
     <ErrorBoundary>
-      <AuthProvider>
-        <ProfileProvider>
-          <DailyLogProvider>
-            <AppProvider>
-              <NavigationContainer>
-                <StatusBar style="light" />
-                <AppNavigator />
-              </NavigationContainer>
-            </AppProvider>
-          </DailyLogProvider>
-        </ProfileProvider>
-      </AuthProvider>
+      <AppProvider>
+        <NavigationContainer>
+          <StatusBar style="light" />
+          <AppNavigator />
+        </NavigationContainer>
+      </AppProvider>
     </ErrorBoundary>
   );
 }

@@ -2,6 +2,8 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { generalRateLimit } from '../middleware/rateLimit';
 import { applyCors } from '../middleware/cors';
 import { getSql } from '../middleware/db';
+import { updateSchema, validationError } from '../middleware/validation';
+import { requireAuth, requireUserAccess } from '../middleware/auth';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (applyCors(req, res, ['PUT'])) return;
@@ -9,6 +11,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'PUT') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
+
+  if (!await requireAuth(req, res)) return;
 
   const sql = getSql();
   if (!sql) {
@@ -18,50 +22,44 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Apply rate limiting
   await generalRateLimit(req, res, async () => {
     try {
-      const { userId, fields } = req.body;
-
-      if (!userId || !fields) {
-        return res.status(400).json({ error: 'Missing required fields' });
+      const parsed = updateSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return validationError(res, parsed.error.issues);
       }
 
-      // Map camelCase to snake_case
-      const fieldMap: Record<string, string> = {
-        activityLevel: 'activity_level',
-      };
+      const { userId, fields } = parsed.data;
+      if (!await requireUserAccess(req, res, userId)) return;
 
       // Update each field individually using tagged template literals
-      const allowedFields = ['name', 'age', 'weight', 'height', 'gender', 'activity_level', 'goal', 'sport'];
-
       for (const [key, value] of Object.entries(fields)) {
-        const dbField = fieldMap[key] || key;
-        if (allowedFields.includes(dbField) && value !== undefined) {
-          // Use tagged template literal for each field
-          switch (dbField) {
-            case 'name':
-              await sql`UPDATE users SET name = ${value as string}, updated_at = NOW() WHERE id = ${userId}`;
-              break;
-            case 'age':
-              await sql`UPDATE users SET age = ${value as number}, updated_at = NOW() WHERE id = ${userId}`;
-              break;
-            case 'weight':
-              await sql`UPDATE users SET weight = ${value as number}, updated_at = NOW() WHERE id = ${userId}`;
-              break;
-            case 'height':
-              await sql`UPDATE users SET height = ${value as number}, updated_at = NOW() WHERE id = ${userId}`;
-              break;
-            case 'gender':
-              await sql`UPDATE users SET gender = ${value as string}, updated_at = NOW() WHERE id = ${userId}`;
-              break;
-            case 'activity_level':
-              await sql`UPDATE users SET activity_level = ${value as string}, updated_at = NOW() WHERE id = ${userId}`;
-              break;
-            case 'goal':
-              await sql`UPDATE users SET goal = ${value as string}, updated_at = NOW() WHERE id = ${userId}`;
-              break;
-            case 'sport':
-              await sql`UPDATE users SET sport = ${value as string}, updated_at = NOW() WHERE id = ${userId}`;
-              break;
-          }
+        if (value === undefined) continue;
+
+        switch (key) {
+          case 'name':
+            await sql`UPDATE users SET name = ${value}, updated_at = NOW() WHERE id = ${userId}`;
+            break;
+          case 'age':
+            await sql`UPDATE users SET age = ${value}, updated_at = NOW() WHERE id = ${userId}`;
+            break;
+          case 'weight':
+            await sql`UPDATE users SET weight = ${value}, updated_at = NOW() WHERE id = ${userId}`;
+            break;
+          case 'height':
+            await sql`UPDATE users SET height = ${value}, updated_at = NOW() WHERE id = ${userId}`;
+            break;
+          case 'gender':
+            await sql`UPDATE users SET gender = ${value}, updated_at = NOW() WHERE id = ${userId}`;
+            break;
+          case 'activityLevel':
+            // Map camelCase to snake_case
+            await sql`UPDATE users SET activity_level = ${value}, updated_at = NOW() WHERE id = ${userId}`;
+            break;
+          case 'goal':
+            await sql`UPDATE users SET goal = ${value}, updated_at = NOW() WHERE id = ${userId}`;
+            break;
+          case 'sport':
+            await sql`UPDATE users SET sport = ${value}, updated_at = NOW() WHERE id = ${userId}`;
+            break;
         }
       }
 

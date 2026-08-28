@@ -2,6 +2,8 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { generalRateLimit } from '../middleware/rateLimit';
 import { applyCors } from '../middleware/cors';
 import { getSql } from '../middleware/db';
+import { userIdSchema, validationError, weightEntryPostSchema } from '../middleware/validation';
+import { requireUserAccess } from '../middleware/auth';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (applyCors(req, res, ['GET', 'POST'])) return;
@@ -20,8 +22,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           return res.status(400).json({ error: 'Missing userId parameter' });
         }
 
+        const parsedUserId = userIdSchema.safeParse(userId);
+        if (!parsedUserId.success) {
+          return validationError(res, parsedUserId.error.issues);
+        }
+        if (!await requireUserAccess(req, res, parsedUserId.data)) return;
+
         const entries = await sql`
-          SELECT * FROM weight_history WHERE user_id = ${userId as string} ORDER BY date ASC
+          SELECT * FROM weight_history WHERE user_id = ${parsedUserId.data} ORDER BY date ASC
         `;
 
         const result = (entries as any[]).map(e => ({
@@ -39,16 +47,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (req.method === 'POST') {
       try {
-        const { userId, entry } = req.body;
-
-        if (!userId || !entry) {
-          return res.status(400).json({ error: 'Missing required fields' });
+        const parsed = weightEntryPostSchema.safeParse(req.body);
+        if (!parsed.success) {
+          return validationError(res, parsed.error.issues);
         }
+
+        const { userId } = parsed.data;
+        if (!await requireUserAccess(req, res, userId)) return;
+        const entry = parsed.data.entry as Record<string, any>;
 
         await sql`
           INSERT INTO weight_history (id, user_id, date, weight, body_fat)
           VALUES (${`${userId}_${entry.date}`}, ${userId}, ${entry.date}, ${entry.weight}, ${entry.bodyFat || null})
-          ON CONFLICT(user_id, date) DO UPDATE SET weight = ${entry.weight}, body_fat = ${entry.bodyFat || null}
+          ON CONFLICT(user_id, date) DO UPDATE SET
+            weight = EXCLUDED.weight,
+            body_fat = EXCLUDED.body_fat
         `;
 
         return res.status(201).json({ success: true });

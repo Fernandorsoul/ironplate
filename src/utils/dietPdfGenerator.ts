@@ -5,6 +5,7 @@ import { MealPlan, UserProfile } from '../types';
 import { calculateTDEE, calculateTargetCalories, getMacroPercentages } from './calculations';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import { escapeHtml } from './html';
 
 const getGoalLabel = (goal: string) => {
   switch (goal) {
@@ -38,7 +39,7 @@ function generateMealHTML(meal: any): string {
   return `
   <div class="meal">
     <div class="meal-header">
-      <span class="meal-name">${meal.name}</span>
+      <span class="meal-name">${escapeHtml(meal.name)}</span>
       <span class="meal-timing">${getTimingLabel(meal.timing)}</span>
     </div>
     <div class="meal-macros">
@@ -61,7 +62,7 @@ function generateMealHTML(meal: any): string {
       <tbody>
         ${meal.foods.map((food: any) => `
         <tr>
-          <td>${food.food.name}</td>
+          <td>${escapeHtml(food.food.name)}</td>
           <td class="food-grams">${food.grams}g</td>
           <td>${food.macros.calories.toFixed(3)}</td>
           <td>${food.macros.protein.toFixed(3)}g</td>
@@ -79,7 +80,7 @@ function generateOptionHTML(plan: MealPlan, index: number): string {
   return `
   <div class="option-section">
     <div class="option-header">
-      <h2>Opção ${index + 1}: ${plan.name}</h2>
+      <h2>Opção ${index + 1}: ${escapeHtml(plan.name)}</h2>
     </div>
 
     <div class="macros-summary">
@@ -110,8 +111,6 @@ export async function generateDietPDF(plan: MealPlan, profile: UserProfile): Pro
 }
 
 export async function generateDietOptionsPDF(plans: MealPlan[], profile: UserProfile): Promise<void> {
-  console.log('[PDF] Generating PDF for', plans.length, 'options');
-
   const tdee = calculateTDEE(profile);
   const targetCalories = calculateTargetCalories(profile);
 
@@ -201,7 +200,7 @@ export async function generateDietOptionsPDF(plans: MealPlan[], profile: UserPro
   <div class="section">
     <div class="section-title">Dados do Paciente</div>
     <div class="info-grid">
-      <div class="info-card"><label>Nome</label><div class="value">${profile.name}</div></div>
+      <div class="info-card"><label>Nome</label><div class="value">${escapeHtml(profile.name)}</div></div>
       <div class="info-card"><label>Idade</label><div class="value">${profile.age} <span class="unit">anos</span></div></div>
       <div class="info-card"><label>Peso</label><div class="value">${profile.weight} <span class="unit">kg</span></div></div>
       <div class="info-card"><label>Altura</label><div class="value">${profile.height} <span class="unit">cm</span></div></div>
@@ -209,7 +208,7 @@ export async function generateDietOptionsPDF(plans: MealPlan[], profile: UserPro
     <div class="info-grid">
       <div class="info-card"><label>Gênero</label><div class="value">${profile.gender === 'male' ? 'Masculino' : 'Feminino'}</div></div>
       <div class="info-card"><label>Modalidade</label><div class="value">${getSportLabel(profile.sport)}</div></div>
-      <div class="info-card"><label>Atividade</label><div class="value">${profile.activityLevel}</div></div>
+      <div class="info-card"><label>Atividade</label><div class="value">${escapeHtml(profile.activityLevel)}</div></div>
       <div class="info-card"><label>Objetivo</label><div class="value" style="font-size:10px">${goalLabel}</div></div>
     </div>
   </div>
@@ -274,7 +273,6 @@ export async function generateDietOptionsPDF(plans: MealPlan[], profile: UserPro
         UTI: 'com.adobe.pdf',
       });
     }
-    console.log('[PDF] PDF generated successfully with', plans.length, 'options');
   } catch (error) {
     console.error('[PDF] Error generating PDF:', error);
     Alert.alert('Erro', 'Não foi possível gerar o PDF');

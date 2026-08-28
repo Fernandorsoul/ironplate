@@ -26,6 +26,12 @@ export default function RegisterScreen({ navigation }: any) {
       Alert.alert('Erro', 'A senha deve ter pelo menos 8 caracteres');
       return;
     }
+    if (!/[A-Za-z]/.test(password) || !/\d/.test(password)) {
+      Alert.alert('Erro', 'A senha deve conter pelo menos uma letra e um número');
+      return;
+    }
+    // Client-side UX check only; the server never trusts this comparison.
+    // eslint-disable-next-line security/detect-possible-timing-attacks
     if (password !== confirmPassword) {
       Alert.alert('Erro', 'As senhas não coincidem');
       return;

@@ -2,6 +2,8 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { generalRateLimit } from '../middleware/rateLimit';
 import { applyCors } from '../middleware/cors';
 import { getSql } from '../middleware/db';
+import { bodyMeasurementPostSchema, limitSchema, userIdSchema, validationError } from '../middleware/validation';
+import { requireUserAccess } from '../middleware/auth';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (applyCors(req, res, ['GET', 'POST'])) return;
@@ -20,8 +22,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           return res.status(400).json({ error: 'Missing userId parameter' });
         }
 
+        const parsedUserId = userIdSchema.safeParse(userId);
+        if (!parsedUserId.success) {
+          return validationError(res, parsedUserId.error.issues);
+        }
+        const parsedLimit = limitSchema.safeParse(limit);
+        if (!parsedLimit.success) {
+          return validationError(res, parsedLimit.error.issues);
+        }
+        if (!await requireUserAccess(req, res, parsedUserId.data)) return;
+
         const measurements = await sql`
-          SELECT * FROM body_measurements WHERE user_id = ${userId as string} ORDER BY date DESC LIMIT ${Number(limit)}
+          SELECT * FROM body_measurements WHERE user_id = ${parsedUserId.data} ORDER BY date DESC LIMIT ${parsedLimit.data}
         `;
 
         const result = (measurements as any[]).map(m => ({
@@ -87,11 +99,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (req.method === 'POST') {
       try {
-        const { userId, measurement } = req.body;
-
-        if (!userId || !measurement) {
-          return res.status(400).json({ error: 'Missing required fields' });
+        const parsed = bodyMeasurementPostSchema.safeParse(req.body);
+        if (!parsed.success) {
+          return validationError(res, parsed.error.issues);
         }
+
+        const { userId } = parsed.data;
+        if (!await requireUserAccess(req, res, userId)) return;
+        const measurement = parsed.data.measurement as Record<string, any>;
 
         const id = `${userId}_${measurement.date}`;
         const h = measurement.height || 170;
@@ -101,8 +116,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const waistHipRatio = (measurement.waistCircumference && measurement.hipCircumference)
           ? measurement.waistCircumference / measurement.hipCircumference : undefined;
 
+        // INSERT OR REPLACE (SQLite) is not valid PostgreSQL; use upsert semantics instead
         await sql`
-          INSERT OR REPLACE INTO body_measurements (
+          INSERT INTO body_measurements (
             id, user_id, date, weight, height, body_fat, body_fat_method,
             resistance, reactance, phase_angle,
             muscle_mass, skeletal_muscle, water_percent, water_kg,
@@ -139,6 +155,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             ${measurement.ankleRight || null}, ${measurement.ankleLeft || null},
             ${leanMass}, ${fatMass}, ${bmi}, ${waistHipRatio || null}, ${measurement.notes || null}
           )
+          ON CONFLICT (id) DO UPDATE SET
+            weight = EXCLUDED.weight, height = EXCLUDED.height, body_fat = EXCLUDED.body_fat,
+            body_fat_method = EXCLUDED.body_fat_method, resistance = EXCLUDED.resistance,
+            reactance = EXCLUDED.reactance, phase_angle = EXCLUDED.phase_angle,
+            muscle_mass = EXCLUDED.muscle_mass, skeletal_muscle = EXCLUDED.skeletal_muscle,
+            water_percent = EXCLUDED.water_percent, water_kg = EXCLUDED.water_kg,
+            bone_mass = EXCLUDED.bone_mass, protein_percent = EXCLUDED.protein_percent,
+            protein_mass = EXCLUDED.protein_mass, basal_metabolism = EXCLUDED.basal_metabolism,
+            visceral_fat = EXCLUDED.visceral_fat, triceps = EXCLUDED.triceps, biceps = EXCLUDED.biceps,
+            subscapular = EXCLUDED.subscapular, suprailiac = EXCLUDED.suprailiac,
+            abdominal = EXCLUDED.abdominal, chest_skinfold = EXCLUDED.chest_skinfold,
+            axillary_mid = EXCLUDED.axillary_mid, thigh_skinfold = EXCLUDED.thigh_skinfold,
+            calf_skinfold = EXCLUDED.calf_skinfold, arm_relaxed_right = EXCLUDED.arm_relaxed_right,
+            arm_relaxed_left = EXCLUDED.arm_relaxed_left, arm_flexed_right = EXCLUDED.arm_flexed_right,
+            arm_flexed_left = EXCLUDED.arm_flexed_left, forearm_right = EXCLUDED.forearm_right,
+            forearm_left = EXCLUDED.forearm_left, wrist_right = EXCLUDED.wrist_right,
+            wrist_left = EXCLUDED.wrist_left, chest_circumference = EXCLUDED.chest_circumference,
+            waist_circumference = EXCLUDED.waist_circumference, abdomen_circumference = EXCLUDED.abdomen_circumference,
+            hip_circumference = EXCLUDED.hip_circumference, thigh_proximal_right = EXCLUDED.thigh_proximal_right,
+            thigh_proximal_left = EXCLUDED.thigh_proximal_left, thigh_mid_right = EXCLUDED.thigh_mid_right,
+            thigh_mid_left = EXCLUDED.thigh_mid_left, calf_right = EXCLUDED.calf_right,
+            calf_left = EXCLUDED.calf_left, ankle_right = EXCLUDED.ankle_right,
+            ankle_left = EXCLUDED.ankle_left, lean_mass = EXCLUDED.lean_mass,
+            fat_mass = EXCLUDED.fat_mass, bmi = EXCLUDED.bmi,
+            waist_hip_ratio = EXCLUDED.waist_hip_ratio, notes = EXCLUDED.notes
+          WHERE body_measurements.user_id = EXCLUDED.user_id
         `;
 
         return res.status(201).json({ success: true });
