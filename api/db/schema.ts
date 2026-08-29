@@ -73,6 +73,9 @@ export const workouts = pgTable('workouts', {
   duration: integer('duration').default(0).notNull(),
   intensity: text('intensity').default('medium').notNull(),
   time: text('time'),
+  splitId: text('split_id'),
+  splitDayId: text('split_day_id'),
+  muscleGroupsJson: text('muscle_groups_json'),
 }, (table) => [index('workouts_daily_log_id_idx').on(table.dailyLogId)]);
 
 export const weightHistory = pgTable('weight_history', {

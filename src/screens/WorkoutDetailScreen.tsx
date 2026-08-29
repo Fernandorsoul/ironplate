@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert 
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../constants/theme';
 import { useApp } from '../context/AppContext';
 import { Workout } from '../types';
+import { getWorkoutTypeOption, WORKOUT_TYPE_OPTIONS } from '../constants/sports';
 
 const WorkoutDetailScreen = ({ route, navigation }: any) => {
   const { workout } = route.params;
@@ -28,6 +29,7 @@ const WorkoutDetailScreen = ({ route, navigation }: any) => {
   };
 
   const renderTips = () => {
+    const genericDescription = getWorkoutTypeOption(type).description;
     switch (type) {
       case 'strength':
         return <Text style={styles.tip}>Treine com pesos adequados para evitar lesÃµes.</Text>;
@@ -38,7 +40,7 @@ const WorkoutDetailScreen = ({ route, navigation }: any) => {
       case 'rest':
         return <Text style={styles.tip}>Descanso adequado Ã© fundamental para a recuperaÃ§Ã£o e melhoria do desempenho.</Text>;
       default:
-        return null;
+        return <Text style={styles.tip}>{genericDescription}</Text>;
     }
   };
 
@@ -56,9 +58,9 @@ const WorkoutDetailScreen = ({ route, navigation }: any) => {
           style={styles.input}
         />
         <View style={styles.buttonGroup}>
-          {['strength', 'cardio', 'bjj', 'rest'].map(t => (
-            <TouchableOpacity key={t} onPress={() => setType(t as Workout['type'])} style={[styles.button, type === t && styles.activeButton]}>
-              <Text style={[styles.buttonText, type === t && styles.activeButtonText]}>{t.charAt(0).toUpperCase() + t.slice(1)}</Text>
+          {WORKOUT_TYPE_OPTIONS.map(option => (
+            <TouchableOpacity key={option.id} onPress={() => setType(option.id)} style={[styles.button, type === option.id && styles.activeButton]}>
+              <Text style={[styles.buttonText, type === option.id && styles.activeButtonText]}>{option.label}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -120,6 +122,8 @@ const styles = StyleSheet.create({
   },
   buttonGroup: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.sm,
     justifyContent: 'space-around',
     marginBottom: SPACING.md,
   },

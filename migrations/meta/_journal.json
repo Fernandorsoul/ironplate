@@ -8,6 +8,13 @@
       "when": 1787953122488,
       "tag": "0000_fluffy_zaladane",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1787974587417,
+      "tag": "0001_naive_the_stranger",
+      "breakpoints": true
     }
   ]
 }

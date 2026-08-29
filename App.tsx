@@ -1,4 +1,5 @@
 import React from 'react';
+import { useWindowDimensions } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -10,6 +11,8 @@ import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { CollapsibleSideBar } from './src/components/CollapsibleSideBar';
 import { RootStackParamList, TabParamList } from './src/types/navigation';
 import { passwordResetLinking } from './src/navigation/linking';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { isPhoneLayout } from './src/constants/layout';
 
 // Screens
 import HomeScreen from './src/screens/HomeScreen';
@@ -39,16 +42,20 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<TabParamList>();
 
 function HomeTabs() {
+  const { width } = useWindowDimensions();
+  const isPhone = isPhoneLayout(width);
+
   return (
     <Tab.Navigator
-      tabBar={(props) => <CollapsibleSideBar {...props} />}
+      tabBar={(props) => <CollapsibleSideBar {...props} compact={isPhone} />}
       screenOptions={{
-        tabBarPosition: 'left',
+        tabBarPosition: isPhone ? 'bottom' : 'left',
         tabBarStyle: {
           backgroundColor: COLORS.surface,
-          borderRightColor: COLORS.border,
-          width: 92,
-          paddingHorizontal: 6,
+          borderRightColor: isPhone ? 'transparent' : COLORS.border,
+          height: isPhone ? 68 : undefined,
+          paddingHorizontal: isPhone ? 0 : 6,
+          width: isPhone ? undefined : 92,
         },
         tabBarItemStyle: { paddingVertical: 8 },
         tabBarLabelStyle: { fontSize: 12, fontWeight: '600' },
@@ -144,12 +151,14 @@ function AppNavigator() {
 export default function App() {
   return (
     <ErrorBoundary>
-      <AppProvider>
-        <NavigationContainer linking={passwordResetLinking}>
-          <StatusBar style="light" />
-          <AppNavigator />
-        </NavigationContainer>
-      </AppProvider>
+      <SafeAreaProvider>
+        <AppProvider>
+          <NavigationContainer linking={passwordResetLinking}>
+            <StatusBar style="light" />
+            <AppNavigator />
+          </NavigationContainer>
+        </AppProvider>
+      </SafeAreaProvider>
     </ErrorBoundary>
   );
 }

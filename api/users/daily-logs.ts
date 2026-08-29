@@ -10,6 +10,16 @@ import {
   validationError,
 } from '../middleware/validation';
 
+function parseMuscleGroups(value: unknown): string[] | undefined {
+  if (typeof value !== 'string' || !value) return undefined;
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.filter(item => typeof item === 'string') : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (applyCors(req, res, ['GET', 'POST'])) return;
   if (req.method !== 'GET' && req.method !== 'POST') {
@@ -81,10 +91,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             `),
           ]),
           ...log.workouts.map(workout => txn`
-            INSERT INTO workouts (id, daily_log_id, name, type, duration, intensity, time)
+            INSERT INTO workouts (
+              id, daily_log_id, name, type, duration, intensity, time,
+              split_id, split_day_id, muscle_groups_json
+            )
             VALUES (
               ${workout.id}, ${logId}, ${workout.name}, ${workout.type},
-              ${workout.duration}, ${workout.intensity}, ${workout.time ?? null}
+              ${workout.duration}, ${workout.intensity}, ${workout.time ?? null},
+              ${workout.splitId ?? null}, ${workout.splitDayId ?? null},
+              ${workout.muscleGroups ? JSON.stringify(workout.muscleGroups) : null}
             )
           `),
         ]);
@@ -113,7 +128,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           mf.id as food_id, mf.food_id as food_ref_id, mf.food_name, mf.food_category,
           mf.grams, mf.calories, mf.protein, mf.carbs, mf.fat,
           w.id as workout_id, w.name as workout_name, w.type, w.duration,
-          w.intensity, w.time as workout_time
+          w.intensity, w.time as workout_time, w.split_id, w.split_day_id,
+          w.muscle_groups_json
         FROM selected_logs dl
         LEFT JOIN meals m ON m.daily_log_id = dl.id
         LEFT JOIN meal_foods mf ON mf.meal_id = m.id
@@ -188,6 +204,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             duration: row.duration || 0,
             intensity: row.intensity || 'medium',
             time: row.workout_time ?? undefined,
+            splitId: row.split_id ?? undefined,
+            splitDayId: row.split_day_id ?? undefined,
+            muscleGroups: parseMuscleGroups(row.muscle_groups_json),
           });
         }
       }
