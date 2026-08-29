@@ -39,6 +39,7 @@ describe('API input validation', () => {
     expect(updateSchema.safeParse({ userId, fields: { admin: true } }).success).toBe(false);
     expect(updateSchema.safeParse({ userId, fields: { age: 999 } }).success).toBe(false);
     expect(updateSchema.safeParse({ userId, fields: {} }).success).toBe(false);
+    expect(updateSchema.safeParse({ userId, fields: { sport: 'swimming' } }).success).toBe(true);
   });
 
   it('accepts supported profile photo data URIs and rejects temporary or malformed URIs', () => {
@@ -70,6 +71,24 @@ describe('API input validation', () => {
     expect(dailyLogPostSchema.safeParse(valid).success).toBe(true);
     expect(dailyLogPostSchema.safeParse({ ...valid, log: { date: '28/08/2026' } }).success).toBe(false);
     expect(dailyLogPostSchema.safeParse({ ...valid, log: { ...valid.log, weight: '80' } }).success).toBe(false);
+
+    const structuredWorkout = {
+      ...valid,
+      log: {
+        ...valid.log,
+        workouts: [{
+          id: 'workout-1',
+          name: 'A — Peito e bíceps',
+          type: 'strength',
+          duration: 60,
+          intensity: 'medium',
+          splitId: 'abc_antagonist',
+          splitDayId: 'chest_biceps',
+          muscleGroups: ['chest', 'biceps'],
+        }],
+      },
+    };
+    expect(dailyLogPostSchema.safeParse(structuredWorkout).success).toBe(true);
   });
 
   it('validates meal plan structure and bounded query limits', () => {

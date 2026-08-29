@@ -7,6 +7,7 @@ import { generateDietOptions, analyzeDiet } from '../utils/dietGenerator';
 import { generateDietPDF, generateDietOptionsPDF } from '../utils/dietPdfGenerator';
 import { formatFoodPortion } from '../utils/portionDisplay';
 import { MealPlan, Goal } from '../types';
+import { getSportOption } from '../constants/sports';
 import { DietAlternativesSection, HydrationCard } from '../components';
 
 export default function MealPlanScreen({ navigation }: any) {
@@ -238,7 +239,7 @@ export default function MealPlanScreen({ navigation }: any) {
         <TouchableOpacity style={styles.generateButton} onPress={handleGeneratePlans}>
           <Text style={styles.generateButtonText}>Gerar 3 Opções de Cardápio</Text>
           <Text style={styles.generateButtonSubtext}>
-            {getGoalInfo(selectedGoal).label} • {profile?.sport === 'bodybuilding' ? 'Bodybuilding' : profile?.sport === 'bjj' ? 'BJJ' : 'Atleta'}
+            {getGoalInfo(selectedGoal).label} • {profile ? getSportOption(profile.sport).shortLabel : 'Atleta'}
           </Text>
         </TouchableOpacity>
 

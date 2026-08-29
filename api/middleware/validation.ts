@@ -42,6 +42,26 @@ export const registerSchema = z.object({
 
 export const userIdSchema = z.string().uuid('userId must be a valid UUID');
 
+const sportSchema = z.enum([
+  'bodybuilding', 'bjj', 'both', 'running', 'cycling', 'swimming', 'soccer',
+  'functional', 'calisthenics', 'walking', 'hybrid', 'other',
+]);
+
+const workoutTypeSchema = z.enum([
+  'strength', 'bjj', 'running', 'cycling', 'swimming', 'soccer', 'functional',
+  'calisthenics', 'walking', 'cardio', 'rest', 'other',
+]);
+
+const trainingSplitSchema = z.enum([
+  'full_body', 'upper_lower', 'abc_classic', 'abc_antagonist',
+  'push_pull_legs', 'abcd', 'abcde', 'custom',
+]);
+
+const muscleGroupSchema = z.enum([
+  'chest', 'back', 'shoulders', 'biceps', 'triceps', 'quadriceps', 'hamstrings',
+  'glutes', 'calves', 'core', 'forearms', 'full_body',
+]);
+
 export const profilePhotoSchema = z
   .string()
   .max(2_000_000, 'Profile photo is too large')
@@ -67,7 +87,7 @@ export const updateSchema = z.object({
         'cutting_precontest',
         'maintenance',
       ]).optional(),
-      sport: z.enum(['bodybuilding', 'bjj', 'both']).optional(),
+      sport: sportSchema.optional(),
       photoUri: profilePhotoSchema.optional(),
     })
     .strict()
@@ -118,10 +138,13 @@ const mealSchema = z.object({
 const workoutSchema = z.object({
   id: idSchema,
   name: z.string().trim().min(1).max(160),
-  type: z.enum(['strength', 'cardio', 'bjj', 'rest']),
+  type: workoutTypeSchema,
   duration: z.number().int().min(0).max(24 * 60),
   intensity: z.enum(['low', 'medium', 'high']),
   time: z.string().trim().max(20).optional(),
+  splitId: trainingSplitSchema.optional(),
+  splitDayId: z.string().trim().min(1).max(80).optional(),
+  muscleGroups: z.array(muscleGroupSchema).max(12).optional(),
 }).passthrough();
 
 export const dailyLogPostSchema = z.object({

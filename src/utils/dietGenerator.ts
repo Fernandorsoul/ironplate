@@ -7,6 +7,7 @@ import { calculateMacros, calculatePortionMacros, sumMacros, calculateTDEE, calc
 import { getPortionQuantity } from './portionDisplay';
 import { getFoodCostTier } from './dietSubstitutions';
 import * as Crypto from 'expo-crypto';
+import { getSportOption, isCombatSport, isStrengthFocusedSport } from '../constants/sports';
 
 // ============================================================
 // DISTRIBUIÇÃO DE REFEIÇÕES POR ESPORTE
@@ -359,8 +360,7 @@ export function generateDiet(
 
   // Nome do plano
   const goalLabel = getGoalLabel(profile.goal);
-  const sportLabel = profile.sport === 'bodybuilding' ? 'Bodybuilding' :
-                     profile.sport === 'bjj' ? 'BJJ' : 'Atleta';
+  const sportLabel = getSportOption(profile.sport).shortLabel;
   const optionLabel = strategy === 'budget' ? 'Opção Econômica' : `Opção ${optionIndex + 1}`;
 
   return {
@@ -392,7 +392,7 @@ export function generateDietOptions(profile: UserProfile, mealCount: number = 8)
 
 export function getSupplementRecommendations(profile: UserProfile) {
   const recommendations = [];
-  if (profile.sport === 'bodybuilding' || profile.sport === 'both') {
+  if (isStrengthFocusedSport(profile.sport)) {
     recommendations.push({
       name: 'Creatina monohidratada',
       dose: '3–5 g/dia',
@@ -407,7 +407,7 @@ export function getSupplementRecommendations(profile: UserProfile) {
     timing: 'Em uma refeição com pouca proteína ou após o treino',
     reason: 'É conveniência alimentar; não é necessária quando a meta é atingida com comida.',
   });
-  if (profile.sport === 'bjj' || profile.sport === 'both') {
+  if (isCombatSport(profile.sport)) {
     recommendations.push({
       name: 'Eletrólitos (condicional)',
       dose: 'Conforme rótulo e orientação profissional',

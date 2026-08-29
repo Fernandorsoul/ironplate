@@ -1,12 +1,13 @@
 // PDF Generator for Diet Plans
 
 import { Platform, Alert } from 'react-native';
-import { MealPlan, UserProfile } from '../types';
+import { MealPlan, Sport, UserProfile } from '../types';
 import { calculateTDEE, calculateTargetCalories, getMacroPercentages } from './calculations';
 import { formatPortionAmount } from './portionDisplay';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { escapeHtml } from './html';
+import { getSportOption } from '../constants/sports';
 import { calculateHydration } from './hydration';
 import { getMatchedMacroLabel, getPlanSubstitutions } from './dietSubstitutions';
 
@@ -22,12 +23,7 @@ const getGoalLabel = (goal: string) => {
 };
 
 const getSportLabel = (sport: string) => {
-  switch (sport) {
-    case 'bodybuilding': return 'Bodybuilding';
-    case 'bjj': return 'BJJ / Artes Marciais';
-    case 'both': return 'Atleta (BB + BJJ)';
-    default: return 'Atleta';
-  }
+  return getSportOption(sport as Sport).label;
 };
 
 const getTimingLabel = (timing: string) => {

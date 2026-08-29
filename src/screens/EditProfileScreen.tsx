@@ -6,6 +6,7 @@ import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../constants/theme';
 import { useApp } from '../context/AppContext';
 import { UserProfile, ActivityLevel, Goal, Sport } from '../types';
 import { ACTIVITY_LEVELS } from '../constants/foods';
+import { SPORT_OPTIONS } from '../constants/sports';
 import { ProfileAvatar } from '../components';
 
 const PROFILE_PHOTO_SIZE = 512;
@@ -230,11 +231,18 @@ export default function EditProfileScreen({ navigation }: any) {
 
       {/* Sport */}
       <Text style={styles.sectionTitle}>Modalidade</Text>
-      <View style={styles.row}>
-        {(['bodybuilding', 'bjj', 'both'] as Sport[]).map(s => (
-          <TouchableOpacity key={s} style={[styles.optionButton, styles.thirdWidth, sport === s && styles.optionButtonActive]} onPress={() => setSport(s)}>
-            <Text style={[styles.optionText, sport === s && styles.optionTextActive]}>
-              {s === 'bodybuilding' ? 'Bodybuilding' : s === 'bjj' ? 'BJJ' : 'Ambos'}
+      <View style={styles.sportGrid}>
+        {SPORT_OPTIONS.map(option => (
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityState={{ selected: sport === option.id }}
+            key={option.id}
+            style={[styles.sportButton, sport === option.id && styles.optionButtonActive]}
+            onPress={() => setSport(option.id)}
+          >
+            <Text style={styles.sportIcon}>{option.icon}</Text>
+            <Text style={[styles.sportText, sport === option.id && styles.optionTextActive]}>
+              {option.shortLabel}
             </Text>
           </TouchableOpacity>
         ))}
@@ -276,6 +284,10 @@ const styles = StyleSheet.create({
   optionButtonActive: { borderColor: COLORS.primary, backgroundColor: COLORS.surfaceLight },
   optionText: { color: COLORS.textSecondary, fontSize: FONT_SIZE.md },
   optionTextActive: { color: COLORS.primary, fontWeight: 'bold' },
+  sportGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm },
+  sportButton: { alignItems: 'center', backgroundColor: COLORS.surface, borderColor: COLORS.border, borderRadius: BORDER_RADIUS.md, borderWidth: 1, flexBasis: 132, flexGrow: 1, minHeight: 76, minWidth: 120, padding: SPACING.sm },
+  sportIcon: { fontSize: 22, marginBottom: SPACING.xs },
+  sportText: { color: COLORS.textSecondary, fontSize: FONT_SIZE.xs, textAlign: 'center' },
   saveButton: { backgroundColor: COLORS.accent, borderRadius: BORDER_RADIUS.md, padding: SPACING.md, alignItems: 'center', marginTop: SPACING.xl },
   saveButtonDisabled: { opacity: 0.6 },
   saveButtonText: { color: COLORS.text, fontSize: FONT_SIZE.lg, fontWeight: 'bold' },

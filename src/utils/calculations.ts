@@ -2,6 +2,7 @@
 
 import { UserProfile, Macros, Workout } from '../types';
 import { ACTIVITY_LEVELS } from '../constants/foods';
+import { isStrengthFocusedSport } from '../constants/sports';
 
 // Mifflin-St Jeor equation for BMR
 export function calculateBMR(profile: UserProfile): number {
@@ -23,7 +24,15 @@ const WORKOUT_MET: Record<Workout['type'], number> = {
   strength: 6,
   cardio: 8,
   bjj: 10.3,
+  running: 9.8,
+  cycling: 7.5,
+  swimming: 8,
+  soccer: 7,
+  functional: 7.5,
+  calisthenics: 6,
+  walking: 3.8,
   rest: 1.3,
+  other: 5,
 };
 
 const INTENSITY_FACTOR: Record<Workout['intensity'], number> = {
@@ -84,20 +93,20 @@ export function calculateMacros(profile: UserProfile): Macros {
   
   switch (goal) {
     case 'cutting_conservative':
-      proteinMultiplier = sport === 'bodybuilding' ? 2.2 : 2.0;
+      proteinMultiplier = isStrengthFocusedSport(sport) ? 2.2 : 2.0;
       break;
     case 'cutting_preparation':
-      proteinMultiplier = sport === 'bodybuilding' ? 2.4 : 2.2;
+      proteinMultiplier = isStrengthFocusedSport(sport) ? 2.4 : 2.2;
       break;
     case 'cutting_precontest':
-      proteinMultiplier = sport === 'bodybuilding' ? 2.8 : 2.5;
+      proteinMultiplier = isStrengthFocusedSport(sport) ? 2.8 : 2.5;
       break;
     case 'bulking':
-      proteinMultiplier = sport === 'bodybuilding' ? 2.0 : 1.8;
+      proteinMultiplier = isStrengthFocusedSport(sport) ? 2.0 : 1.8;
       break;
     case 'maintenance':
     default:
-      proteinMultiplier = sport === 'bodybuilding' ? 1.8 : 1.6;
+      proteinMultiplier = isStrengthFocusedSport(sport) ? 1.8 : 1.6;
       break;
   }
   

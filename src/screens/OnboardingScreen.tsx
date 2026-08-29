@@ -4,6 +4,7 @@ import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../constants/theme';
 import { useApp } from '../context/AppContext';
 import { UserProfile, ActivityLevel, Goal, Sport } from '../types';
 import { ACTIVITY_LEVELS } from '../constants/foods';
+import { SPORT_OPTIONS } from '../constants/sports';
 
 export default function OnboardingScreen() {
   const { setProfile } = useApp();
@@ -171,24 +172,20 @@ export default function OnboardingScreen() {
             </TouchableOpacity>
 
             <Text style={[styles.stepTitle, { marginTop: SPACING.lg }]}>Modalidade</Text>
-            <TouchableOpacity
-              style={[styles.optionButton, sport === 'bodybuilding' && styles.optionButtonActive]}
-              onPress={() => setSport('bodybuilding')}
-            >
-              <Text style={[styles.optionText, sport === 'bodybuilding' && styles.optionTextActive]}>Bodybuilding</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.optionButton, sport === 'bjj' && styles.optionButtonActive]}
-              onPress={() => setSport('bjj')}
-            >
-              <Text style={[styles.optionText, sport === 'bjj' && styles.optionTextActive]}>BJJ / Artes Marciais</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.optionButton, sport === 'both' && styles.optionButtonActive]}
-              onPress={() => setSport('both')}
-            >
-              <Text style={[styles.optionText, sport === 'both' && styles.optionTextActive]}>Ambos</Text>
-            </TouchableOpacity>
+            <View style={styles.sportGrid}>
+              {SPORT_OPTIONS.map(option => (
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: sport === option.id }}
+                  key={option.id}
+                  style={[styles.sportButton, sport === option.id && styles.optionButtonActive]}
+                  onPress={() => setSport(option.id)}
+                >
+                  <Text style={styles.sportIcon}>{option.icon}</Text>
+                  <Text style={[styles.sportText, sport === option.id && styles.optionTextActive]}>{option.shortLabel}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
         );
     }
@@ -224,6 +221,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: SPACING.lg,
+    paddingBottom: 120,
     paddingTop: SPACING.xxl + 40,
   },
   logo: {
@@ -319,6 +317,21 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
     fontWeight: 'bold',
   },
+  sportGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm },
+  sportButton: {
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    borderColor: COLORS.border,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+    flexBasis: 126,
+    flexGrow: 1,
+    minHeight: 78,
+    minWidth: 118,
+    padding: SPACING.sm,
+  },
+  sportIcon: { fontSize: 22, marginBottom: SPACING.xs },
+  sportText: { color: COLORS.textSecondary, fontSize: FONT_SIZE.xs, textAlign: 'center' },
   optionDesc: {
     color: COLORS.textMuted,
     fontSize: FONT_SIZE.xs,

@@ -2,8 +2,56 @@
 
 export type ActivityLevel = 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active';
 export type Goal = 'bulking' | 'cutting_conservative' | 'cutting_preparation' | 'cutting_precontest' | 'maintenance';
-export type Sport = 'bodybuilding' | 'bjj' | 'both';
+export type Sport =
+  | 'bodybuilding'
+  | 'bjj'
+  | 'both'
+  | 'running'
+  | 'cycling'
+  | 'swimming'
+  | 'soccer'
+  | 'functional'
+  | 'calisthenics'
+  | 'walking'
+  | 'hybrid'
+  | 'other';
 export type MealTiming = 'pre_workout' | 'post_workout' | 'regular';
+export type WorkoutType =
+  | 'strength'
+  | 'bjj'
+  | 'running'
+  | 'cycling'
+  | 'swimming'
+  | 'soccer'
+  | 'functional'
+  | 'calisthenics'
+  | 'walking'
+  | 'cardio'
+  | 'rest'
+  | 'other';
+export type TrainingLevel = 'beginner' | 'intermediate' | 'advanced';
+export type MuscleGroup =
+  | 'chest'
+  | 'back'
+  | 'shoulders'
+  | 'biceps'
+  | 'triceps'
+  | 'quadriceps'
+  | 'hamstrings'
+  | 'glutes'
+  | 'calves'
+  | 'core'
+  | 'forearms'
+  | 'full_body';
+export type TrainingSplitId =
+  | 'full_body'
+  | 'upper_lower'
+  | 'abc_classic'
+  | 'abc_antagonist'
+  | 'push_pull_legs'
+  | 'abcd'
+  | 'abcde'
+  | 'custom';
 
 export interface UserProfile {
   name: string;
@@ -80,10 +128,13 @@ export interface SupplementRecommendation {
 export interface Workout {
   id: string;
   name: string;
-  type: 'strength' | 'cardio' | 'bjj' | 'rest';
+  type: WorkoutType;
   duration: number; // minutes
   intensity: 'low' | 'medium' | 'high';
   time?: string;
+  splitId?: TrainingSplitId;
+  splitDayId?: string;
+  muscleGroups?: MuscleGroup[];
 }
 
 export interface DailyLog {
