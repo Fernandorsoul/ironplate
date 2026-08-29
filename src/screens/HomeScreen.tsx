@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../constants/theme';
 import { useApp } from '../context/AppContext';
-import { MacroCard, ActionButton, MealCard } from '../components';
+import { MacroCard, ActionButton, MealCard, ProfileAvatar } from '../components';
 import { useMacros } from '../hooks';
 import { calculateDailyEnergyExpenditure, calculateWorkoutCalories } from '../utils/calculations';
 
@@ -26,9 +26,7 @@ export default function HomeScreen({ navigation }: any) {
           style={styles.profileButton}
           onPress={() => navigation.navigate('EditProfile')}
         >
-          <View style={styles.profileAvatar}>
-            <Text style={styles.profileAvatarText}>{profile?.name?.charAt(0).toUpperCase() || '?'}</Text>
-          </View>
+          <ProfileAvatar name={profile?.name} photoUri={profile?.photoUri} />
         </TouchableOpacity>
       </View>
 
@@ -126,19 +124,6 @@ const styles = StyleSheet.create({
   },
   profileButton: {
     padding: SPACING.xs,
-  },
-  profileAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: COLORS.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  profileAvatarText: {
-    fontSize: FONT_SIZE.lg,
-    fontWeight: 'bold',
-    color: COLORS.text,
   },
   greeting: {
     fontSize: FONT_SIZE.xxl,

@@ -3,6 +3,7 @@ import {
   limitSchema,
   loginSchema,
   mealPlanPostSchema,
+  profilePhotoSchema,
   registerSchema,
   resetPasswordSchema,
   updateSchema,
@@ -38,6 +39,16 @@ describe('API input validation', () => {
     expect(updateSchema.safeParse({ userId, fields: { admin: true } }).success).toBe(false);
     expect(updateSchema.safeParse({ userId, fields: { age: 999 } }).success).toBe(false);
     expect(updateSchema.safeParse({ userId, fields: {} }).success).toBe(false);
+    expect(updateSchema.safeParse({ userId, fields: { sport: 'swimming' } }).success).toBe(true);
+  });
+
+  it('accepts supported profile photo data URIs and rejects temporary or malformed URIs', () => {
+    const photoUri = `data:image/jpeg;base64,${Buffer.from('profile-photo').toString('base64')}`;
+    expect(profilePhotoSchema.safeParse(photoUri).success).toBe(true);
+    expect(updateSchema.safeParse({ userId, fields: { photoUri } }).success).toBe(true);
+    expect(profilePhotoSchema.safeParse('file:///cache/temporary-photo.jpg').success).toBe(false);
+    expect(profilePhotoSchema.safeParse('data:text/plain;base64,dGVzdA==').success).toBe(false);
+    expect(profilePhotoSchema.safeParse(`data:image/jpeg;base64,${'a'.repeat(2_000_000)}`).success).toBe(false);
   });
 
   it('requires a 256-bit reset token and a strong new password', () => {
@@ -60,6 +71,24 @@ describe('API input validation', () => {
     expect(dailyLogPostSchema.safeParse(valid).success).toBe(true);
     expect(dailyLogPostSchema.safeParse({ ...valid, log: { date: '28/08/2026' } }).success).toBe(false);
     expect(dailyLogPostSchema.safeParse({ ...valid, log: { ...valid.log, weight: '80' } }).success).toBe(false);
+
+    const structuredWorkout = {
+      ...valid,
+      log: {
+        ...valid.log,
+        workouts: [{
+          id: 'workout-1',
+          name: 'A — Peito e bíceps',
+          type: 'strength',
+          duration: 60,
+          intensity: 'medium',
+          splitId: 'abc_antagonist',
+          splitDayId: 'chest_biceps',
+          muscleGroups: ['chest', 'biceps'],
+        }],
+      },
+    };
+    expect(dailyLogPostSchema.safeParse(structuredWorkout).success).toBe(true);
   });
 
   it('validates meal plan structure and bounded query limits', () => {
@@ -75,5 +104,39 @@ describe('API input validation', () => {
     expect(mealPlanPostSchema.safeParse({ userId, plan: { ...plan, goal: 'invalid' } }).success).toBe(false);
     expect(limitSchema.safeParse('100').success).toBe(true);
     expect(limitSchema.safeParse('101').success).toBe(false);
+  });
+
+  it('accepts only strict, finite food portions with supported units', () => {
+    const macros = { calories: 100, protein: 10, carbs: 12, fat: 2 };
+    const food = { id: 'food-1', name: 'Alimento', category: 'teste', macros };
+    const makePayload = (portion: Record<string, unknown>) => ({
+      userId,
+      plan: {
+        id: 'plan-1',
+        name: 'Plano',
+        goal: 'maintenance',
+        meals: [{
+          id: 'meal-1',
+          name: 'Refeição',
+          timing: 'regular',
+          foods: [{ food, grams: 100, macros, ...portion }],
+          totalMacros: macros,
+        }],
+        totalMacros: macros,
+        createdAt: '2026-08-29T12:00:00.000Z',
+      },
+    });
+
+    for (const unit of ['unidade', 'fatia', 'colher', 'xicara', 'ml', 'g', 'dente']) {
+      expect(mealPlanPostSchema.safeParse(makePayload({ quantity: 1, unit })).success).toBe(true);
+    }
+
+    expect(mealPlanPostSchema.safeParse(makePayload({
+      quantity: 1,
+      unit: '<img src=x onerror=alert(1)>',
+    })).success).toBe(false);
+    expect(mealPlanPostSchema.safeParse(makePayload({ quantity: -1, unit: 'g' })).success).toBe(false);
+    expect(mealPlanPostSchema.safeParse(makePayload({ quantity: Number.POSITIVE_INFINITY, unit: 'g' })).success).toBe(false);
+    expect(mealPlanPostSchema.safeParse(makePayload({ quantity: 1, unit: 'g', extra: true })).success).toBe(false);
   });
 });

@@ -219,9 +219,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const setProfile = useCallback(async (newProfile: UserProfile) => {
     if (!userId) throw new Error('Authentication required');
-    const { name, age, weight, height, gender, activityLevel, goal, sport } = newProfile;
+    const { name, age, weight, height, gender, activityLevel, goal, sport, photoUri } = newProfile;
     await Database.updateUser(userId, {
-      name, age, weight, height, gender, activityLevel, goal, sport,
+      name, age, weight, height, gender, activityLevel, goal, sport, photoUri,
     });
     setProfileState(newProfile);
     setTargetMacros(calculateMacros(newProfile));

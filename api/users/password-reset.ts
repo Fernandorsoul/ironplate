@@ -46,8 +46,6 @@ export async function forgotPasswordHandler(req: VercelRequest, res: VercelRespo
       const tokenHash = hashResetToken(token);
       const tokenId = randomUUID();
       const expiresAt = new Date(Date.now() + TOKEN_EXPIRATION_MS);
-      const appUrl = (process.env.APP_URL || 'https://ironplate.vercel.app').replace(/\/$/, '');
-      const resetUrl = `${appUrl}/reset-password?token=${encodeURIComponent(token)}`;
 
       await sql.transaction(txn => [
         txn`
@@ -65,7 +63,6 @@ export async function forgotPasswordHandler(req: VercelRequest, res: VercelRespo
         await sendPasswordResetEmail({
           to: user.email,
           name: user.name,
-          resetUrl,
           token,
         });
       } catch (error) {

@@ -1,12 +1,13 @@
 // PDF Generator for Diet Plans
 
 import { Platform, Alert } from 'react-native';
-import { MealPlan, UserProfile } from '../types';
+import { Meal, MealPlan, Sport, UserProfile } from '../types';
 import { calculateTDEE, calculateTargetCalories, getMacroPercentages } from './calculations';
 import { formatPortionAmount } from './portionDisplay';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { escapeHtml } from './html';
+import { getSportOption } from '../constants/sports';
 import { calculateHydration } from './hydration';
 import { getMatchedMacroLabel, getPlanSubstitutions } from './dietSubstitutions';
 
@@ -22,12 +23,7 @@ const getGoalLabel = (goal: string) => {
 };
 
 const getSportLabel = (sport: string) => {
-  switch (sport) {
-    case 'bodybuilding': return 'Bodybuilding';
-    case 'bjj': return 'BJJ / Artes Marciais';
-    case 'both': return 'Atleta (BB + BJJ)';
-    default: return 'Atleta';
-  }
+  return getSportOption(sport as Sport).label;
 };
 
 const getTimingLabel = (timing: string) => {
@@ -38,7 +34,7 @@ const getTimingLabel = (timing: string) => {
   }
 };
 
-function generateMealHTML(meal: any): string {
+export function generateMealHTML(meal: Meal): string {
   return `
   <div class="meal">
     <div class="meal-header">
@@ -63,10 +59,10 @@ function generateMealHTML(meal: any): string {
         </tr>
       </thead>
       <tbody>
-        ${meal.foods.map((food: any) => `
+        ${meal.foods.map(food => `
         <tr>
           <td>${escapeHtml(food.food.name)}</td>
-          <td class="food-grams">${formatPortionAmount(food)}</td>
+          <td class="food-grams">${escapeHtml(formatPortionAmount(food))}</td>
           <td>${food.macros.calories.toFixed(3)}</td>
           <td>${food.macros.protein.toFixed(3)}g</td>
           <td>${food.macros.carbs.toFixed(3)}g</td>
@@ -160,6 +156,7 @@ export async function generateDietOptionsPDF(plans: MealPlan[], profile: UserPro
 <html>
 <head>
   <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:">
   <title>Plano Alimentar - IronPlate</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -302,6 +299,7 @@ export async function generateDietOptionsPDF(plans: MealPlan[], profile: UserPro
     if (Platform.OS === 'web') {
       const printWindow = window.open('', '_blank');
       if (printWindow) {
+        printWindow.opener = null;
         printWindow.document.write(html);
         printWindow.document.close();
       } else {

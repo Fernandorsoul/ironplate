@@ -5,6 +5,16 @@ import { getSql } from '../middleware/db';
 import { rateLimit } from '../middleware/rateLimit';
 import { buildExportPayload, parseMealsJson } from '../services/exportData';
 
+function parseMuscleGroups(value: unknown): string[] | undefined {
+  if (typeof value !== 'string' || !value) return undefined;
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.filter(item => typeof item === 'string') : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 const exportRateLimit = rateLimit({
   maxRequests: 1,
   windowMs: 60 * 60 * 1000,
@@ -29,7 +39,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const [users, logRows, mealRows, foodRows, workoutRows, weightRows, measurementRows, customFoodRows, planRows] = await Promise.all([
         sql`
           SELECT id, name, email, created_at, updated_at, last_login,
-                 age, weight, height, gender, activity_level, goal, sport
+                 age, weight, height, gender, activity_level, goal, sport, photo_uri
           FROM users WHERE id = ${userId}
         `,
         sql`SELECT id, date, weight, notes FROM daily_logs WHERE user_id = ${userId} ORDER BY date ASC`,
@@ -100,6 +110,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           duration: workout.duration,
           intensity: workout.intensity,
           time: workout.time || undefined,
+          splitId: workout.split_id || undefined,
+          splitDayId: workout.split_day_id || undefined,
+          muscleGroups: parseMuscleGroups(workout.muscle_groups_json),
         });
         workoutsByLog.set(workout.daily_log_id, workouts);
       }
@@ -138,6 +151,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           activityLevel: row.activity_level || 'moderate',
           goal: row.goal || 'maintenance',
           sport: row.sport || 'bodybuilding',
+          photoUri: row.photo_uri || undefined,
         },
         dailyLogs,
         weightHistory: weightRows as any[],

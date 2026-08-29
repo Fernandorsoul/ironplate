@@ -1,37 +1,83 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
-import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../constants/theme';
+import {
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  useWindowDimensions,
+  View,
+} from 'react-native';
+import { MuscleGroupSelector, TrainingSplitSelector } from '../components';
+import { getWorkoutTypeOption, WORKOUT_TYPE_OPTIONS } from '../constants/sports';
+import { getTrainingSplit } from '../constants/trainingSplits';
+import type { TrainingDayTemplate } from '../constants/trainingSplits';
+import { BORDER_RADIUS, COLORS, FONT_SIZE, SPACING } from '../constants/theme';
 import { useApp } from '../context/AppContext';
-import { Workout } from '../types';
+import { MuscleGroup, TrainingSplitId, Workout } from '../types';
+import { SCREEN_CONTENT_MAX_WIDTH, SMALL_PHONE_BREAKPOINT } from '../constants/layout';
+
+const INTENSITIES: Array<{ id: Workout['intensity']; label: string }> = [
+  { id: 'low', label: 'Leve' },
+  { id: 'medium', label: 'Moderado' },
+  { id: 'high', label: 'Intenso' },
+];
 
 export default function AddWorkoutScreen({ navigation, route }: any) {
   const { addWorkoutToToday } = useApp();
-  const [name, setName] = useState('');
+  const { width } = useWindowDimensions();
+  const isSmallScreen = width < SMALL_PHONE_BREAKPOINT;
+  const [name, setName] = useState('Full body');
   const [type, setType] = useState<Workout['type']>('strength');
-  const [duration, setDuration] = useState('');
+  const [duration, setDuration] = useState('60');
   const [intensity, setIntensity] = useState<Workout['intensity']>('medium');
+  const [splitId, setSplitId] = useState<TrainingSplitId>('full_body');
+  const [splitDayId, setSplitDayId] = useState('full_body');
+  const [muscleGroups, setMuscleGroups] = useState<MuscleGroup[]>(['full_body']);
   const [saving, setSaving] = useState(false);
 
-  const workoutTypes = [
-    { key: 'strength', label: 'Musculação', icon: '🏋️' },
-    { key: 'bjj', label: 'BJJ', icon: '🥋' },
-    { key: 'cardio', label: 'Cardio', icon: '🏃' },
-    { key: 'rest', label: 'Descanso', icon: '😴' },
-  ];
+  const handleTypeChange = (nextType: Workout['type']) => {
+    setType(nextType);
+    if (nextType === 'strength') {
+      const split = getTrainingSplit(splitId);
+      const day = split.days.find(item => item.id === splitDayId) || split.days[0];
+      setName(day.label);
+      setMuscleGroups(day.muscleGroups);
+      return;
+    }
 
-  const intensities = [
-    { key: 'low', label: 'Leve' },
-    { key: 'medium', label: 'Moderado' },
-    { key: 'high', label: 'Intenso' },
-  ];
+    setName(getWorkoutTypeOption(nextType).label);
+    setMuscleGroups([]);
+  };
+
+  const handleSplitChange = (nextSplitId: TrainingSplitId) => {
+    const split = getTrainingSplit(nextSplitId);
+    const firstDay = split.days[0];
+    setSplitId(nextSplitId);
+    setSplitDayId(firstDay.id);
+    setMuscleGroups(firstDay.muscleGroups);
+    setName(firstDay.label);
+  };
+
+  const handleDayChange = (day: TrainingDayTemplate) => {
+    setSplitDayId(day.id);
+    setMuscleGroups(day.muscleGroups);
+    setName(day.label);
+  };
 
   const handleSave = async () => {
+    const parsedDuration = Number.parseInt(duration, 10);
     if (!name.trim()) {
       Alert.alert('Erro', 'Digite o nome do treino');
       return;
     }
-    if (!duration || parseInt(duration) <= 0) {
-      Alert.alert('Erro', 'Digite a duração válida');
+    if (!Number.isFinite(parsedDuration) || parsedDuration <= 0) {
+      Alert.alert('Erro', 'Digite uma duração válida');
+      return;
+    }
+    if (type === 'strength' && muscleGroups.length === 0) {
+      Alert.alert('Erro', 'Selecione pelo menos um grupo muscular');
       return;
     }
 
@@ -39,18 +85,22 @@ export default function AddWorkoutScreen({ navigation, route }: any) {
       id: Date.now().toString(),
       name: name.trim(),
       type,
-      duration: parseInt(duration),
+      duration: parsedDuration,
       intensity,
       time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+      ...(type === 'strength' ? { splitId, splitDayId, muscleGroups } : {}),
     };
 
     setSaving(true);
     try {
       await addWorkoutToToday(workout);
-      setName('');
-      setDuration('');
+      setName('Full body');
+      setDuration('60');
       setType('strength');
       setIntensity('medium');
+      setSplitId('full_body');
+      setSplitDayId('full_body');
+      setMuscleGroups(['full_body']);
       Alert.alert('Treino salvo', 'O treino foi registrado no resumo de hoje.');
       if (route?.name === 'Workout') {
         navigation.navigate('Home');
@@ -64,46 +114,82 @@ export default function AddWorkoutScreen({ navigation, route }: any) {
     }
   };
 
+  const handleBack = () => {
+    if (navigation.canGoBack()) navigation.goBack();
+    else navigation.navigate('MainTabs', { screen: 'Home' });
+  };
+
+  const selectedWorkoutType = getWorkoutTypeOption(type);
+
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
+      <View style={[styles.header, styles.contentWidth, isSmallScreen && styles.compactHorizontalPadding]}>
+        <TouchableOpacity accessibilityRole="button" onPress={handleBack}>
           <Text style={styles.backButton}>← Voltar</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>Novo Treino</Text>
-        <TouchableOpacity onPress={handleSave} disabled={saving}>
-          <Text style={[styles.saveButton, saving && styles.saveButtonDisabled]}>{saving ? 'Salvando...' : 'Salvar'}</Text>
+        <Text numberOfLines={1} style={[styles.title, isSmallScreen && styles.titleCompact]}>Novo treino</Text>
+        <TouchableOpacity accessibilityRole="button" onPress={handleSave} disabled={saving}>
+          <Text style={[styles.saveButton, saving && styles.saveButtonDisabled]}>
+            {saving ? 'Salvando...' : 'Salvar'}
+          </Text>
         </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Workout Name */}
-        <TextInput
-          style={styles.input}
-          placeholder="Nome do treino (ex: Peito e Tríceps)"
-          placeholderTextColor={COLORS.textMuted}
-          value={name}
-          onChangeText={setName}
-        />
-
-        {/* Workout Type */}
-        <Text style={styles.sectionTitle}>Tipo</Text>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={[styles.scrollContent, styles.contentWidth, isSmallScreen && styles.compactHorizontalPadding]}
+      >
+        <Text style={styles.sectionTitle}>Modalidade da sessão</Text>
         <View style={styles.typeGrid}>
-          {workoutTypes.map(t => (
+          {WORKOUT_TYPE_OPTIONS.map(option => (
             <TouchableOpacity
-              key={t.key}
-              style={[styles.typeButton, type === t.key && styles.typeButtonActive]}
-              onPress={() => setType(t.key as Workout['type'])}
+              accessibilityRole="button"
+              accessibilityState={{ selected: type === option.id }}
+              key={option.id}
+              style={[
+                styles.typeButton,
+                isSmallScreen && styles.typeButtonCompact,
+                type === option.id && styles.typeButtonActive,
+              ]}
+              onPress={() => handleTypeChange(option.id)}
             >
-              <Text style={styles.typeIcon}>{t.icon}</Text>
-              <Text style={[styles.typeLabel, type === t.key && styles.typeLabelActive]}>{t.label}</Text>
+              <Text style={styles.typeIcon}>{option.icon}</Text>
+              <Text style={[styles.typeLabel, type === option.id && styles.typeLabelActive]}>{option.label}</Text>
             </TouchableOpacity>
           ))}
         </View>
 
-        {/* Duration */}
-        <Text style={styles.sectionTitle}>Duração (minutos)</Text>
+        {type === 'strength' ? (
+          <>
+            <TrainingSplitSelector
+              selectedSplitId={splitId}
+              selectedDayId={splitDayId}
+              onSelectSplit={handleSplitChange}
+              onSelectDay={handleDayChange}
+            />
+            <Text style={styles.sectionTitle}>Grupos musculares</Text>
+            <Text style={styles.helperText}>
+              O template sugere os grupos. Toque para ajustar antes de salvar.
+            </Text>
+            <MuscleGroupSelector
+              selectedGroups={muscleGroups}
+              onChange={setMuscleGroups}
+            />
+          </>
+        ) : null}
+
+        <Text style={styles.sectionTitle}>Nome do treino</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Ex.: Peito e bíceps"
+          placeholderTextColor={COLORS.textMuted}
+          value={name}
+          onChangeText={setName}
+          maxLength={160}
+        />
+
+        <Text style={styles.sectionTitle}>Duração em minutos</Text>
         <TextInput
           style={styles.input}
           placeholder="60"
@@ -111,161 +197,116 @@ export default function AddWorkoutScreen({ navigation, route }: any) {
           keyboardType="numeric"
           value={duration}
           onChangeText={setDuration}
+          maxLength={4}
         />
 
-        {/* Intensity */}
-        <Text style={styles.sectionTitle}>Intensidade</Text>
+        <Text style={styles.sectionTitle}>Intensidade percebida</Text>
         <View style={styles.intensityGrid}>
-          {intensities.map(i => (
+          {INTENSITIES.map(option => (
             <TouchableOpacity
-              key={i.key}
-              style={[styles.intensityButton, intensity === i.key && styles.intensityButtonActive]}
-              onPress={() => setIntensity(i.key as Workout['intensity'])}
+              accessibilityRole="button"
+              accessibilityState={{ selected: intensity === option.id }}
+              key={option.id}
+              style={[styles.intensityButton, intensity === option.id && styles.intensityButtonActive]}
+              onPress={() => setIntensity(option.id)}
             >
-              <Text style={[styles.intensityLabel, intensity === i.key && styles.intensityLabelActive]}>
-                {i.label}
+              <Text style={[styles.intensityLabel, intensity === option.id && styles.intensityLabelActive]}>
+                {option.label}
               </Text>
             </TouchableOpacity>
           ))}
         </View>
 
-        {/* Tips */}
         <View style={styles.tipsCard}>
-          <Text style={styles.tipsTitle}>Dicas para {type === 'bjj' ? 'BJJ' : 'Musculação'}</Text>
-          {type === 'bjj' ? (
-            <>
-              <Text style={styles.tipText}>• Hidrate-se bem antes do treino</Text>
-              <Text style={styles.tipText}>• Refeição leve 2h antes</Text>
-              <Text style={styles.tipText}>• Proteína + carboidrato pós-treino</Text>
-            </>
-          ) : (
-            <>
-              <Text style={styles.tipText}>• Carboidratos 1-2h antes do treino</Text>
-              <Text style={styles.tipText}>• Proteína dentro de 30min pós-treino</Text>
-              <Text style={styles.tipText}>• 2-3g de leucina por refeição</Text>
-            </>
-          )}
+          <Text style={styles.tipsTitle}>{selectedWorkoutType.icon} {selectedWorkoutType.label}</Text>
+          <Text style={styles.tipText}>{selectedWorkoutType.description}</Text>
+          {type === 'strength' ? (
+            <Text style={styles.tipText}>
+              A divisão organiza a semana; o resultado depende do volume, esforço, progressão e recuperação, não apenas do nome ABC ou ABCDE.
+            </Text>
+          ) : null}
+          <Text style={styles.tipCaution}>
+            Ajuste intensidade e duração ao seu nível. Dor, lesão ou condição clínica exigem avaliação profissional.
+          </Text>
         </View>
-
-        <View style={{ height: 100 }} />
       </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-    padding: SPACING.md,
-  },
+  container: { backgroundColor: COLORS.background, flex: 1 },
+  contentWidth: { alignSelf: 'center', maxWidth: SCREEN_CONTENT_MAX_WIDTH, width: '100%' },
+  compactHorizontalPadding: { paddingHorizontal: SPACING.sm },
   header: {
+    alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: SPACING.xl,
-    marginBottom: SPACING.lg,
-  },
-  backButton: {
-    color: COLORS.primary,
-    fontSize: FONT_SIZE.md,
-  },
-  title: {
-    fontSize: FONT_SIZE.lg,
-    fontWeight: 'bold',
-    color: COLORS.text,
-  },
-  saveButton: {
-    color: COLORS.primary,
-    fontSize: FONT_SIZE.md,
-    fontWeight: 'bold',
-  },
-  saveButtonDisabled: { opacity: 0.5 },
-  input: {
-    backgroundColor: COLORS.surface,
-    borderRadius: BORDER_RADIUS.md,
-    padding: SPACING.md,
-    color: COLORS.text,
-    fontSize: FONT_SIZE.md,
-    marginBottom: SPACING.md,
-  },
-  sectionTitle: {
-    fontSize: FONT_SIZE.md,
-    fontWeight: 'bold',
-    color: COLORS.text,
-    marginBottom: SPACING.md,
-    marginTop: SPACING.md,
-  },
-  typeGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: SPACING.sm,
-  },
-  typeButton: {
-    width: '48%',
-    backgroundColor: COLORS.surface,
-    borderRadius: BORDER_RADIUS.md,
-    padding: SPACING.md,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  typeButtonActive: {
-    borderColor: COLORS.primary,
-    backgroundColor: COLORS.surfaceLight,
-  },
-  typeIcon: {
-    fontSize: 32,
     marginBottom: SPACING.sm,
+    marginTop: SPACING.xl,
+    paddingHorizontal: SPACING.md,
   },
-  typeLabel: {
-    color: COLORS.textSecondary,
+  backButton: { color: COLORS.primary, fontSize: FONT_SIZE.sm },
+  title: { color: COLORS.text, fontSize: FONT_SIZE.lg, fontWeight: 'bold' },
+  titleCompact: { fontSize: FONT_SIZE.md },
+  saveButton: { color: COLORS.primary, fontSize: FONT_SIZE.sm, fontWeight: 'bold' },
+  saveButtonDisabled: { opacity: 0.5 },
+  scrollContent: { paddingBottom: 120, paddingHorizontal: SPACING.md },
+  sectionTitle: {
+    color: COLORS.text,
     fontSize: FONT_SIZE.md,
-  },
-  typeLabelActive: {
-    color: COLORS.primary,
     fontWeight: 'bold',
-  },
-  intensityGrid: {
-    flexDirection: 'row',
-    gap: SPACING.sm,
-  },
-  intensityButton: {
-    flex: 1,
-    backgroundColor: COLORS.surface,
-    borderRadius: BORDER_RADIUS.md,
-    padding: SPACING.md,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  intensityButtonActive: {
-    borderColor: COLORS.primary,
-    backgroundColor: COLORS.surfaceLight,
-  },
-  intensityLabel: {
-    color: COLORS.textSecondary,
-    fontSize: FONT_SIZE.md,
-  },
-  intensityLabelActive: {
-    color: COLORS.primary,
-    fontWeight: 'bold',
-  },
-  tipsCard: {
-    backgroundColor: COLORS.surfaceLight,
-    borderRadius: BORDER_RADIUS.lg,
-    padding: SPACING.lg,
+    marginBottom: SPACING.sm,
     marginTop: SPACING.lg,
   },
-  tipsTitle: {
-    fontSize: FONT_SIZE.md,
-    fontWeight: 'bold',
-    color: COLORS.text,
-    marginBottom: SPACING.md,
-  },
-  tipText: {
-    color: COLORS.textSecondary,
+  helperText: {
+    color: COLORS.textMuted,
     fontSize: FONT_SIZE.sm,
     marginBottom: SPACING.sm,
+    marginTop: -SPACING.xs,
   },
+  typeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm },
+  typeButton: {
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    borderColor: COLORS.border,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+    flexBasis: 132,
+    flexGrow: 1,
+    minWidth: 120,
+    padding: SPACING.md,
+  },
+  typeButtonCompact: { flexBasis: 125, minWidth: 118, paddingHorizontal: SPACING.sm },
+  typeButtonActive: { backgroundColor: COLORS.surfaceLight, borderColor: COLORS.primary },
+  typeIcon: { fontSize: 26, marginBottom: SPACING.xs },
+  typeLabel: { color: COLORS.textSecondary, fontSize: FONT_SIZE.sm, textAlign: 'center' },
+  typeLabelActive: { color: COLORS.primary, fontWeight: 'bold' },
+  input: {
+    backgroundColor: COLORS.surface,
+    borderColor: COLORS.border,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+    color: COLORS.text,
+    fontSize: FONT_SIZE.md,
+    padding: SPACING.md,
+  },
+  intensityGrid: { flexDirection: 'row', gap: SPACING.sm },
+  intensityButton: {
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    borderColor: COLORS.border,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+    flex: 1,
+    paddingHorizontal: SPACING.xs,
+    paddingVertical: SPACING.md,
+  },
+  intensityButtonActive: { backgroundColor: COLORS.surfaceLight, borderColor: COLORS.primary },
+  intensityLabel: { color: COLORS.textSecondary, fontSize: FONT_SIZE.sm, textAlign: 'center' },
+  intensityLabelActive: { color: COLORS.primary, fontWeight: 'bold' },
+  tipsCard: { backgroundColor: COLORS.surfaceLight, borderRadius: BORDER_RADIUS.lg, marginTop: SPACING.lg, padding: SPACING.lg },
+  tipsTitle: { color: COLORS.text, fontSize: FONT_SIZE.md, fontWeight: 'bold', marginBottom: SPACING.sm },
+  tipText: { color: COLORS.textSecondary, fontSize: FONT_SIZE.sm, marginBottom: SPACING.sm },
+  tipCaution: { color: COLORS.warning, fontSize: FONT_SIZE.xs, marginTop: SPACING.xs },
 });

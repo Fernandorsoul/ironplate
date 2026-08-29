@@ -42,6 +42,34 @@ export const registerSchema = z.object({
 
 export const userIdSchema = z.string().uuid('userId must be a valid UUID');
 
+const sportSchema = z.enum([
+  'bodybuilding', 'bjj', 'both', 'running', 'cycling', 'swimming', 'soccer',
+  'functional', 'calisthenics', 'walking', 'hybrid', 'other',
+]);
+
+const workoutTypeSchema = z.enum([
+  'strength', 'bjj', 'running', 'cycling', 'swimming', 'soccer', 'functional',
+  'calisthenics', 'walking', 'cardio', 'rest', 'other',
+]);
+
+const trainingSplitSchema = z.enum([
+  'full_body', 'upper_lower', 'abc_classic', 'abc_antagonist',
+  'push_pull_legs', 'abcd', 'abcde', 'custom',
+]);
+
+const muscleGroupSchema = z.enum([
+  'chest', 'back', 'shoulders', 'biceps', 'triceps', 'quadriceps', 'hamstrings',
+  'glutes', 'calves', 'core', 'forearms', 'full_body',
+]);
+
+export const profilePhotoSchema = z
+  .string()
+  .max(2_000_000, 'Profile photo is too large')
+  .regex(
+    /^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/,
+    'Profile photo must be a JPEG, PNG, or WebP data URI',
+  );
+
 export const updateSchema = z.object({
   userId: userIdSchema,
   fields: z
@@ -59,7 +87,8 @@ export const updateSchema = z.object({
         'cutting_precontest',
         'maintenance',
       ]).optional(),
-      sport: z.enum(['bodybuilding', 'bjj', 'both']).optional(),
+      sport: sportSchema.optional(),
+      photoUri: profilePhotoSchema.optional(),
     })
     .strict()
     .refine((fields) => Object.keys(fields).length > 0, 'At least one field is required'),
@@ -91,11 +120,17 @@ const foodSchema = z.object({
   macros: macrosSchema,
 }).passthrough();
 
+const portionUnitSchema = z.enum([
+  'unidade', 'fatia', 'colher', 'xicara', 'ml', 'g', 'dente',
+]);
+
 const foodPortionSchema = z.object({
   food: foodSchema,
   grams: nonNegativeNumber.max(100_000),
+  quantity: nonNegativeNumber.optional(),
+  unit: portionUnitSchema.optional(),
   macros: macrosSchema,
-}).passthrough();
+}).strict();
 
 const mealSchema = z.object({
   id: idSchema,
@@ -109,10 +144,13 @@ const mealSchema = z.object({
 const workoutSchema = z.object({
   id: idSchema,
   name: z.string().trim().min(1).max(160),
-  type: z.enum(['strength', 'cardio', 'bjj', 'rest']),
+  type: workoutTypeSchema,
   duration: z.number().int().min(0).max(24 * 60),
   intensity: z.enum(['low', 'medium', 'high']),
   time: z.string().trim().max(20).optional(),
+  splitId: trainingSplitSchema.optional(),
+  splitDayId: z.string().trim().min(1).max(80).optional(),
+  muscleGroups: z.array(muscleGroupSchema).max(12).optional(),
 }).passthrough();
 
 export const dailyLogPostSchema = z.object({
