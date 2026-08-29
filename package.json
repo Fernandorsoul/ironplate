@@ -44,7 +44,7 @@
     "@react-native/jest-preset": "0.86.3",
     "@testing-library/react-native": "^14.0.1",
     "@types/jest": "29.5.14",
-    "@types/node": "^26.2.0",
+    "@types/node": "^26.3.0",
     "@types/react": "~19.2.2",
     "@typescript-eslint/parser": "^8.68.0",
     "@vercel/node": "^7.0.0",
