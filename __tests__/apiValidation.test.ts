@@ -105,4 +105,38 @@ describe('API input validation', () => {
     expect(limitSchema.safeParse('100').success).toBe(true);
     expect(limitSchema.safeParse('101').success).toBe(false);
   });
+
+  it('accepts only strict, finite food portions with supported units', () => {
+    const macros = { calories: 100, protein: 10, carbs: 12, fat: 2 };
+    const food = { id: 'food-1', name: 'Alimento', category: 'teste', macros };
+    const makePayload = (portion: Record<string, unknown>) => ({
+      userId,
+      plan: {
+        id: 'plan-1',
+        name: 'Plano',
+        goal: 'maintenance',
+        meals: [{
+          id: 'meal-1',
+          name: 'Refeição',
+          timing: 'regular',
+          foods: [{ food, grams: 100, macros, ...portion }],
+          totalMacros: macros,
+        }],
+        totalMacros: macros,
+        createdAt: '2026-08-29T12:00:00.000Z',
+      },
+    });
+
+    for (const unit of ['unidade', 'fatia', 'colher', 'xicara', 'ml', 'g', 'dente']) {
+      expect(mealPlanPostSchema.safeParse(makePayload({ quantity: 1, unit })).success).toBe(true);
+    }
+
+    expect(mealPlanPostSchema.safeParse(makePayload({
+      quantity: 1,
+      unit: '<img src=x onerror=alert(1)>',
+    })).success).toBe(false);
+    expect(mealPlanPostSchema.safeParse(makePayload({ quantity: -1, unit: 'g' })).success).toBe(false);
+    expect(mealPlanPostSchema.safeParse(makePayload({ quantity: Number.POSITIVE_INFINITY, unit: 'g' })).success).toBe(false);
+    expect(mealPlanPostSchema.safeParse(makePayload({ quantity: 1, unit: 'g', extra: true })).success).toBe(false);
+  });
 });
