@@ -3,3 +3,5 @@ export { ActionButton } from './ActionButton';
 export { MealCard } from './MealCard';
 export { ScreenHeader } from './ScreenHeader';
 export { ErrorBoundary } from './ErrorBoundary';
+export { HydrationCard } from './HydrationCard';
+export { DietAlternativesSection } from './DietAlternativesSection';
