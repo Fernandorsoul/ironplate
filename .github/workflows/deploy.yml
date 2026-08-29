@@ -3,30 +3,27 @@ name: Deploy to Vercel
 on:
   release:
     types: [published]
-  push:
-    tags:
-      - 'v*'
 
 jobs:
   deploy:
     name: Deploy to Vercel
     runs-on: ubuntu-latest
     
-    # Only deploy if the tag/release is on master branch
-    if: github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v')
+    # Only deploy releases explicitly created from master.
+    if: github.event.release.target_commitish == 'master'
     
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.release.target_commitish || github.ref }}
+          ref: ${{ github.event.release.tag_name }}
+          fetch-depth: 0
 
-      - name: Verify branch is master
+      - name: Verify release commit belongs to master
         run: |
-          echo "Deploying from: ${{ github.ref }}"
-          echo "Release target: ${{ github.event.release.target_commitish || 'N/A' }}"
-          if [[ "${{ github.event_name }}" == "release" && "${{ github.event.release.target_commitish }}" != "master" ]]; then
-            echo " Release is not targeting master branch. Aborting deploy."
+          git fetch origin master
+          if ! git merge-base --is-ancestor HEAD origin/master; then
+            echo "Release tag does not belong to master. Aborting deploy."
             exit 1
           fi
 

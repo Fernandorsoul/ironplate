@@ -7,6 +7,7 @@ import { generateDietOptions, analyzeDiet } from '../utils/dietGenerator';
 import { generateDietPDF, generateDietOptionsPDF } from '../utils/dietPdfGenerator';
 import { formatFoodPortion } from '../utils/portionDisplay';
 import { MealPlan, Goal } from '../types';
+import { DietAlternativesSection, HydrationCard } from '../components';
 
 export default function MealPlanScreen({ navigation }: any) {
   const { profile, mealPlans, saveMealPlan, deleteMealPlan, setProfile, setActiveMealPlan } = useApp();
@@ -116,6 +117,7 @@ export default function MealPlanScreen({ navigation }: any) {
                 <Text style={styles.previewNote}>Sugestões gerais. Confirme suplementos com nutricionista ou médico.</Text>
               </View>
             )}
+            <DietAlternativesSection plan={activePlan} />
           </View>
         )}
 
@@ -217,6 +219,8 @@ export default function MealPlanScreen({ navigation }: any) {
           </View>
         )}
 
+        {profile ? <HydrationCard profile={profile} /> : null}
+
         <Text style={styles.sectionTitle}>Quantas refeições por dia?</Text>
         <View style={styles.mealCountRow}>
           {[3, 4, 5, 6, 7, 8].map(count => (
@@ -256,7 +260,9 @@ export default function MealPlanScreen({ navigation }: any) {
               return (
                 <View key={plan.id} style={styles.optionCard}>
                   <View style={styles.optionHeader}>
-                    <Text style={styles.optionTitle}>Opção {index + 1}</Text>
+                    <Text style={styles.optionTitle}>
+                      Opção {index + 1}{index === 2 ? ' · Econômica' : ''}
+                    </Text>
                     <View style={styles.optionActions}>
                       <TouchableOpacity 
                         style={styles.saveOptionButton}
@@ -311,6 +317,7 @@ export default function MealPlanScreen({ navigation }: any) {
                       ))}
                     </View>
                   ))}
+                  <DietAlternativesSection plan={plan} />
                 </View>
               );
             })}
