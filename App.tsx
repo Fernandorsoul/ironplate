@@ -5,13 +5,11 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { AppProvider, useApp } from './src/context/AppContext';
-import { AuthProvider } from './src/context/AuthContext';
-import { ProfileProvider } from './src/context/ProfileContext';
-import { DailyLogProvider } from './src/context/DailyLogContext';
 import { COLORS } from './src/constants/theme';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { CollapsibleSideBar } from './src/components/CollapsibleSideBar';
 import { RootStackParamList, TabParamList } from './src/types/navigation';
+import { passwordResetLinking } from './src/navigation/linking';
 
 // Screens
 import HomeScreen from './src/screens/HomeScreen';
@@ -117,6 +115,7 @@ function AppNavigator() {
         <>
           <Stack.Screen name="Onboarding" component={OnboardingScreen} />
           <Stack.Screen name="BodyMeasurements" component={BodyMeasurementsScreen} />
+          <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
         </>
       ) : (
         // Main app screens
@@ -135,6 +134,7 @@ function AppNavigator() {
           <Stack.Screen name="Evolution" component={EvolutionScreen} />
           <Stack.Screen name="EditProfile" component={EditProfileScreen} />
           <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} options={{ headerShown: true, title: 'Política de Privacidade' }} />
+          <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
         </>
       )}
     </Stack.Navigator>
@@ -144,18 +144,12 @@ function AppNavigator() {
 export default function App() {
   return (
     <ErrorBoundary>
-      <AuthProvider>
-        <ProfileProvider>
-          <DailyLogProvider>
-            <AppProvider>
-              <NavigationContainer>
-                <StatusBar style="light" />
-                <AppNavigator />
-              </NavigationContainer>
-            </AppProvider>
-          </DailyLogProvider>
-        </ProfileProvider>
-      </AuthProvider>
+      <AppProvider>
+        <NavigationContainer linking={passwordResetLinking}>
+          <StatusBar style="light" />
+          <AppNavigator />
+        </NavigationContainer>
+      </AppProvider>
     </ErrorBoundary>
   );
 }

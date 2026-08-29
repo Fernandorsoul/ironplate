@@ -1,5 +1,6 @@
 import { generateDiet, getSupplementRecommendations } from '../src/utils/dietGenerator';
 import { UserProfile } from '../src/types';
+import { formatPortionAmount } from '../src/utils/portionDisplay';
 
 const profile: UserProfile = {
   name: 'Atleta',
@@ -22,6 +23,17 @@ describe('diet generator', () => {
     expect(plan.meals).toHaveLength(count);
     expect(plan.totalMacros.calories).toBeGreaterThan(0);
     expect(plan.totalMacros.protein).toBeGreaterThan(0);
+  });
+
+  it('includes household measures and grams in every generated food portion', () => {
+    const plan = generateDiet(profile);
+
+    plan.meals.flatMap(meal => meal.foods).forEach(portion => {
+      expect(portion.quantity).toBeGreaterThan(0);
+      expect(portion.unit).toBeDefined();
+      expect(formatPortionAmount(portion)).toMatch(/^aprox\./);
+      expect(formatPortionAmount(portion)).toContain(`(${portion.grams} g)`);
+    });
   });
 
   it('adds conservative sport-specific supplement suggestions', () => {

@@ -75,16 +75,18 @@ src/context/AppContext.tsx
 ### 3. Serviços (Data Layer)
 
 ```
-src/services/database.ts   # SQLite + fallback web
-src/services/storage.ts    # AsyncStorage
+src/services/database.ts   # Cliente da API Neon
+src/services/session.ts    # Sessão nativa no SecureStore
+src/services/storage.ts    # Limpeza do cache legado em AsyncStorage
 ```
 
 **Responsabilidade:** Persistência, acesso a dados.
 
 **Estratégia de Persistência:**
-- **Mobile:** SQLite (expo-sqlite)
-- **Web:** In-memory storage (fallback)
-- **AsyncStorage:** Dados do perfil e configurações
+- **Fonte de verdade:** Neon Postgres, acessado somente pelas API routes autenticadas
+- **Mobile:** JWT e userId no Expo SecureStore
+- **Web:** sessão temporária em memória; recarregar exige novo login
+- **AsyncStorage:** somente migração para apagar o cache sensível legado
 
 ### 4. Utilitários (Business Logic)
 
@@ -92,10 +94,13 @@ src/services/storage.ts    # AsyncStorage
 src/utils/calculations.ts    # Cálculos nutricionais
 src/utils/dietGenerator.ts   # Geração de dietas
 src/utils/dietPdfGenerator.ts # PDF de dietas
+src/utils/portionDisplay.ts  # Medidas caseiras + gramas
 src/utils/pdfGenerator.ts    # PDF de medidas
 ```
 
 **Responsabilidade:** Lógica de negócio pura, cálculos.
+
+`portionDisplay.ts` centraliza a resolução e a formatação das porções. O gerador persiste `quantity` e `unit` quando existe uma conversão conhecida, enquanto a camada de apresentação também consegue derivar a medida caseira a partir dos gramas para manter compatibilidade com planos antigos.
 
 ### 5. Hooks (Custom Hooks)
 
@@ -183,14 +188,14 @@ src/constants/foods.ts   # Foods legado
 - Suficiente para escopo do app
 - Nativo do React
 
-### ADR-002: AsyncStorage vs SQLite
+### ADR-002: Neon como fonte de verdade
 
-**Decisão:** Ambos (AsyncStorage para config, SQLite para dados)
+**Decisão:** Dados de perfil e saúde permanecem no Neon; somente a sessão compacta fica no dispositivo.
 
 **Justificativa:**
-- AsyncStorage: Simples, offline-first
-- SQLite: Queries complexas, relacionamentos
-- Fallback web: In-memory storage
+- Evita divergência entre caches locais e o banco remoto
+- Remove dados de saúde em texto puro do AsyncStorage
+- Mantém tokens nativos protegidos pelo Keychain/Keystore via SecureStore
 
 ### ADR-003: Tabela TACO como Fonte Única
 
@@ -250,15 +255,16 @@ export async function saveData(data: Data): Promise<void> {
 
 | Dependência | Uso | Risco |
 |-------------|-----|-------|
-| expo-sqlite | Persistência mobile | Baixo |
+| expo-secure-store | Sessão nativa criptografada | Baixo |
+| @neondatabase/serverless | Acesso ao Neon nas API routes | Médio |
 | @react-navigation | Navegação | Baixo |
 | victory-native | Gráficos | Médio (web compat) |
-| @react-native-async-storage | Config storage | Baixo |
+| @react-native-async-storage | Limpeza do cache legado | Baixo |
 
 ## Segurança
 
-- **Autenticação:** Hash SHA256 com salt
-- **Persistência:** Dados locais (offline-first)
+- **Autenticação:** JWT HS256 e senhas com scrypt + salt aleatório
+- **Persistência:** Neon como fonte de verdade; SecureStore somente para sessão
 - **Senhas:** Nunca armazenadas em texto plano
 
 ## Performance

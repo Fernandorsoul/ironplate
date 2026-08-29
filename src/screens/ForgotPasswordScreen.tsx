@@ -1,14 +1,51 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../constants/theme';
+import { requestPasswordReset, resetPassword } from '../services/database';
+import type { RootStackScreenProps } from '../types/navigation';
+import { useApp } from '../context/AppContext';
+import { isValidResetToken } from '../utils/passwordReset';
 
-export default function ForgotPasswordScreen({ navigation }: any) {
+type PasswordResetStep = 'email' | 'token' | 'reset';
+
+export default function ForgotPasswordScreen({
+  navigation,
+  route,
+}: RootStackScreenProps<'ForgotPassword'>) {
+  const { isAuthenticated, isOnboarded, logout } = useApp();
+  const routeToken = route.params?.token?.trim() ?? '';
   const [email, setEmail] = useState('');
-  const [token, setToken] = useState('');
+  const [token, setToken] = useState(routeToken);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [step, setStep] = useState<'email' | 'token' | 'reset'>('email');
+  const [step, setStep] = useState<PasswordResetStep>(
+    isValidResetToken(routeToken) ? 'reset' : 'email',
+  );
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (isValidResetToken(routeToken)) {
+      setToken(routeToken);
+      setStep('reset');
+    }
+  }, [routeToken]);
+
+  const handleBack = () => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else if (isAuthenticated && isOnboarded) {
+      navigation.navigate('MainTabs', { screen: 'Home' });
+    } else if (isAuthenticated) {
+      navigation.navigate('Onboarding');
+    } else {
+      navigation.navigate('Login');
+    }
+  };
+
+  const returnToLogin = async () => {
+    await logout();
+    navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
+  };
 
   const handleVerifyEmail = async () => {
     if (!email.trim() || !email.includes('@')) {
@@ -18,14 +55,7 @@ export default function ForgotPasswordScreen({ navigation }: any) {
 
     setLoading(true);
     try {
-      // Call API to send reset email
-      const response = await fetch('/api/users/forgot-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim() }),
-      });
-
-      const data = await response.json();
+      await requestPasswordReset(email.trim());
 
       // Always show success message to prevent email enumeration
       Alert.alert(
@@ -35,10 +65,6 @@ export default function ForgotPasswordScreen({ navigation }: any) {
           {
             text: 'OK',
             onPress: () => {
-              // In development, auto-fill token if returned
-              if (data.token) {
-                setToken(data.token);
-              }
               setStep('token');
             },
           },
@@ -53,7 +79,7 @@ export default function ForgotPasswordScreen({ navigation }: any) {
   };
 
   const handleVerifyToken = () => {
-    if (!token.trim() || token.length < 64) {
+    if (!isValidResetToken(token)) {
       Alert.alert('Erro', 'Digite o código de recuperação completo');
       return;
     }
@@ -65,6 +91,10 @@ export default function ForgotPasswordScreen({ navigation }: any) {
       Alert.alert('Erro', 'A senha deve ter pelo menos 8 caracteres');
       return;
     }
+    if (!/[A-Za-z]/.test(newPassword) || !/\d/.test(newPassword)) {
+      Alert.alert('Erro', 'A senha deve conter pelo menos uma letra e um número');
+      return;
+    }
     if (newPassword !== confirmPassword) {
       Alert.alert('Erro', 'As senhas não coincidem');
       return;
@@ -72,31 +102,14 @@ export default function ForgotPasswordScreen({ navigation }: any) {
 
     setLoading(true);
     try {
-      const response = await fetch('/api/users/reset-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: token.trim(), newPassword }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to reset password');
-      }
+      await resetPassword(token.trim(), newPassword);
 
       Alert.alert('Sucesso', 'Senha alterada com sucesso!', [
-        { text: 'OK', onPress: () => navigation.goBack() },
+        { text: 'OK', onPress: () => { void returnToLogin(); } },
       ]);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Reset password error:', error);
-      if (error.message === 'Token expired') {
-        Alert.alert('Erro', 'O código de recuperação expirou. Solicite um novo.');
-        setStep('email');
-      } else if (error.message === 'Invalid or expired token') {
-        Alert.alert('Erro', 'Código de recuperação inválido. Verifique e tente novamente.');
-      } else {
-        Alert.alert('Erro', 'Não foi possível alterar a senha. Tente novamente.');
-      }
+      Alert.alert('Erro', 'Não foi possível alterar a senha. Solicite um novo código e tente novamente.');
     } finally {
       setLoading(false);
     }
@@ -108,7 +121,7 @@ export default function ForgotPasswordScreen({ navigation }: any) {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View style={styles.content}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+        <TouchableOpacity onPress={handleBack} style={styles.backButton}>
           <Text style={styles.backText}>← Voltar</Text>
         </TouchableOpacity>
 

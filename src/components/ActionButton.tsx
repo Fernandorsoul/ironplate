@@ -12,7 +12,7 @@ interface ActionButtonProps {
 export function ActionButton({ icon, label, onPress, color = COLORS.primary }: ActionButtonProps) {
   return (
     <TouchableOpacity style={[styles.button, { borderColor: color }]} onPress={onPress}>
-      <Text style={styles.icon}>{icon}</Text>
+      <Text style={[styles.icon, { color }]}>{icon}</Text>
       <Text style={styles.label}>{label}</Text>
     </TouchableOpacity>
   );

@@ -4,6 +4,7 @@ import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../constants/theme';
 import { useApp } from '../context/AppContext';
 import { MealPlan, Meal } from '../types';
 import { sumMacros } from '../utils/calculations';
+import { formatFoodPortion } from '../utils/portionDisplay';
 
 export default function EditMealPlanScreen({ route, navigation }: any) {
   const { saveMealPlan } = useApp();
@@ -80,7 +81,7 @@ export default function EditMealPlanScreen({ route, navigation }: any) {
               </View>
               {meal.foods.map((food, i) => (
                 <Text key={i} style={styles.foodItem}>
-                  {food.grams}g {food.food.name}
+                  {formatFoodPortion(food)}
                 </Text>
               ))}
             </View>

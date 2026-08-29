@@ -1,0 +1,185 @@
+import {
+  boolean,
+  doublePrecision,
+  index,
+  integer,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+} from 'drizzle-orm/pg-core';
+
+export const users = pgTable('users', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  email: text('email').notNull(),
+  passwordHash: text('password_hash').notNull(),
+  age: integer('age'),
+  weight: doublePrecision('weight'),
+  height: doublePrecision('height'),
+  gender: text('gender').default('male'),
+  activityLevel: text('activity_level').default('moderate'),
+  goal: text('goal').default('maintenance'),
+  sport: text('sport').default('bodybuilding'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  lastLogin: timestamp('last_login', { withTimezone: true }),
+}, (table) => [uniqueIndex('users_email_unique').on(table.email)]);
+
+export const dailyLogs = pgTable('daily_logs', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  date: text('date').notNull(),
+  weight: doublePrecision('weight'),
+  notes: text('notes'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex('daily_logs_user_date_unique').on(table.userId, table.date),
+  index('daily_logs_user_id_idx').on(table.userId),
+]);
+
+export const meals = pgTable('meals', {
+  id: text('id').primaryKey(),
+  dailyLogId: text('daily_log_id').notNull().references(() => dailyLogs.id, { onDelete: 'cascade' }),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  timing: text('timing').notNull(),
+  time: text('time'),
+  totalCalories: doublePrecision('total_calories').default(0).notNull(),
+  totalProtein: doublePrecision('total_protein').default(0).notNull(),
+  totalCarbs: doublePrecision('total_carbs').default(0).notNull(),
+  totalFat: doublePrecision('total_fat').default(0).notNull(),
+}, (table) => [index('meals_daily_log_id_idx').on(table.dailyLogId)]);
+
+export const mealFoods = pgTable('meal_foods', {
+  id: text('id').primaryKey(),
+  mealId: text('meal_id').notNull().references(() => meals.id, { onDelete: 'cascade' }),
+  foodId: text('food_id').notNull(),
+  foodName: text('food_name').notNull(),
+  foodCategory: text('food_category'),
+  grams: doublePrecision('grams').notNull(),
+  calories: doublePrecision('calories').default(0).notNull(),
+  protein: doublePrecision('protein').default(0).notNull(),
+  carbs: doublePrecision('carbs').default(0).notNull(),
+  fat: doublePrecision('fat').default(0).notNull(),
+}, (table) => [index('meal_foods_meal_id_idx').on(table.mealId)]);
+
+export const workouts = pgTable('workouts', {
+  id: text('id').primaryKey(),
+  dailyLogId: text('daily_log_id').notNull().references(() => dailyLogs.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  type: text('type').notNull(),
+  duration: integer('duration').default(0).notNull(),
+  intensity: text('intensity').default('medium').notNull(),
+  time: text('time'),
+}, (table) => [index('workouts_daily_log_id_idx').on(table.dailyLogId)]);
+
+export const weightHistory = pgTable('weight_history', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  date: text('date').notNull(),
+  weight: doublePrecision('weight').notNull(),
+  bodyFat: doublePrecision('body_fat'),
+}, (table) => [
+  uniqueIndex('weight_history_user_date_unique').on(table.userId, table.date),
+  index('weight_history_user_id_idx').on(table.userId),
+]);
+
+export const customFoods = pgTable('custom_foods', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  category: text('category').notNull(),
+  calories: doublePrecision('calories').default(0).notNull(),
+  protein: doublePrecision('protein').default(0).notNull(),
+  carbs: doublePrecision('carbs').default(0).notNull(),
+  fat: doublePrecision('fat').default(0).notNull(),
+}, (table) => [index('custom_foods_user_id_idx').on(table.userId)]);
+
+export const mealPlans = pgTable('meal_plans', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  goal: text('goal').notNull(),
+  totalCalories: doublePrecision('total_calories').default(0).notNull(),
+  totalProtein: doublePrecision('total_protein').default(0).notNull(),
+  totalCarbs: doublePrecision('total_carbs').default(0).notNull(),
+  totalFat: doublePrecision('total_fat').default(0).notNull(),
+  mealsJson: text('meals_json').notNull(),
+  isActive: boolean('is_active').default(false).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [index('meal_plans_user_id_idx').on(table.userId)]);
+
+export const bodyMeasurements = pgTable('body_measurements', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  date: text('date').notNull(),
+  weight: doublePrecision('weight').notNull(),
+  height: doublePrecision('height'),
+  bodyFat: doublePrecision('body_fat'),
+  bodyFatMethod: text('body_fat_method').default('visual'),
+  resistance: doublePrecision('resistance'),
+  reactance: doublePrecision('reactance'),
+  phaseAngle: doublePrecision('phase_angle'),
+  muscleMass: doublePrecision('muscle_mass'),
+  skeletalMuscle: doublePrecision('skeletal_muscle'),
+  waterPercent: doublePrecision('water_percent'),
+  waterKg: doublePrecision('water_kg'),
+  boneMass: doublePrecision('bone_mass'),
+  proteinPercent: doublePrecision('protein_percent'),
+  proteinMass: doublePrecision('protein_mass'),
+  basalMetabolism: doublePrecision('basal_metabolism'),
+  visceralFat: doublePrecision('visceral_fat'),
+  triceps: doublePrecision('triceps'),
+  biceps: doublePrecision('biceps'),
+  subscapular: doublePrecision('subscapular'),
+  suprailiac: doublePrecision('suprailiac'),
+  abdominal: doublePrecision('abdominal'),
+  chestSkinfold: doublePrecision('chest_skinfold'),
+  axillaryMid: doublePrecision('axillary_mid'),
+  thighSkinfold: doublePrecision('thigh_skinfold'),
+  calfSkinfold: doublePrecision('calf_skinfold'),
+  armRelaxedRight: doublePrecision('arm_relaxed_right'),
+  armRelaxedLeft: doublePrecision('arm_relaxed_left'),
+  armFlexedRight: doublePrecision('arm_flexed_right'),
+  armFlexedLeft: doublePrecision('arm_flexed_left'),
+  forearmRight: doublePrecision('forearm_right'),
+  forearmLeft: doublePrecision('forearm_left'),
+  wristRight: doublePrecision('wrist_right'),
+  wristLeft: doublePrecision('wrist_left'),
+  chestCircumference: doublePrecision('chest_circumference'),
+  waistCircumference: doublePrecision('waist_circumference'),
+  abdomenCircumference: doublePrecision('abdomen_circumference'),
+  hipCircumference: doublePrecision('hip_circumference'),
+  thighProximalRight: doublePrecision('thigh_proximal_right'),
+  thighProximalLeft: doublePrecision('thigh_proximal_left'),
+  thighMidRight: doublePrecision('thigh_mid_right'),
+  thighMidLeft: doublePrecision('thigh_mid_left'),
+  calfRight: doublePrecision('calf_right'),
+  calfLeft: doublePrecision('calf_left'),
+  ankleRight: doublePrecision('ankle_right'),
+  ankleLeft: doublePrecision('ankle_left'),
+  leanMass: doublePrecision('lean_mass'),
+  fatMass: doublePrecision('fat_mass'),
+  bmi: doublePrecision('bmi'),
+  waistHipRatio: doublePrecision('waist_hip_ratio'),
+  notes: text('notes'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex('body_measurements_user_date_unique').on(table.userId, table.date),
+  index('body_measurements_user_id_idx').on(table.userId),
+]);
+
+export const passwordResetTokens = pgTable('password_reset_tokens', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  tokenHash: text('token_hash').notNull(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  used: boolean('used').default(false).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex('password_reset_tokens_hash_unique').on(table.tokenHash),
+  index('password_reset_tokens_user_id_idx').on(table.userId),
+]);

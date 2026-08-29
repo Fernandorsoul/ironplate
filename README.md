@@ -9,8 +9,24 @@ Aplicativo móvel de nutrição para atletas de **Bodybuilding** e **BJJ** (Braz
 ### Planos Alimentares
 - **Geração automática** de 3 opções de cardápio
 - **Tabela TACO** (UNICAMP) como base de dados nutricional
-- **PDF exportável** com porções detalhadas em gramas
+- **Porções em medidas caseiras e gramas** nas dietas, refeições e PDFs
+- **PDF exportável** com porções detalhadas nas duas formas
 - **Análise de adequação** nutricional com score
+
+#### Medidas caseiras e gramas
+
+As porções dos planos alimentares são apresentadas simultaneamente em uma medida prática e no peso usado como referência nutricional. Exemplo:
+
+```text
+Banana, prata: aprox. 1 banana (120 g)
+```
+
+- As medidas caseiras são aproximadas; os gramas continuam sendo a referência para o cálculo dos macros.
+- O mesmo formato é usado nos planos gerados, no plano ativo, na edição do plano, nas refeições diárias e no PDF exportado.
+- Planos antigos que armazenam somente gramas também recebem a conversão durante a exibição.
+- A implementação é compartilhada entre web, Android e iOS.
+
+Consulte o [CHANGELOG.md](CHANGELOG.md) para ver o registro técnico da alteração.
 
 ### Tracking Nutricional
 - **Contagem de macros** (proteína, carboidratos, gordura)
@@ -42,7 +58,8 @@ Aplicativo móvel de nutrição para atletas de **Bodybuilding** e **BJJ** (Braz
 | Expo | 57.0.10 | Build e desenvolvimento |
 | TypeScript | 6.0.3 | Type safety |
 | React Navigation | 7.x | Navegação |
-| AsyncStorage | 2.2.0 | Persistência offline |
+| Neon Postgres | Serverless | Fonte de verdade dos dados |
+| Expo SecureStore | 57.0.2 | Sessão criptografada no dispositivo |
 | Victory Native | 41.26.0 | Gráficos |
 | Playwright | 1.62.1 | Testes E2E |
 | Jest | 29.x | Testes unitários |
@@ -50,7 +67,7 @@ Aplicativo móvel de nutrição para atletas de **Bodybuilding** e **BJJ** (Braz
 ## Como Rodar
 
 ### Pré-requisitos
-- Node.js 18+
+- Node.js 22.13+
 - npm ou yarn
 - Expo CLI (opcional)
 
@@ -73,9 +90,32 @@ npm run android
 npm run ios
 ```
 
+### Recuperação de senha
+
+O fluxo usa um link HTTPS para `/reset-password`, token de uso único persistido
+somente como hash no Neon e entrega de email pelo Resend. Configure:
+
+- `DATABASE_URL`: conexão pooled usada pela API;
+- `DATABASE_URL_UNPOOLED`: conexão direta usada por `npm run db:migrate`;
+- `APP_URL`: origem HTTPS adicionada ao link do email;
+- `EXPO_PUBLIC_APP_URL`: origem reconhecida pelo aplicativo;
+- `RESEND_API_KEY`: chave da API do Resend;
+- `RESET_EMAIL_FROM`: remetente de um domínio verificado.
+
+Depois de aplicar as migrations, valide o ambiente sem imprimir segredos ou
+dados de usuários:
+
+```bash
+npm run db:migrate
+npm run password-reset:check
+```
+
+O segundo comando termina com sucesso somente quando o schema, a conexão direta
+de migration e o serviço de email estão configurados.
+
 ### Testes
 ```bash
-# Testes unitários (46 testes)
+# Testes unitários
 npm test
 
 # Testes E2E (27 testes)
@@ -108,6 +148,7 @@ ironplate/
 │   │   └── ScreenHeader.tsx
 │   ├── constants/               # Configurações estáticas
 │   │   ├── foods.ts             # Banco de alimentos legado
+│   │   ├── portions.ts          # Conversões para medidas caseiras
 │   │   ├── taco.ts              # Tabela TACO (UNICAMP)
 │   │   └── theme.ts             # Cores, spacing, fontes
 │   ├── context/                 # Estado global
@@ -126,14 +167,16 @@ ironplate/
 │   │   ├── EditProfileScreen.tsx
 │   │   └── ...
 │   ├── services/                # Serviços de dados
-│   │   ├── database.ts          # SQLite + fallback web
-│   │   └── storage.ts           # AsyncStorage
+│   │   ├── database.ts          # Cliente autenticado da API
+│   │   ├── session.ts           # SecureStore / sessão web temporária
+│   │   └── storage.ts           # Limpeza de caches legados
 │   ├── types/                   # Definições TypeScript
 │   │   └── index.ts
 │   └── utils/                   # Funções utilitárias
 │       ├── calculations.ts      # Cálculos nutricionais
 │       ├── dietGenerator.ts     # Gerador de dietas
 │       ├── dietPdfGenerator.ts  # PDF de dietas
+│       ├── portionDisplay.ts     # Formatação de medida caseira + gramas
 │       └── pdfGenerator.ts      # PDF de medidas
 ├── App.tsx                      # Componente raiz
 ├── package.json

@@ -582,9 +582,10 @@ export async function connectToWeightScale(
   // Also set up notify monitoring for real-time weight updates while standing on scale
   async function probeDevice(device: Device): Promise<ScaleReadout> {
     const readout: ScaleReadout = {};
-    console.log('[BLE] Services:', (await device.services()).map(s => s.uuid)); // DEBUG LOG
-    
     const servicesList: any[] = await device.services();
+    if (__DEV__) {
+      console.log('[BLE] Services:', servicesList.map(s => s.uuid));
+    }
     const svcUUIDs = servicesList.map((s: any) => s.uuid.toLowerCase());
     // Identifica marca da balança pelos UUIDs de serviço descobertos
     const isTanita = svcUUIDs.some((u: string) =>
@@ -728,7 +729,9 @@ export async function connectToWeightScale(
       if (!device) return;
 
       onStatus(`🔍 Dispositivo encontrado: ${device.name || 'Desconhecido'} (ID: ${device.id.substring(0,8)}...)`);
-      console.log('[BLE] Device:', { name: device.name, id: device.id, manufacturerData: device.manufacturerData });
+      if (__DEV__) {
+        console.log('[BLE] Device:', { name: device.name, id: device.id, manufacturerData: device.manufacturerData });
+      }
 
       // Tenta parser de dados de broadcast (advertisement) via manufacturer_data
       // Balanças OKOK/Chipsea transmitem peso nos anúncios BLE sem precisar conectar
@@ -744,10 +747,12 @@ export async function connectToWeightScale(
       manager?.stopDeviceScan();
 
       // Log detalhado dos UUIDs da balança para diagnóstico
-      console.log('[BLE] === DIAGNÓSTICO YODA/OKOK ===');
-      console.log('[BLE] Device name:', device.name);
-      console.log('[BLE] Device id:', device.id);
-      console.log('[BLE] Manufacturer data raw:', device.manufacturerData);
+      if (__DEV__) {
+        console.log('[BLE] === DIAGNÓSTICO YODA/OKOK ===');
+        console.log('[BLE] Device name:', device.name);
+        console.log('[BLE] Device id:', device.id);
+        console.log('[BLE] Manufacturer data raw:', device.manufacturerData);
+      }
       
       // Conectar E listar TODOS os serviços
       onStatus(`📡 Dispositivo encontrado: ${device.name || 'Yoda'} — descobrindo serviços…`);
@@ -756,13 +761,15 @@ export async function connectToWeightScale(
         await connected.discoverAllServicesAndCharacteristics();
         
         const allServices = await connected.services();
-        console.log('[BLE] === SERVIÇOS ENCONTRADOS ===');
-        for (const svc of allServices) {
-          console.log('[BLE] Service UUID:', svc.uuid);
-          const chars: any[] = await svc.characteristics();
-          console.log('[BLE]   Chars:', chars.map((c: any) => `${c.uuid} (${c.properties ? Object.keys(c.properties).join(',') : 'unknown'})`));
+        if (__DEV__) {
+          console.log('[BLE] === SERVIÇOS ENCONTRADOS ===');
+          for (const svc of allServices) {
+            console.log('[BLE] Service UUID:', svc.uuid);
+            const chars: any[] = await svc.characteristics();
+            console.log('[BLE]   Chars:', chars.map((c: any) => `${c.uuid} (${c.properties ? Object.keys(c.properties).join(',') : 'unknown'})`));
+          }
+          console.log('[BLE] === FIM DIAGNÓSTICO ===');
         }
-        console.log('[BLE] === FIM DIAGNÓSTICO ===');
         
         onStatus('✅ Serviços listados! Suba na balança agora…');
         // Agora continua com probeDevice normal
