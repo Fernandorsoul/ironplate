@@ -5,6 +5,7 @@ import { Food, Meal, MealPlan, MealTiming, Macros, UserProfile, Goal } from '../
 import { TACO_DATABASE } from '../constants/taco';
 import { calculateMacros, calculatePortionMacros, sumMacros, calculateTDEE, calculateTargetCalories } from './calculations';
 import { getPortionQuantity } from './portionDisplay';
+import { getFoodCostTier } from './dietSubstitutions';
 import * as Crypto from 'expo-crypto';
 import { getSportOption, isCombatSport, isStrengthFocusedSport } from '../constants/sports';
 
@@ -17,6 +18,8 @@ interface MealConfig {
   pct: number;
   timing: MealTiming;
 }
+
+type DietStrategy = 'variety' | 'budget';
 
 const MEAL_CONFIGS: Record<string, MealConfig[]> = {
   bodybuilding: [
@@ -159,6 +162,25 @@ function pickTwo<T>(arr: T[]): [T, T] {
   return [shuffled[0], shuffled[1]];
 }
 
+function selectSource<T extends { id: string }>(
+  options: T[],
+  variation: number,
+  strategy: DietStrategy,
+): T {
+  if (strategy === 'budget') {
+    return [...options].sort((a, b) => getFoodCostTier(a.id) - getFoodCostTier(b.id))[0];
+  }
+  return options[variation % options.length];
+}
+
+function selectTwoSources<T extends { id: string }>(options: T[], strategy: DietStrategy): [T, T] {
+  if (strategy === 'budget') {
+    const sorted = [...options].sort((a, b) => getFoodCostTier(a.id) - getFoodCostTier(b.id));
+    return [sorted[0], sorted[1]];
+  }
+  return pickTwo(options);
+}
+
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
@@ -231,7 +253,8 @@ function generateMeal(
   config: MealConfig,
   targetMacros: Macros,
   profile: UserProfile,
-  variation: number // 0, 1, or 2 for different options
+  variation: number,
+  strategy: DietStrategy,
 ): Meal {
   const foods: { food: Food; grams: number }[] = [];
   const mealName = config.name;
@@ -245,7 +268,7 @@ function generateMeal(
 
   // === PROTEÍNA ===
   const proteinOptions = PROTEIN_SOURCES[lookupKey] || PROTEIN_SOURCES['Almoço'];
-  const proteinSource = proteinOptions[variation % proteinOptions.length];
+  const proteinSource = selectSource(proteinOptions, variation, strategy);
   const proteinFood = getFoodById(proteinSource.id);
   
   if (proteinFood) {
@@ -256,7 +279,7 @@ function generateMeal(
 
   // === CARBOIDRATO ===
   const carbOptions = CARB_SOURCES[lookupKey] || CARB_SOURCES['Almoço'];
-  const carbSource = carbOptions[variation % carbOptions.length];
+  const carbSource = selectSource(carbOptions, variation, strategy);
   const carbFood = getFoodById(carbSource.id);
   
   if (carbFood) {
@@ -268,7 +291,7 @@ function generateMeal(
   // === GORDURA ===
   const fatOptions = FAT_SOURCES[lookupKey] || [];
   if (fatOptions.length > 0 && mealTargetFat > 5) {
-    const fatSource = fatOptions[variation % fatOptions.length];
+    const fatSource = selectSource(fatOptions, variation, strategy);
     const fatFood = getFoodById(fatSource.id);
     
     if (fatFood) {
@@ -280,7 +303,7 @@ function generateMeal(
 
   // === VERDURAS (Almoço e Jantar) ===
   if (mealName === 'Almoço' || mealName === 'Jantar') {
-    const [veg1, veg2] = pickTwo(VEGGIES);
+    const [veg1, veg2] = selectTwoSources(VEGGIES, strategy);
     const vegFood1 = getFoodById(veg1.id);
     const vegFood2 = getFoodById(veg2.id);
     if (vegFood1) foods.push({ food: vegFood1, grams: 100 });
@@ -315,7 +338,12 @@ function generateMeal(
 // GERADOR DE DIETA PRINCIPAL
 // ============================================================
 
-export function generateDiet(profile: UserProfile, optionIndex: number = 0, mealCount: number = 8): MealPlan {
+export function generateDiet(
+  profile: UserProfile,
+  optionIndex: number = 0,
+  mealCount: number = 8,
+  strategy: DietStrategy = 'variety',
+): MealPlan {
   const targetMacros = calculateMacros(profile);
   const tdee = calculateTDEE(profile);
 
@@ -324,7 +352,7 @@ export function generateDiet(profile: UserProfile, optionIndex: number = 0, meal
 
   // Gera refeições com variação
   const meals: Meal[] = mealConfigs.map(config => 
-    generateMeal(config, targetMacros, profile, optionIndex)
+    generateMeal(config, targetMacros, profile, optionIndex, strategy)
   );
 
   // Calcula totais
@@ -333,7 +361,7 @@ export function generateDiet(profile: UserProfile, optionIndex: number = 0, meal
   // Nome do plano
   const goalLabel = getGoalLabel(profile.goal);
   const sportLabel = getSportOption(profile.sport).shortLabel;
-  const optionLabel = `Opção ${optionIndex + 1}`;
+  const optionLabel = strategy === 'budget' ? 'Opção Econômica' : `Opção ${optionIndex + 1}`;
 
   return {
     id: Crypto.randomUUID(),
@@ -346,6 +374,10 @@ export function generateDiet(profile: UserProfile, optionIndex: number = 0, meal
   };
 }
 
+export function generateBudgetDiet(profile: UserProfile, mealCount: number = 8): MealPlan {
+  return generateDiet(profile, 2, mealCount, 'budget');
+}
+
 // ============================================================
 // GERAR 3 OPÇÕES DE CARDÁPIO
 // ============================================================
@@ -354,7 +386,7 @@ export function generateDietOptions(profile: UserProfile, mealCount: number = 8)
   return [
     generateDiet(profile, 0, mealCount),
     generateDiet(profile, 1, mealCount),
-    generateDiet(profile, 2, mealCount),
+    generateBudgetDiet(profile, mealCount),
   ];
 }
 

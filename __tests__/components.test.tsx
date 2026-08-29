@@ -5,6 +5,8 @@ import { MacroCard } from '../src/components/MacroCard';
 import { ActionButton } from '../src/components/ActionButton';
 import { MealCard } from '../src/components/MealCard';
 import { ScreenHeader } from '../src/components/ScreenHeader';
+import { HydrationCard } from '../src/components/HydrationCard';
+import { DietAlternativesSection } from '../src/components/DietAlternativesSection';
 
 describe('Component exports', () => {
   it('MacroCard is exported as function', () => {
@@ -21,6 +23,14 @@ describe('Component exports', () => {
 
   it('ScreenHeader is exported as function', () => {
     expect(typeof ScreenHeader).toBe('function');
+  });
+
+  it('HydrationCard is exported as function', () => {
+    expect(typeof HydrationCard).toBe('function');
+  });
+
+  it('DietAlternativesSection is exported as function', () => {
+    expect(typeof DietAlternativesSection).toBe('function');
   });
 });
 
