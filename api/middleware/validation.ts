@@ -42,6 +42,14 @@ export const registerSchema = z.object({
 
 export const userIdSchema = z.string().uuid('userId must be a valid UUID');
 
+export const profilePhotoSchema = z
+  .string()
+  .max(2_000_000, 'Profile photo is too large')
+  .regex(
+    /^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/,
+    'Profile photo must be a JPEG, PNG, or WebP data URI',
+  );
+
 export const updateSchema = z.object({
   userId: userIdSchema,
   fields: z
@@ -60,6 +68,7 @@ export const updateSchema = z.object({
         'maintenance',
       ]).optional(),
       sport: z.enum(['bodybuilding', 'bjj', 'both']).optional(),
+      photoUri: profilePhotoSchema.optional(),
     })
     .strict()
     .refine((fields) => Object.keys(fields).length > 0, 'At least one field is required'),

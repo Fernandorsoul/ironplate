@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, Platform } from 'react-native';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../constants/theme';
 import { useApp } from '../context/AppContext';
 import { exportUserData } from '../services/database';
+import { ProfileAvatar } from '../components';
 
 function buildExportFileName(date: Date): string {
   return `ironplate-export-${date.toISOString().slice(0, 10)}.json`;
@@ -101,13 +102,12 @@ export default function ProfileScreen({ navigation }: any) {
       {profile ? (
         <>
           <View style={styles.profileCard}>
-            {profile.photoUri ? (
-              <Image source={{ uri: profile.photoUri }} style={styles.avatar} />
-            ) : (
-              <View style={styles.avatarFallback}>
-                <Text style={styles.avatarText}>{profile.name.charAt(0).toUpperCase()}</Text>
-              </View>
-            )}
+            <ProfileAvatar
+              name={profile.name}
+              photoUri={profile.photoUri}
+              size={96}
+              style={styles.avatar}
+            />
             <Text style={styles.profileName}>{profile.name}</Text>
             <Text style={styles.profileSport}>{profile.sport}</Text>
             <Text style={styles.profileGoal}>{profile.goal}</Text>
@@ -200,9 +200,7 @@ const styles = StyleSheet.create({
     elevation: 4,
     alignItems: 'center',
   },
-  avatar: { width: 96, height: 96, borderRadius: 48, marginBottom: SPACING.md },
-  avatarFallback: { width: 96, height: 96, borderRadius: 48, backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center', marginBottom: SPACING.md },
-  avatarText: { color: COLORS.text, fontSize: FONT_SIZE.hero, fontWeight: 'bold' },
+  avatar: { marginBottom: SPACING.md },
   editProfileButton: { marginTop: SPACING.md, paddingVertical: SPACING.sm, paddingHorizontal: SPACING.lg, borderRadius: BORDER_RADIUS.md, borderWidth: 1, borderColor: COLORS.primary },
   editProfileText: { color: COLORS.primary, fontWeight: '600' },
   profileName: {
