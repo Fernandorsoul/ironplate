@@ -1,6 +1,6 @@
 {
-  "id": "651bb759-059f-4368-802d-dfaaca91e4b1",
-  "prevId": "7ea11c09-eb81-4e88-a6d4-2f933df15838",
+  "id": "113403d7-cbcd-4a77-8b04-706c22c8f563",
+  "prevId": "651bb759-059f-4368-802d-dfaaca91e4b1",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1305,6 +1305,24 @@
         },
         "time": {
           "name": "time",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "split_id": {
+          "name": "split_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "split_day_id": {
+          "name": "split_day_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "muscle_groups_json": {
+          "name": "muscle_groups_json",
           "type": "text",
           "primaryKey": false,
           "notNull": false

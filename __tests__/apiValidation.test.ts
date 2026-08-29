@@ -3,6 +3,7 @@ import {
   limitSchema,
   loginSchema,
   mealPlanPostSchema,
+  profilePhotoSchema,
   registerSchema,
   resetPasswordSchema,
   updateSchema,
@@ -39,6 +40,15 @@ describe('API input validation', () => {
     expect(updateSchema.safeParse({ userId, fields: { age: 999 } }).success).toBe(false);
     expect(updateSchema.safeParse({ userId, fields: {} }).success).toBe(false);
     expect(updateSchema.safeParse({ userId, fields: { sport: 'swimming' } }).success).toBe(true);
+  });
+
+  it('accepts supported profile photo data URIs and rejects temporary or malformed URIs', () => {
+    const photoUri = `data:image/jpeg;base64,${Buffer.from('profile-photo').toString('base64')}`;
+    expect(profilePhotoSchema.safeParse(photoUri).success).toBe(true);
+    expect(updateSchema.safeParse({ userId, fields: { photoUri } }).success).toBe(true);
+    expect(profilePhotoSchema.safeParse('file:///cache/temporary-photo.jpg').success).toBe(false);
+    expect(profilePhotoSchema.safeParse('data:text/plain;base64,dGVzdA==').success).toBe(false);
+    expect(profilePhotoSchema.safeParse(`data:image/jpeg;base64,${'a'.repeat(2_000_000)}`).success).toBe(false);
   });
 
   it('requires a 256-bit reset token and a strong new password', () => {
