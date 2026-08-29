@@ -78,7 +78,7 @@ export default function ProfileScreen({ navigation }: any) {
                     const success = await deleteAccount();
                     if (success) {
                       Alert.alert('Sucesso', 'Sua conta foi excluída com sucesso.');
-                      navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
+                      navigation.reset({ index: 0, routes: [{ name: 'PublicHome' }] });
                     } else {
                       Alert.alert('Erro', 'Não foi possível excluir sua conta. Tente novamente.');
                     }
