@@ -18,6 +18,7 @@
     "expo-font": "~57.0.2",
     "expo-haptics": "~57.0.2",
     "expo-image-picker": "~57.0.14",
+    "expo-linking": "~57.0.8",
     "expo-print": "~57.0.1",
     "expo-secure-store": "~57.0.2",
     "expo-sharing": "~57.0.16",
@@ -73,6 +74,7 @@
     "test:smoke": "npx playwright test e2e/smoke.spec.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/migrate.ts",
+    "password-reset:check": "tsx scripts/check-password-reset-readiness.ts",
     "lint": "eslint api src App.tsx index.ts scripts/*.ts --report-unused-disable-directives",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.api.json --noEmit"
   },

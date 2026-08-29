@@ -90,9 +90,32 @@ npm run android
 npm run ios
 ```
 
+### Recuperação de senha
+
+O fluxo usa um link HTTPS para `/reset-password`, token de uso único persistido
+somente como hash no Neon e entrega de email pelo Resend. Configure:
+
+- `DATABASE_URL`: conexão pooled usada pela API;
+- `DATABASE_URL_UNPOOLED`: conexão direta usada por `npm run db:migrate`;
+- `APP_URL`: origem HTTPS adicionada ao link do email;
+- `EXPO_PUBLIC_APP_URL`: origem reconhecida pelo aplicativo;
+- `RESEND_API_KEY`: chave da API do Resend;
+- `RESET_EMAIL_FROM`: remetente de um domínio verificado.
+
+Depois de aplicar as migrations, valide o ambiente sem imprimir segredos ou
+dados de usuários:
+
+```bash
+npm run db:migrate
+npm run password-reset:check
+```
+
+O segundo comando termina com sucesso somente quando o schema, a conexão direta
+de migration e o serviço de email estão configurados.
+
 ### Testes
 ```bash
-# Testes unitários (46 testes)
+# Testes unitários
 npm test
 
 # Testes E2E (27 testes)

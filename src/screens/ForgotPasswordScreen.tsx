@@ -1,15 +1,51 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../constants/theme';
 import { requestPasswordReset, resetPassword } from '../services/database';
+import type { RootStackScreenProps } from '../types/navigation';
+import { useApp } from '../context/AppContext';
+import { isValidResetToken } from '../utils/passwordReset';
 
-export default function ForgotPasswordScreen({ navigation }: any) {
+type PasswordResetStep = 'email' | 'token' | 'reset';
+
+export default function ForgotPasswordScreen({
+  navigation,
+  route,
+}: RootStackScreenProps<'ForgotPassword'>) {
+  const { isAuthenticated, isOnboarded, logout } = useApp();
+  const routeToken = route.params?.token?.trim() ?? '';
   const [email, setEmail] = useState('');
-  const [token, setToken] = useState('');
+  const [token, setToken] = useState(routeToken);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [step, setStep] = useState<'email' | 'token' | 'reset'>('email');
+  const [step, setStep] = useState<PasswordResetStep>(
+    isValidResetToken(routeToken) ? 'reset' : 'email',
+  );
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (isValidResetToken(routeToken)) {
+      setToken(routeToken);
+      setStep('reset');
+    }
+  }, [routeToken]);
+
+  const handleBack = () => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else if (isAuthenticated && isOnboarded) {
+      navigation.navigate('MainTabs', { screen: 'Home' });
+    } else if (isAuthenticated) {
+      navigation.navigate('Onboarding');
+    } else {
+      navigation.navigate('Login');
+    }
+  };
+
+  const returnToLogin = async () => {
+    await logout();
+    navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
+  };
 
   const handleVerifyEmail = async () => {
     if (!email.trim() || !email.includes('@')) {
@@ -43,7 +79,7 @@ export default function ForgotPasswordScreen({ navigation }: any) {
   };
 
   const handleVerifyToken = () => {
-    if (!token.trim() || token.length < 64) {
+    if (!isValidResetToken(token)) {
       Alert.alert('Erro', 'Digite o código de recuperação completo');
       return;
     }
@@ -69,7 +105,7 @@ export default function ForgotPasswordScreen({ navigation }: any) {
       await resetPassword(token.trim(), newPassword);
 
       Alert.alert('Sucesso', 'Senha alterada com sucesso!', [
-        { text: 'OK', onPress: () => navigation.goBack() },
+        { text: 'OK', onPress: () => { void returnToLogin(); } },
       ]);
     } catch (error) {
       console.error('Reset password error:', error);
@@ -85,7 +121,7 @@ export default function ForgotPasswordScreen({ navigation }: any) {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View style={styles.content}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+        <TouchableOpacity onPress={handleBack} style={styles.backButton}>
           <Text style={styles.backText}>← Voltar</Text>
         </TouchableOpacity>
 
