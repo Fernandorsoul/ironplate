@@ -1,13 +1,12 @@
 interface PasswordResetEmail {
   to: string;
   name: string;
-  resetUrl: string;
   token: string;
 }
 
 export class EmailConfigurationError extends Error {
   constructor() {
-    super('RESEND_API_KEY and RESET_EMAIL_FROM must be configured');
+    super('RESEND_API_KEY, RESET_EMAIL_FROM, and a valid HTTPS APP_URL must be configured');
     this.name = 'EmailConfigurationError';
   }
 }
@@ -24,10 +23,21 @@ export function escapeHtml(value: string): string {
 export async function sendPasswordResetEmail(message: PasswordResetEmail): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.RESET_EMAIL_FROM;
-  if (!apiKey || !from) throw new EmailConfigurationError();
+  const configuredAppUrl = process.env.APP_URL;
+  if (!apiKey || !from || !configuredAppUrl) throw new EmailConfigurationError();
+
+  let resetUrlValue: URL;
+  try {
+    const appUrl = new URL(configuredAppUrl);
+    if (appUrl.protocol !== 'https:') throw new Error('APP_URL must use HTTPS');
+    resetUrlValue = new URL('/reset-password', appUrl);
+    resetUrlValue.searchParams.set('token', message.token);
+  } catch {
+    throw new EmailConfigurationError();
+  }
 
   const name = escapeHtml(message.name);
-  const resetUrl = escapeHtml(message.resetUrl);
+  const resetUrl = escapeHtml(resetUrlValue.toString());
   const token = escapeHtml(message.token);
   const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',

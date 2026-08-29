@@ -41,7 +41,7 @@ describe('CORS middleware', () => {
 
   it('uses the production app origin when ALLOWED_ORIGINS is not configured', () => {
     delete process.env.ALLOWED_ORIGINS;
-    expect(isOriginAllowed('https://ironplate.vercel.app')).toBe(true);
+    expect(isOriginAllowed('https://ironplate-phi.vercel.app')).toBe(true);
     expect(isOriginAllowed('not a URL')).toBe(false);
   });
 
