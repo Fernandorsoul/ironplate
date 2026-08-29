@@ -5,5 +5,6 @@ export { ScreenHeader } from './ScreenHeader';
 export { ErrorBoundary } from './ErrorBoundary';
 export { TrainingSplitSelector } from './TrainingSplitSelector';
 export { ProfileAvatar } from './ProfileAvatar';
+export { MuscleGroupSelector } from './MuscleGroupSelector';
 export { HydrationCard } from './HydrationCard';
 export { DietAlternativesSection } from './DietAlternativesSection';

@@ -9,7 +9,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { TrainingSplitSelector } from '../components';
+import { MuscleGroupSelector, TrainingSplitSelector } from '../components';
 import { getWorkoutTypeOption, WORKOUT_TYPE_OPTIONS } from '../constants/sports';
 import { getTrainingSplit } from '../constants/trainingSplits';
 import type { TrainingDayTemplate } from '../constants/trainingSplits';
@@ -74,6 +74,10 @@ export default function AddWorkoutScreen({ navigation, route }: any) {
     }
     if (!Number.isFinite(parsedDuration) || parsedDuration <= 0) {
       Alert.alert('Erro', 'Digite uma duração válida');
+      return;
+    }
+    if (type === 'strength' && muscleGroups.length === 0) {
+      Alert.alert('Erro', 'Selecione pelo menos um grupo muscular');
       return;
     }
 
@@ -157,12 +161,22 @@ export default function AddWorkoutScreen({ navigation, route }: any) {
         </View>
 
         {type === 'strength' ? (
-          <TrainingSplitSelector
-            selectedSplitId={splitId}
-            selectedDayId={splitDayId}
-            onSelectSplit={handleSplitChange}
-            onSelectDay={handleDayChange}
-          />
+          <>
+            <TrainingSplitSelector
+              selectedSplitId={splitId}
+              selectedDayId={splitDayId}
+              onSelectSplit={handleSplitChange}
+              onSelectDay={handleDayChange}
+            />
+            <Text style={styles.sectionTitle}>Grupos musculares</Text>
+            <Text style={styles.helperText}>
+              O template sugere os grupos. Toque para ajustar antes de salvar.
+            </Text>
+            <MuscleGroupSelector
+              selectedGroups={muscleGroups}
+              onChange={setMuscleGroups}
+            />
+          </>
         ) : null}
 
         <Text style={styles.sectionTitle}>Nome do treino</Text>
@@ -244,6 +258,12 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: SPACING.sm,
     marginTop: SPACING.lg,
+  },
+  helperText: {
+    color: COLORS.textMuted,
+    fontSize: FONT_SIZE.sm,
+    marginBottom: SPACING.sm,
+    marginTop: -SPACING.xs,
   },
   typeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm },
   typeButton: {

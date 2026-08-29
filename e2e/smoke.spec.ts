@@ -45,9 +45,11 @@ test.describe('Smoke Tests', () => {
     await page.goto('/');
     await page.waitForTimeout(2000);
 
-    // Test different viewports
     const viewports = [
-      { width: 375, height: 812 },   // iPhone
+      { width: 320, height: 568 },
+      { width: 360, height: 800 },
+      { width: 390, height: 844 },
+      { width: 430, height: 932 },
       { width: 768, height: 1024 },  // iPad
       { width: 1920, height: 1080 }, // Desktop
     ];
@@ -58,6 +60,12 @@ test.describe('Smoke Tests', () => {
 
       const body = await page.locator('body');
       await expect(body).toBeVisible();
+
+      const dimensions = await page.evaluate(() => ({
+        clientWidth: document.documentElement.clientWidth,
+        scrollWidth: document.documentElement.scrollWidth,
+      }));
+      expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth);
     }
   });
 });
