@@ -38,13 +38,13 @@ export default function ForgotPasswordScreen({
     } else if (isAuthenticated) {
       navigation.navigate('Onboarding');
     } else {
-      navigation.navigate('Login');
+      navigation.navigate('PublicHome', { openLogin: true });
     }
   };
 
   const returnToLogin = async () => {
     await logout();
-    navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
+    navigation.reset({ index: 0, routes: [{ name: 'PublicHome', params: { openLogin: true } }] });
   };
 
   const handleVerifyEmail = async () => {
