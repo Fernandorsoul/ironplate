@@ -8,7 +8,7 @@ export const passwordResetLinking: LinkingOptions<RootStackParamList> = {
   prefixes: [
     Linking.createURL('/'),
     'ironplate://',
-    configuredAppUrl || 'https://ironplate.vercel.app',
+    configuredAppUrl || 'https://ironplate-phi.vercel.app',
   ],
   config: {
     screens: {

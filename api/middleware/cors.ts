@@ -7,7 +7,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
  * is always emitted so intermediate caches do not mix per-origin responses.
  */
 
-const DEFAULT_PRODUCTION_ORIGIN = 'https://ironplate.vercel.app';
+const DEFAULT_PRODUCTION_ORIGIN = 'https://ironplate-phi.vercel.app';
 
 /** Origins explicitly configured via ALLOWED_ORIGINS (comma-separated). */
 function getConfiguredOrigins(): string[] {
