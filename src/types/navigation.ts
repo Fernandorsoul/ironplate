@@ -14,7 +14,7 @@ export type TabParamList = {
 export type RootStackParamList = {
   Login: undefined;
   Register: undefined;
-  ForgotPassword: undefined;
+  ForgotPassword: { token?: string } | undefined;
   PrivacyPolicy: undefined;
   Onboarding: undefined;
   BodyMeasurements: undefined;

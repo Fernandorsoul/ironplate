@@ -21,6 +21,17 @@ test.describe('IronPlate App', () => {
   });
 });
 
+test.describe('Password reset deep link', () => {
+  test('opens the new-password form with the token from the email URL', async ({ page }) => {
+    const token = 'a'.repeat(64);
+    await page.goto(`/reset-password?token=${token}`);
+
+    await expect(page.getByText('Digite sua nova senha')).toBeVisible();
+    await expect(page.getByPlaceholder('Nova senha (mínimo 8 caracteres)')).toBeVisible();
+    await expect(page.getByPlaceholder('Confirmar nova senha')).toBeVisible();
+  });
+});
+
 test.describe('Navigation', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
