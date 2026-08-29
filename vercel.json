@@ -2,7 +2,7 @@
   "version": 2,
   "builds": [
     {
-      "src": "api/**/*.ts",
+      "src": "api/users/*.ts",
       "use": "@vercel/node"
     },
     {
@@ -14,6 +14,14 @@
     }
   ],
   "routes": [
+    {
+      "src": "/api/users/forgot-password/?",
+      "dest": "/api/users/password-reset?operation=forgot"
+    },
+    {
+      "src": "/api/users/reset-password/?",
+      "dest": "/api/users/password-reset?operation=reset"
+    },
     {
       "src": "/api/(.*)",
       "dest": "/api/$1"
