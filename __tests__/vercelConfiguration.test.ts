@@ -29,12 +29,19 @@ describe('Vercel Hobby deployment configuration', () => {
     expect(configuration.routes).toEqual(expect.arrayContaining([
       {
         src: '/api/users/forgot-password/?',
-        dest: '/api/users/password-reset?operation=forgot',
+        dest: '/api/users/password-reset.ts?operation=forgot',
       },
       {
         src: '/api/users/reset-password/?',
-        dest: '/api/users/password-reset?operation=reset',
+        dest: '/api/users/password-reset.ts?operation=reset',
       },
     ]));
+  });
+
+  it('maps extensionless public API paths to the emitted TypeScript functions', () => {
+    expect(configuration.routes).toContainEqual({
+      src: '/api/(.*)',
+      dest: '/api/$1.ts',
+    });
   });
 });
