@@ -21,6 +21,7 @@ export const users = pgTable('users', {
   activityLevel: text('activity_level').default('moderate'),
   goal: text('goal').default('maintenance'),
   sport: text('sport').default('bodybuilding'),
+  photoUri: text('photo_uri'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   lastLogin: timestamp('last_login', { withTimezone: true }),

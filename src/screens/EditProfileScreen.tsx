@@ -1,10 +1,15 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Image, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
+import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../constants/theme';
 import { useApp } from '../context/AppContext';
 import { UserProfile, ActivityLevel, Goal, Sport } from '../types';
 import { ACTIVITY_LEVELS } from '../constants/foods';
+import { ProfileAvatar } from '../components';
+
+const PROFILE_PHOTO_SIZE = 512;
+const PROFILE_PHOTO_MAX_LENGTH = 2_000_000;
 
 export default function EditProfileScreen({ navigation }: any) {
   const { profile, setProfile, logout } = useApp();
@@ -21,6 +26,7 @@ export default function EditProfileScreen({ navigation }: any) {
   const [goal, setGoal] = useState<Goal>(profile?.goal || 'maintenance');
   const [sport, setSport] = useState<Sport>(profile?.sport || 'bodybuilding');
   const [photoUri, setPhotoUri] = useState(profile?.photoUri);
+  const [isProcessingPhoto, setIsProcessingPhoto] = useState(false);
   const [saving, setSaving] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
   const [statusType, setStatusType] = useState<'success' | 'error' | ''>('');
@@ -37,7 +43,34 @@ export default function EditProfileScreen({ navigation }: any) {
       aspect: [1, 1],
       quality: 0.8,
     });
-    if (!result.canceled) setPhotoUri(result.assets[0].uri);
+    if (result.canceled) return;
+
+    setIsProcessingPhoto(true);
+    try {
+      const context = ImageManipulator.manipulate(result.assets[0].uri);
+      context.resize({ width: PROFILE_PHOTO_SIZE, height: PROFILE_PHOTO_SIZE });
+      const renderedImage = await context.renderAsync();
+      const optimizedImage = await renderedImage.saveAsync({
+        base64: true,
+        compress: 0.7,
+        format: SaveFormat.JPEG,
+      });
+
+      if (!optimizedImage.base64) {
+        throw new Error('Image conversion did not return base64 data');
+      }
+
+      const dataUri = `data:image/jpeg;base64,${optimizedImage.base64}`;
+      if (dataUri.length > PROFILE_PHOTO_MAX_LENGTH) {
+        throw new Error('Optimized profile photo exceeds the supported size');
+      }
+      setPhotoUri(dataUri);
+    } catch (error) {
+      console.error('Error processing profile photo:', error);
+      Alert.alert('Erro', 'Não foi possível processar a foto. Escolha outra imagem.');
+    } finally {
+      setIsProcessingPhoto(false);
+    }
   };
 
   const handleSave = async () => {
@@ -123,15 +156,17 @@ export default function EditProfileScreen({ navigation }: any) {
 
       {/* Photo */}
       <View style={styles.photoSection}>
-        <TouchableOpacity style={styles.photoPlaceholder} onPress={handlePickPhoto}>
-          {photoUri ? (
-            <Image source={{ uri: photoUri }} style={styles.photoImage} />
-          ) : (
-            <Text style={styles.photoPlaceholderText}>{name.charAt(0).toUpperCase() || '?'}</Text>
-          )}
+        <TouchableOpacity
+          style={styles.photoPlaceholder}
+          onPress={handlePickPhoto}
+          disabled={isProcessingPhoto}
+        >
+          <ProfileAvatar name={name} photoUri={photoUri} size={100} />
         </TouchableOpacity>
-        <TouchableOpacity onPress={handlePickPhoto}>
-          <Text style={styles.changePhotoText}>Escolher foto de perfil</Text>
+        <TouchableOpacity onPress={handlePickPhoto} disabled={isProcessingPhoto}>
+          <Text style={styles.changePhotoText}>
+            {isProcessingPhoto ? 'Processando foto...' : 'Escolher foto de perfil'}
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -206,7 +241,7 @@ export default function EditProfileScreen({ navigation }: any) {
       </View>
 
       {/* Buttons */}
-      <TouchableOpacity style={[styles.saveButton, saving && styles.saveButtonDisabled]} onPress={handleSave} disabled={saving}>
+      <TouchableOpacity style={[styles.saveButton, (saving || isProcessingPhoto) && styles.saveButtonDisabled]} onPress={handleSave} disabled={saving || isProcessingPhoto}>
         <Text style={styles.saveButtonText}>{saving ? 'Salvando...' : 'Salvar Alterações'}</Text>
       </TouchableOpacity>
 
@@ -230,8 +265,6 @@ const styles = StyleSheet.create({
   statusText: { color: COLORS.text, fontSize: FONT_SIZE.md, textAlign: 'center', fontWeight: '600' },
   photoSection: { alignItems: 'center', marginBottom: SPACING.xl },
   photoPlaceholder: { width: 100, height: 100, borderRadius: 50, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center' },
-  photoImage: { width: 100, height: 100, borderRadius: 50 },
-  photoPlaceholderText: { fontSize: FONT_SIZE.hero, fontWeight: 'bold', color: COLORS.text },
   changePhotoText: { color: COLORS.primary, marginTop: SPACING.sm, fontWeight: '600' },
   sectionTitle: { fontSize: FONT_SIZE.md, fontWeight: 'bold', color: COLORS.primary, marginTop: SPACING.lg, marginBottom: SPACING.md, borderBottomWidth: 1, borderBottomColor: COLORS.border, paddingBottom: SPACING.xs },
   label: { fontSize: FONT_SIZE.sm, color: COLORS.textSecondary, marginBottom: SPACING.xs },
