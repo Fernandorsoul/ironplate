@@ -1,7 +1,7 @@
 // PDF Generator for Diet Plans
 
 import { Platform, Alert } from 'react-native';
-import { MealPlan, Sport, UserProfile } from '../types';
+import { Meal, MealPlan, Sport, UserProfile } from '../types';
 import { calculateTDEE, calculateTargetCalories, getMacroPercentages } from './calculations';
 import { formatPortionAmount } from './portionDisplay';
 import * as Print from 'expo-print';
@@ -34,7 +34,7 @@ const getTimingLabel = (timing: string) => {
   }
 };
 
-function generateMealHTML(meal: any): string {
+export function generateMealHTML(meal: Meal): string {
   return `
   <div class="meal">
     <div class="meal-header">
@@ -59,10 +59,10 @@ function generateMealHTML(meal: any): string {
         </tr>
       </thead>
       <tbody>
-        ${meal.foods.map((food: any) => `
+        ${meal.foods.map(food => `
         <tr>
           <td>${escapeHtml(food.food.name)}</td>
-          <td class="food-grams">${formatPortionAmount(food)}</td>
+          <td class="food-grams">${escapeHtml(formatPortionAmount(food))}</td>
           <td>${food.macros.calories.toFixed(3)}</td>
           <td>${food.macros.protein.toFixed(3)}g</td>
           <td>${food.macros.carbs.toFixed(3)}g</td>
@@ -156,6 +156,7 @@ export async function generateDietOptionsPDF(plans: MealPlan[], profile: UserPro
 <html>
 <head>
   <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:">
   <title>Plano Alimentar - IronPlate</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -298,6 +299,7 @@ export async function generateDietOptionsPDF(plans: MealPlan[], profile: UserPro
     if (Platform.OS === 'web') {
       const printWindow = window.open('', '_blank');
       if (printWindow) {
+        printWindow.opener = null;
         printWindow.document.write(html);
         printWindow.document.close();
       } else {

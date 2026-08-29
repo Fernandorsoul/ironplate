@@ -120,11 +120,17 @@ const foodSchema = z.object({
   macros: macrosSchema,
 }).passthrough();
 
+const portionUnitSchema = z.enum([
+  'unidade', 'fatia', 'colher', 'xicara', 'ml', 'g', 'dente',
+]);
+
 const foodPortionSchema = z.object({
   food: foodSchema,
   grams: nonNegativeNumber.max(100_000),
+  quantity: nonNegativeNumber.optional(),
+  unit: portionUnitSchema.optional(),
   macros: macrosSchema,
-}).passthrough();
+}).strict();
 
 const mealSchema = z.object({
   id: idSchema,
