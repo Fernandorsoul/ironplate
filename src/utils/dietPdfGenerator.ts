@@ -7,6 +7,8 @@ import { formatPortionAmount } from './portionDisplay';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { escapeHtml } from './html';
+import { calculateHydration } from './hydration';
+import { getMatchedMacroLabel, getPlanSubstitutions } from './dietSubstitutions';
 
 const getGoalLabel = (goal: string) => {
   switch (goal) {
@@ -75,6 +77,36 @@ function generateMealHTML(meal: any): string {
   </div>`;
 }
 
+function generateEconomicSwapsHTML(plan: MealPlan): string {
+  const swaps = getPlanSubstitutions(plan, { onlyCheaper: true, limitPerFood: 1 })
+    .flatMap(group => group.items.flatMap(item => item.alternatives.map(alternative => ({
+      mealName: group.mealName,
+      originalName: item.original.food.name,
+      alternative,
+    }))))
+    .slice(0, 8);
+
+  if (swaps.length === 0) {
+    return `
+      <div class="budget-swaps">
+        <strong>Economia:</strong> este cardápio já prioriza as menores faixas de custo cadastradas.
+      </div>`;
+  }
+
+  return `
+    <div class="budget-swaps">
+      <strong>Trocas que tendem a custar menos</strong>
+      <ul>
+        ${swaps.map(({ mealName, originalName, alternative }) => `
+          <li>
+            ${escapeHtml(mealName)}: ${escapeHtml(originalName)} →
+            ${escapeHtml(alternative.portion.food.name)}, ${escapeHtml(formatPortionAmount(alternative.portion))}
+            (${getMatchedMacroLabel(alternative.matchedMacro)})
+          </li>`).join('')}
+      </ul>
+    </div>`;
+}
+
 function generateOptionHTML(plan: MealPlan, index: number): string {
   const percentages = getMacroPercentages(plan.totalMacros);
   
@@ -104,6 +136,7 @@ function generateOptionHTML(plan: MealPlan, index: number): string {
     </div>
 
     ${plan.meals.map(meal => generateMealHTML(meal)).join('')}
+    ${generateEconomicSwapsHTML(plan)}
   </div>`;
 }
 
@@ -114,6 +147,7 @@ export async function generateDietPDF(plan: MealPlan, profile: UserProfile): Pro
 export async function generateDietOptionsPDF(plans: MealPlan[], profile: UserProfile): Promise<void> {
   const tdee = calculateTDEE(profile);
   const targetCalories = calculateTargetCalories(profile);
+  const hydration = calculateHydration(profile);
 
   const today = new Date().toLocaleDateString('pt-BR', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
@@ -180,6 +214,10 @@ export async function generateDietOptionsPDF(plans: MealPlan[], profile: UserPro
     .food-table td { padding: 4px 6px; border-bottom: 1px dotted #e9ecef; }
     .food-grams { font-weight: bold; color: #FF6B35; }
 
+    .budget-swaps { background: #e8f8f3; border: 1px solid #00B894; border-radius: 5px; color: #145a48; margin-top: 10px; padding: 8px; }
+    .budget-swaps ul { margin-left: 16px; margin-top: 5px; }
+    .budget-swaps li { margin-bottom: 3px; }
+
     .footer { margin-top: 20px; padding-top: 12px; border-top: 2px solid #e9ecef; text-align: center; color: #666; font-size: 9px; }
     .notes { background: #fff3cd; border: 1px solid #ffc107; border-radius: 5px; padding: 8px; margin-top: 12px; font-size: 10px; color: #856404; }
 
@@ -224,14 +262,26 @@ export async function generateDietOptionsPDF(plans: MealPlan[], profile: UserPro
     </div>
   </div>
 
-  ${plans.map((plan, i) => generateOptionHTML(plan, i + 1)).join('')}
+  <div class="section">
+    <div class="section-title">Meta de Hidratação</div>
+    <div class="info-grid">
+      <div class="info-card highlight"><label>Meta Inicial</label><div class="value">${hydration.dailyTargetLiters.toString().replace('.', ',')} <span class="unit">L/dia</span></div></div>
+      <div class="info-card"><label>Garrafas de 500 ml</label><div class="value">${hydration.bottles500Ml}</div></div>
+      <div class="info-card"><label>Copos de 250 ml</label><div class="value">${hydration.glasses250Ml}</div></div>
+      <div class="info-card"><label>Por hora de treino</label><div class="value">${hydration.exerciseExtraMinMl}–${hydration.exerciseExtraMaxMl} <span class="unit">ml</span></div></div>
+    </div>
+    <p style="font-size:9px;color:#666;">Estimativa prática de líquidos no limite superior de 30–35 ml/kg. Calor, suor e condições clínicas exigem ajuste individual.</p>
+  </div>
+
+  ${plans.map((plan, i) => generateOptionHTML(plan, i)).join('')}
 
   <div class="notes">
     <strong>Observações Importantes:</strong>
     <ul style="margin-top:5px;margin-left:15px;">
       <li>Todas as informações nutricionais são baseadas na <strong>Tabela TACO</strong> (UNICAMP - 4ª edição)</li>
       <li>As medidas caseiras são aproximadas; use o peso em gramas (g) como referência nutricional</li>
-      <li>Hidratação: mínimo 2-3 litros de água por dia</li>
+      <li>Hidratação estimada: ${hydration.dailyTargetLiters.toString().replace('.', ',')} L de líquidos/dia, mais ${hydration.exerciseExtraMinMl}–${hydration.exerciseExtraMaxMl} ml por hora de treino prolongado conforme suor e ambiente</li>
+      <li>As faixas de custo são relativas; confirme preços e disponibilidade na sua região</li>
       <li>Consulte um nutricionista para ajustes individualizados</li>
       <li>Varie entre as opções ao longo da semana para melhor aderência</li>
     </ul>

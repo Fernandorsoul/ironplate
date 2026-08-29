@@ -3,13 +3,14 @@ const mockSql = jest.fn();
 jest.mock('../api/middleware/cors', () => ({ applyCors: () => false }));
 jest.mock('../api/middleware/db', () => ({ getSql: () => mockSql }));
 jest.mock('../api/middleware/rateLimit', () => ({
+  forgotPasswordRateLimit: async (_req: unknown, _res: unknown, next: () => unknown) => next(),
   resetPasswordRateLimit: async (_req: unknown, _res: unknown, next: () => unknown) => next(),
 }));
 jest.mock('../api/security/password', () => ({
   hashPassword: async () => 'scrypt$test-salt$test-hash',
 }));
 
-import resetPasswordHandler from '../api/users/reset-password';
+import passwordResetHandler, { resetPasswordHandler } from '../api/users/password-reset';
 
 function responseMock() {
   const response: any = {
@@ -57,5 +58,30 @@ describe('atomic password reset', () => {
 
     expect(response.status).toHaveBeenCalledWith(400);
     expect(response.json).toHaveBeenCalledWith({ error: 'Invalid or expired token' });
+  });
+
+  it('routes the reset operation through the consolidated function', async () => {
+    mockSql.mockResolvedValue([{ id: 'user-1', invalidated_tokens: 0 }]);
+    const response = responseMock();
+
+    await passwordResetHandler({
+      method: 'POST',
+      headers: {},
+      socket: {},
+      query: { operation: 'reset' },
+      body: { token: 'c'.repeat(64), newPassword: 'NovaSenha123' },
+    } as any, response);
+
+    expect(mockSql).toHaveBeenCalledTimes(1);
+    expect(response.status).toHaveBeenCalledWith(200);
+  });
+
+  it('rejects calls to the internal function without an operation', async () => {
+    const response = responseMock();
+
+    await passwordResetHandler({ query: {} } as any, response);
+
+    expect(mockSql).not.toHaveBeenCalled();
+    expect(response.status).toHaveBeenCalledWith(404);
   });
 });

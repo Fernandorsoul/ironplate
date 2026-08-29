@@ -4,3 +4,5 @@ export { MealCard } from './MealCard';
 export { ScreenHeader } from './ScreenHeader';
 export { ErrorBoundary } from './ErrorBoundary';
 export { ProfileAvatar } from './ProfileAvatar';
+export { HydrationCard } from './HydrationCard';
+export { DietAlternativesSection } from './DietAlternativesSection';
