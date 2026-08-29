@@ -128,7 +128,7 @@ export default function RegisterScreen({ navigation }: any) {
           <Text style={styles.buttonText}>{loading ? 'Criando conta...' : 'Cadastrar'}</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+        <TouchableOpacity onPress={() => navigation.navigate('PublicHome', { openLogin: true })}>
           <Text style={styles.linkText}>Já tenho conta? Entrar</Text>
         </TouchableOpacity>
       </View>

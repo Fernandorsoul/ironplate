@@ -19,6 +19,23 @@ test.describe('IronPlate App', () => {
     expect(bodyText).toBeTruthy();
     expect(bodyText!.length).toBeGreaterThan(0);
   });
+
+  test('presents the project and its about section', async ({ page }) => {
+    await expect(page.getByText('Menos improviso. Mais clareza.')).toBeVisible();
+    await expect(page.getByText('SOBRE O IRONPLATE')).toBeVisible();
+    await expect(page.getByText('Tecnologia que acompanha a sua disciplina.')).toBeVisible();
+  });
+
+  test('opens and closes login as a modal', async ({ page }) => {
+    await page.getByRole('button', { name: 'Entrar' }).first().click();
+
+    await expect(page.getByText('Entre na sua conta')).toBeVisible();
+    await expect(page.getByPlaceholder('voce@email.com')).toBeVisible();
+    await expect(page.getByPlaceholder('Digite sua senha')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Fechar', exact: true }).click();
+    await expect(page.getByText('Entre na sua conta')).not.toBeVisible();
+  });
 });
 
 test.describe('Password reset deep link', () => {
