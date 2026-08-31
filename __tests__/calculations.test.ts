@@ -156,6 +156,24 @@ describe('Nutrition Calculations', () => {
       expect(macros.carbs).toBeGreaterThan(0);
       expect(macros.fat).toBeGreaterThan(0);
     });
+
+    it('preserves protein and carbohydrate floors when calories are restricted', () => {
+      const highWeightPreContest: UserProfile = {
+        ...maleProfile,
+        age: 40,
+        weight: 120,
+        height: 170,
+        activityLevel: 'sedentary',
+        goal: 'cutting_precontest',
+      };
+
+      const macros = calculateMacros(highWeightPreContest);
+
+      expect(macros.protein / highWeightPreContest.weight).toBeGreaterThanOrEqual(1.6);
+      expect(macros.carbs / highWeightPreContest.weight).toBeGreaterThanOrEqual(1.5);
+      expect(macros.carbs).toBeGreaterThan(0);
+      expect(macros.protein * 4 + macros.carbs * 4 + macros.fat * 9).toBeCloseTo(macros.calories, 0);
+    });
   });
 
   describe('calculatePortionMacros', () => {

@@ -36,6 +36,19 @@ describe('diet generator', () => {
     });
   });
 
+  it('builds a coherent breakfast instead of independent random foods', () => {
+    const breakfast = generateDiet(profile, 0, 4).meals[0];
+    const foodIds = breakfast.foods.map(portion => portion.food.id);
+
+    expect(breakfast.name).toContain('Sanduíche integral com cottage e ovos');
+    expect(foodIds).toEqual(expect.arrayContaining([
+      'taco_096', // café preto sem açúcar
+      'taco_006', // pão integral
+      'taco_071', // cottage
+      'taco_063', // ovos
+    ]));
+  });
+
   it('adds conservative sport-specific supplement suggestions', () => {
     const recommendations = getSupplementRecommendations(profile);
     expect(recommendations.some(item => item.name.includes('Creatina'))).toBe(true);
