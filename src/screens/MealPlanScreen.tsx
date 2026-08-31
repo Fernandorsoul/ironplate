@@ -36,18 +36,32 @@ export default function MealPlanScreen({ navigation }: any) {
   };
 
   const handleSavePlan = async (plan: MealPlan) => {
-    await saveMealPlan(plan);
-    Alert.alert('Sucesso', `Plano "${plan.name}" salvo!`);
+    try {
+      await saveMealPlan(plan);
+      Alert.alert('Sucesso', `Plano "${plan.name}" salvo!`);
+    } catch (error) {
+      console.error('Error saving meal plan:', error);
+      Alert.alert('Erro', 'NÃ£o foi possÃ­vel salvar o plano alimentar.');
+    }
   };
 
-  const handleDeletePlan = (id: string) => {
-    deleteMealPlan(id);
+  const handleDeletePlan = async (id: string) => {
+    try {
+      await deleteMealPlan(id);
+    } catch (error) {
+      console.error('Error deleting meal plan:', error);
+      Alert.alert('Erro', 'NÃ£o foi possÃ­vel excluir o plano alimentar.');
+    }
   };
 
   const handleChoosePlan = async (plan: MealPlan) => {
-    await saveMealPlan({ ...plan, isActive: true });
-    await setActiveMealPlan(plan.id);
-    Alert.alert('Plano escolhido', 'Este plano agora aparece como seu plano alimentar atual.');
+    try {
+      await saveMealPlan({ ...plan, isActive: true });
+      Alert.alert('Plano escolhido', 'Este plano agora aparece como seu plano alimentar atual.');
+    } catch (error) {
+      console.error('Error choosing meal plan:', error);
+      Alert.alert('Erro', 'NÃ£o foi possÃ­vel escolher o plano alimentar.');
+    }
   };
 
   const getGoalInfo = (goal: Goal) => {

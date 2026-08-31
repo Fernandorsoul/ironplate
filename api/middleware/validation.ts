@@ -189,6 +189,8 @@ export const deleteMealPlanSchema = z.object({
   planId: idSchema,
 }).strict();
 
+export const activateMealPlanSchema = deleteMealPlanSchema;
+
 export const weightEntryPostSchema = z.object({
   userId: userIdSchema,
   entry: z.object({

@@ -160,6 +160,14 @@ export async function deleteMealPlan(userId: string, planId: string): Promise<vo
   await expectOk(response);
 }
 
+export async function activateMealPlan(userId: string, planId: string): Promise<void> {
+  const response = await apiFetch('/users/meal-plans', {
+    method: 'PUT',
+    body: JSON.stringify({ userId, planId }),
+  });
+  await expectOk(response);
+}
+
 export async function saveCustomFood(userId: string, food: Food): Promise<void> {
   const response = await apiFetch('/users/custom-foods', {
     method: 'POST',
