@@ -7,6 +7,7 @@ import { useFoodSearch, useOnlineFoodSearch } from '../hooks';
 import { calculatePortionMacros, sumMacros } from '../utils/calculations';
 import { findPortionsForFood } from '../constants/portions';
 import { Food, Meal, MealTiming } from '../types';
+import { ApiError } from '../services/database';
 import * as Crypto from 'expo-crypto';
 
 type PortionUnit = 'unidade' | 'fatia' | 'colher' | 'xicara' | 'ml' | 'g' | 'dente';
@@ -19,6 +20,7 @@ export default function AddMealScreen({ navigation }: any) {
   const [selectedFoods, setSelectedFoods] = useState<{ food: Food; grams: number; quantity: number; unit: PortionUnit }[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [showOnlineResults, setShowOnlineResults] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const allFoods = useMemo(() => [...FOOD_DATABASE, ...customFoods], [customFoods]);
   const filteredFoods = useFoodSearch(allFoods, searchQuery);
@@ -82,6 +84,7 @@ export default function AddMealScreen({ navigation }: any) {
   );
 
   const handleSave = async () => {
+    if (isSaving) return;
     if (!mealName.trim()) {
       Alert.alert('Erro', 'Digite o nome da refeição');
       return;
@@ -106,8 +109,23 @@ export default function AddMealScreen({ navigation }: any) {
       time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
     };
 
-    await addMealToToday(meal);
-    navigation.goBack();
+    try {
+      setIsSaving(true);
+      await addMealToToday(meal);
+      navigation.goBack();
+    } catch (error) {
+      console.error('Error saving meal:', error);
+      if (error instanceof ApiError && error.status === 401) {
+        Alert.alert('Sessão expirada', 'Entre novamente para salvar a refeição.');
+      } else {
+        Alert.alert(
+          'Não foi possível salvar',
+          'Confira sua conexão e tente novamente. A refeição não foi contabilizada.',
+        );
+      }
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -118,8 +136,15 @@ export default function AddMealScreen({ navigation }: any) {
           <Text style={styles.backButton}>← Voltar</Text>
         </TouchableOpacity>
         <Text style={styles.title}>Nova Refeição</Text>
-        <TouchableOpacity onPress={handleSave}>
-          <Text style={styles.saveButton}>Salvar</Text>
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityState={{ disabled: isSaving, busy: isSaving }}
+          disabled={isSaving}
+          onPress={handleSave}
+        >
+          <Text style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}>
+            {isSaving ? 'Salvando...' : 'Salvar'}
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -344,6 +369,9 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
     fontSize: FONT_SIZE.md,
     fontWeight: 'bold',
+  },
+  saveButtonDisabled: {
+    opacity: 0.6,
   },
   input: {
     backgroundColor: COLORS.surface,

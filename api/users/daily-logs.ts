@@ -3,6 +3,7 @@ import { requireUserAccess } from '../middleware/auth';
 import { applyCors } from '../middleware/cors';
 import { getSql } from '../middleware/db';
 import { generalRateLimit } from '../middleware/rateLimit';
+import { normalizeMealFoods } from '../services/mealNutrition';
 import {
   dailyLogPostSchema,
   limitSchema,
@@ -38,6 +39,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const { userId, log } = parsed.data;
         if (!await requireUserAccess(req, res, userId)) return;
         const logId = `${userId}_${log.date}`;
+        const persistedMeals = log.meals.map(meal => {
+          const { foods, totalMacros } = normalizeMealFoods(meal.foods);
+          return {
+            ...meal,
+            foods,
+            totalMacros,
+          };
+        });
 
         await sql.transaction(txn => [
           txn`
@@ -67,7 +76,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             VALUES (${`${userId}_${log.date}`}, ${userId}, ${log.date}, ${log.weight})
             ON CONFLICT (user_id, date) DO UPDATE SET weight = EXCLUDED.weight
           `]),
-          ...log.meals.flatMap(meal => [
+          ...persistedMeals.flatMap(meal => [
             txn`
               INSERT INTO meals (
                 id, daily_log_id, user_id, name, timing, time,

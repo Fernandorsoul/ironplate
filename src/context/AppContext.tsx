@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { Alert, Platform } from 'react-native';
 import { UserProfile, DailyLog, MealPlan, WeightEntry, Macros, Food, WeeklySummary, Meal, Workout } from '../types';
-import { calculateMacros } from '../utils/calculations';
+import { calculateMacros, sumMacros } from '../utils/calculations';
 import * as Database from '../services/database';
 import { purgeLegacyLocalData } from '../services/storage';
 import { clearSession, loadSession, saveSession } from '../services/session';
@@ -70,16 +70,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [targetMacros, setTargetMacros] = useState<Macros | null>(null);
   const [dailyLogs, setDailyLogs] = useState<DailyLog[]>([]);
   const dailyLogsRef = useRef<DailyLog[]>([]);
+  const dailyLogUpdateQueueRef = useRef<Promise<void>>(Promise.resolve());
   const [mealPlans, setMealPlans] = useState<MealPlan[]>([]);
   const [weightHistory, setWeightHistory] = useState<WeightEntry[]>([]);
   const [customFoods, setCustomFoods] = useState<Food[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    loadAllData();
+  const hydrateUserData = useCallback(async (savedUserId: string) => {
+    const [savedProfile, logs, plans, weight, savedCustomFoods] = await Promise.all([
+      Database.getUserById(savedUserId),
+      Database.getDailyLogs(savedUserId, 100),
+      Database.getMealPlans(savedUserId),
+      Database.getWeightHistory(savedUserId),
+      Database.getCustomFoods(savedUserId),
+    ]);
+
+    setProfileState(savedProfile);
+    setTargetMacros(savedProfile ? calculateMacros(savedProfile) : null);
+    const sortedLogs = [...(logs || [])].sort((a, b) => a.date.localeCompare(b.date));
+    dailyLogsRef.current = sortedLogs;
+    setDailyLogs(sortedLogs);
+    setMealPlans(plans || []);
+    setWeightHistory(weight || []);
+    setCustomFoods(savedCustomFoods || []);
   }, []);
 
-  const loadAllData = async () => {
+  const loadAllData = useCallback(async () => {
     try {
       await purgeLegacyLocalData();
       const session = await loadSession();
@@ -87,34 +103,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (!session) return;
       const savedUserId = session.userId;
 
-      // Load all data from SQLite (mobile) or API (web)
-      const [profile, logs, plans, weight, customFoods] = await Promise.all([
-        Database.getUserById(savedUserId),
-        Database.getDailyLogs(savedUserId, 100),
-        Database.getMealPlans(savedUserId),
-        Database.getWeightHistory(savedUserId),
-        Database.getCustomFoods(savedUserId),
-      ]);
-
+      await hydrateUserData(savedUserId);
       setUserId(savedUserId);
-      
-      if (profile) {
-        setProfileState(profile);
-        setTargetMacros(calculateMacros(profile));
-      }
-      
-      dailyLogsRef.current = logs || [];
-      setDailyLogs(logs || []);
-      setMealPlans(plans || []);
-      setWeightHistory(weight || []);
-      setCustomFoods(customFoods || []);
     } catch (error) {
       console.error('Error loading data:', error);
       await clearSession();
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [hydrateUserData]);
+
+  useEffect(() => {
+    void loadAllData();
+  }, [loadAllData]);
 
   const getTodayDate = useCallback(() => {
     const date = new Date();
@@ -134,16 +135,35 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
   }, [getTodayDate]);
 
-  const updateTodayLog = useCallback(async (updater: (log: DailyLog) => DailyLog) => {
-    if (!userId) throw new Error('Authentication required');
-    const today = getTodayDate();
-    const currentLog = getTodayLog();
-    const updated = updater(currentLog);
-    await Database.saveDailyLog(userId, updated);
-    const newLogs = dailyLogsRef.current.filter(log => log.date !== today);
-    newLogs.push(updated);
-    dailyLogsRef.current = newLogs;
-    setDailyLogs(newLogs);
+  const updateTodayLog = useCallback((updater: (log: DailyLog) => DailyLog): Promise<void> => {
+    if (!userId) return Promise.reject(new Error('Authentication required'));
+
+    const executeUpdate = async () => {
+      const today = getTodayDate();
+      const currentLog = getTodayLog();
+      const candidate = updater(currentLog);
+      const updated: DailyLog = {
+        ...candidate,
+        totalMacros: sumMacros(candidate.meals.map(meal => meal.totalMacros)),
+      };
+
+      await Database.saveDailyLog(userId, updated);
+
+      const newLogs = dailyLogsRef.current.filter(log => log.date !== today);
+      newLogs.push(updated);
+      newLogs.sort((a, b) => a.date.localeCompare(b.date));
+      dailyLogsRef.current = newLogs;
+      setDailyLogs(newLogs);
+    };
+
+    const queuedUpdate = dailyLogUpdateQueueRef.current
+      .catch(() => undefined)
+      .then(executeUpdate);
+    dailyLogUpdateQueueRef.current = queuedUpdate.then(
+      () => undefined,
+      () => undefined,
+    );
+    return queuedUpdate;
   }, [getTodayDate, getTodayLog, userId]);
 
   const login = useCallback(async (email: string, password: string): Promise<boolean> => {
@@ -152,19 +172,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (!user) return false;
       await saveSession({ userId: user.id, accessToken: user.accessToken });
       notifyTemporaryWebSession();
+      await hydrateUserData(user.id);
       setUserId(user.id);
-
-      const existingProfile = await Database.getUserById(user.id);
-      if (existingProfile) {
-        setProfileState(existingProfile);
-        setTargetMacros(calculateMacros(existingProfile));
-      }
       return true;
     } catch (error) {
       console.error('Login error:', error);
       return false;
     }
-  }, []);
+  }, [hydrateUserData]);
 
   const register = useCallback(async (name: string, email: string, password: string): Promise<boolean> => {
     try {
@@ -231,12 +246,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await updateTodayLog(log => ({
       ...log,
       meals: [...log.meals, meal],
-      totalMacros: {
-        calories: log.totalMacros.calories + meal.totalMacros.calories,
-        protein: log.totalMacros.protein + meal.totalMacros.protein,
-        carbs: log.totalMacros.carbs + meal.totalMacros.carbs,
-        fat: log.totalMacros.fat + meal.totalMacros.fat,
-      },
     }));
   }, [updateTodayLog]);
 
@@ -247,12 +256,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return {
         ...log,
         meals: log.meals.filter(m => m.id !== mealId),
-        totalMacros: {
-          calories: log.totalMacros.calories - meal.totalMacros.calories,
-          protein: log.totalMacros.protein - meal.totalMacros.protein,
-          carbs: log.totalMacros.carbs - meal.totalMacros.carbs,
-          fat: log.totalMacros.fat - meal.totalMacros.fat,
-        },
       };
     });
   }, [updateTodayLog]);
@@ -275,19 +278,45 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }));
   }, [updateTodayLog]);
 
-  const setTodayWeight = useCallback(async (weight: number) => {
-    await updateTodayLog(log => ({ ...log, weight }));
-    const entry: WeightEntry = { date: getTodayDate(), weight };
+  const persistWeightEntry = useCallback(async (entry: WeightEntry) => {
+    if (!userId) throw new Error('Authentication required');
+    await Database.saveWeightEntry(userId, entry);
+
+    const existingLog = dailyLogsRef.current.find(log => log.date === entry.date);
+    const updatedLog: DailyLog = existingLog
+      ? { ...existingLog, weight: entry.weight }
+      : {
+          date: entry.date,
+          meals: [],
+          workouts: [],
+          weight: entry.weight,
+          totalMacros: { calories: 0, protein: 0, carbs: 0, fat: 0 },
+        };
+    const newLogs = dailyLogsRef.current.filter(log => log.date !== entry.date);
+    newLogs.push(updatedLog);
+    newLogs.sort((a, b) => a.date.localeCompare(b.date));
+    dailyLogsRef.current = newLogs;
+    setDailyLogs(newLogs);
+
     setWeightHistory(prev => [
       ...prev.filter(e => e.date !== entry.date),
       entry,
     ].sort((a, b) => a.date.localeCompare(b.date)));
-  }, [updateTodayLog, getTodayDate]);
+  }, [userId]);
+
+  const setTodayWeight = useCallback(async (weight: number) => {
+    await persistWeightEntry({ date: getTodayDate(), weight });
+  }, [getTodayDate, persistWeightEntry]);
 
   const saveMealPlan = useCallback(async (plan: MealPlan) => {
     if (!userId) throw new Error('Authentication required');
     await Database.saveMealPlan(userId, plan);
-    setMealPlans(prev => [...prev.filter(p => p.id !== plan.id), plan]);
+    setMealPlans(prev => [
+      ...prev
+        .filter(p => p.id !== plan.id)
+        .map(p => plan.isActive ? { ...p, isActive: false } : p),
+      plan,
+    ]);
   }, [userId]);
 
   const deleteMealPlan = useCallback(async (id: string) => {
@@ -298,19 +327,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const setActiveMealPlan = useCallback(async (id: string) => {
     if (!userId) throw new Error('Authentication required');
-    const updatedPlans = mealPlans.map(plan => ({ ...plan, isActive: plan.id === id }));
-    await Promise.all(updatedPlans.map(plan => Database.saveMealPlan(userId, plan)));
-    setMealPlans(updatedPlans);
-  }, [mealPlans, userId]);
+    await Database.activateMealPlan(userId, id);
+    setMealPlans(prev => prev.map(plan => ({ ...plan, isActive: plan.id === id })));
+  }, [userId]);
 
   const addWeightEntry = useCallback(async (entry: WeightEntry) => {
-    if (!userId) throw new Error('Authentication required');
-    await Database.saveWeightEntry(userId, entry);
-    setWeightHistory(prev => [
-      ...prev.filter(e => e.date !== entry.date),
-      entry,
-    ].sort((a, b) => a.date.localeCompare(b.date)));
-  }, [userId]);
+    await persistWeightEntry(entry);
+  }, [persistWeightEntry]);
 
   const addCustomFood = useCallback(async (food: Food) => {
     if (!userId) throw new Error('Authentication required');

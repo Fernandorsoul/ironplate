@@ -8,3 +8,5 @@ export { ProfileAvatar } from './ProfileAvatar';
 export { MuscleGroupSelector } from './MuscleGroupSelector';
 export { HydrationCard } from './HydrationCard';
 export { DietAlternativesSection } from './DietAlternativesSection';
+export { LoginModal } from './LoginModal';
+export { RegisterModal } from './RegisterModal';

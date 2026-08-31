@@ -30,7 +30,6 @@ import EditMealScreen from './src/screens/EditMealScreen';
 
 import WorkoutDetailScreen from './src/screens/WorkoutDetailScreen';
 import DietAnalysisScreen from './src/screens/DietAnalysisScreen';
-import RegisterScreen from './src/screens/RegisterScreen';
 import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
 import BodyMeasurementsScreen from './src/screens/BodyMeasurementsScreen';
 import EvolutionScreen from './src/screens/EvolutionScreen';
@@ -113,7 +112,6 @@ function AppNavigator() {
         // Public presentation and account screens
         <>
           <Stack.Screen name="PublicHome" component={PublicHomeScreen} />
-          <Stack.Screen name="Register" component={RegisterScreen} />
           <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
           <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} options={{ headerShown: true, title: 'Política de Privacidade' }} />
         </>
