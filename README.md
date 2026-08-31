@@ -1,275 +1,226 @@
-# IronPlate - Nutrição para Atletas
+# IronPlate
 
 [![CI - Tests](https://github.com/Fernandorsoul/ironplate/actions/workflows/ci.yml/badge.svg)](https://github.com/Fernandorsoul/ironplate/actions/workflows/ci.yml)
 
-Aplicativo móvel de nutrição para atletas de **Bodybuilding** e **BJJ** (Brazilian Jiu-Jitsu), com geração automática de planos alimentares baseados em evidências científicas.
+Aplicativo multiplataforma de nutrição e acompanhamento esportivo para web, Android e iOS. O IronPlate reúne planejamento alimentar, controle de macronutrientes, treinos, peso, medidas corporais e evolução em uma única conta.
 
-## Features Principais
+> O IronPlate é uma ferramenta de apoio. Os cálculos e dados nutricionais são estimativas e não substituem avaliação individual de nutricionista, médico ou outro profissional habilitado.
 
-### Planos Alimentares
-- **Geração automática** de 3 opções de cardápio
-- **Tabela TACO** (UNICAMP) como base de dados nutricional
-- **Porções em medidas caseiras e gramas** nas dietas, refeições e PDFs
-- **PDF exportável** com porções detalhadas nas duas formas
-- **Análise de adequação** nutricional com score
+## O que está disponível
 
-#### Medidas caseiras e gramas
+### Alimentação e dietas
 
-As porções dos planos alimentares são apresentadas simultaneamente em uma medida prática e no peso usado como referência nutricional. Exemplo:
+- Cálculo de BMR, TDEE, meta calórica, proteína, carboidratos e gorduras a partir do perfil e do objetivo.
+- Geração de três opções de plano alimentar, incluindo alternativa econômica.
+- Refeições formadas por receitas coerentes para atletas, em vez de combinações aleatórias de alimentos.
+- Ajuste de porções por meta e validação obrigatória de composição, limites e macros antes de exibir um plano.
+- Medidas caseiras aproximadas acompanhadas do peso em gramas usado nos cálculos.
+- Ativação, edição, exclusão e exportação do plano alimentar.
+- Análise de adequação nutricional e sugestões de substituição.
 
-```text
-Banana, prata: aprox. 1 banana (120 g)
-```
+### Catálogo de alimentos
 
-- As medidas caseiras são aproximadas; os gramas continuam sendo a referência para o cálculo dos macros.
-- O mesmo formato é usado nos planos gerados, no plano ativo, na edição do plano, nas refeições diárias e no PDF exportado.
-- Planos antigos que armazenam somente gramas também recebem a conversão durante a exibição.
-- A implementação é compartilhada entre web, Android e iOS.
+- Catálogo brasileiro baseado na TACO para os alimentos internos.
+- Busca de produtos na Open Food Facts por texto.
+- O serviço possui consulta por código de barras, mas ainda não há scanner ou campo de código exposto na interface.
+- Cadastro de alimentos personalizados na conta do usuário.
+- Dados externos são exibidos conforme fornecidos pela fonte e devem ser conferidos no rótulo antes do uso.
+- O projeto não usa IA para cadastrar automaticamente alimentos nesta versão.
 
-Consulte o [CHANGELOG.md](CHANGELOG.md) para ver o registro técnico da alteração.
+### Acompanhamento do atleta
 
-### Tracking Nutricional
-- **Contagem de macros** (proteína, carboidratos, gordura)
-- **Registro de refeições** com timing (pré/pós treino)
-- **Histórico diário** com totais automáticos
+- Dashboard diário com calorias, macros, gasto estimado, refeições e treinos.
+- Ações rápidas responsivas: duas colunas no celular e quatro em telas maiores.
+- Registro manual de peso e suporte experimental a balanças BLE em builds nativos.
+- Histórico de peso, medidas corporais, dobras, circunferências e bioimpedância.
+- Fichas de treino por modalidade, intensidade e grupos musculares editáveis.
+- Resumo semanal e telas de evolução.
 
-### Avaliação Antropométrica
-- **Medidas corporais** seguindo padrão CREF/CRN
-- **Dobras cutâneas** (9 pontos)
-- **Circunferências** (membro superior, tronco, inferior)
-- **Bioimpedância** (resistência, reactância, ângulo de fase)
-- **PDF exportável** para profissionais
+### Conta, privacidade e site público
 
-### Evolução
-- **Gráficos de peso** corporal
-- **Percentuais de variação** em todas as medidas
-- **Comparação temporal** (7, 30, 90 dias)
+- Login e cadastro em modais responsivos na página pública.
+- Recuperação de senha por código de uso único enviado por email.
+- Sessão nativa protegida pelo Expo SecureStore.
+- Exportação dos dados da conta, exclusão de conta e Política de Privacidade.
+- Seção pública de novidades com um resumo das releases recentes.
 
-### Autenticação
-- **Login/Cadastro** com persistência
-- **Perfil completo** (nome, email, telefone, data nascimento)
-- **Edição de objetivo** (bulking, cutting, manutenção)
+## Plataformas
 
-## Stack Técnica
+| Plataforma | Execução | Observações |
+| --- | --- | --- |
+| Web | Expo Web + Vercel | Frontend estático e API serverless na mesma origem em produção |
+| Android | Expo/EAS | BLE, SecureStore, impressão e compartilhamento nativos |
+| iOS | Expo/EAS | SecureStore, impressão e compartilhamento; BLE requer validação em aparelho |
 
-| Tecnologia | Versão | Uso |
-|------------|--------|-----|
-| React Native | 0.86.2 | Framework mobile |
-| Expo | 57.0.10 | Build e desenvolvimento |
-| TypeScript | 6.0.3 | Type safety |
-| React Navigation | 7.x | Navegação |
-| Neon Postgres | Serverless | Fonte de verdade dos dados |
-| Expo SecureStore | 57.0.2 | Sessão criptografada no dispositivo |
-| Victory Native | 41.26.0 | Gráficos |
-| Playwright | 1.62.1 | Testes E2E |
-| Jest | 29.x | Testes unitários |
+## Stack atual
 
-## Como Rodar
+| Tecnologia | Versão no projeto | Uso |
+| --- | --- | --- |
+| React | 19.2.3 | Interface |
+| React Native | 0.86.3 | Aplicativo multiplataforma |
+| Expo | 57.0.18 | Runtime, desenvolvimento e exportação |
+| TypeScript | 6.0.3 | Tipagem estática |
+| React Navigation | 7.x | Navegação stack, tabs e sidebar |
+| Neon Postgres | Serverless | Fonte de verdade dos dados persistentes |
+| Drizzle ORM/Kit | 0.45/0.31 | Schema e migrations |
+| Vercel Functions | Node.js | API HTTP |
+| Jest | 29.x | Testes unitários e de integração |
+| Playwright | 1.62.1 | Testes end-to-end web |
 
-### Pré-requisitos
-- Node.js 22.13+
-- npm ou yarn
-- Expo CLI (opcional)
+O SDK 57 requer Node.js 22.13 ou superior neste projeto.
 
-### Instalação
+## Executando localmente
+
+### 1. Instalação
+
 ```bash
-# Clonar repositório
 git clone https://github.com/Fernandorsoul/ironplate.git
 cd ironplate
+npm ci
+```
 
-# Instalar dependências
-npm install
+### 2. Ambiente
 
-# Rodar na web
+Copie `.env.example` para `.env` e preencha os valores necessários. Nunca versione `.env` ou credenciais reais.
+
+| Variável | Obrigatória | Finalidade |
+| --- | --- | --- |
+| `DATABASE_URL` | API | Conexão pooled do Neon usada pelas funções serverless |
+| `DATABASE_URL_UNPOOLED` | Migrations | Conexão direta, sem `-pooler`, usada por `npm run db:migrate` |
+| `JWT_SECRET` | API | Assinatura dos tokens; mínimo de 32 caracteres |
+| `ALLOWED_ORIGINS` | Produção | Origens aceitas pelo CORS, separadas por vírgula |
+| `EXPO_PUBLIC_API_BASE_URL` | Build nativo | Origem pública da API; na web same-origin pode ficar vazia |
+| `APP_URL` | Recuperação de senha | Origem HTTPS canônica usada nos links enviados por email |
+| `EXPO_PUBLIC_APP_URL` | Build nativo | Origem reconhecida ao abrir o link de recuperação |
+| `RESEND_API_KEY` | Recuperação de senha | Envio do email pelo Resend |
+| `RESET_EMAIL_FROM` | Recuperação de senha | Remetente de domínio verificado |
+
+### 3. Comandos de desenvolvimento
+
+```bash
+# Servidor Expo
+npm start
+
+# Web
 npm run web
 
-# Rodar no Android
+# Build nativo local Android
 npm run android
 
-# Rodar no iOS
+# Build nativo local iOS — requer macOS e Xcode
 npm run ios
 ```
 
-### Recuperação de senha
+O frontend web sozinho não reproduz as funções `/api`. Para testar login e persistência pela web, use uma API implantada em `EXPO_PUBLIC_API_BASE_URL` ou execute o ambiente da Vercel localmente.
 
-O fluxo usa um link HTTPS para `/reset-password`, token de uso único persistido
-somente como hash no Neon e entrega de email pelo Resend. Configure:
+## Banco de dados
 
-- `DATABASE_URL`: conexão pooled usada pela API;
-- `DATABASE_URL_UNPOOLED`: conexão direta usada por `npm run db:migrate`;
-- `APP_URL`: origem HTTPS adicionada ao link do email;
-- `EXPO_PUBLIC_APP_URL`: origem reconhecida pelo aplicativo;
-- `RESEND_API_KEY`: chave da API do Resend;
-- `RESET_EMAIL_FROM`: remetente de um domínio verificado.
-
-Depois de aplicar as migrations, valide o ambiente sem imprimir segredos ou
-dados de usuários:
+O schema fica em `api/db/schema.ts` e as migrations versionadas ficam em `migrations/`.
 
 ```bash
+# Gerar migration após alterar o schema
+npm run db:generate
+
+# Aplicar migrations com conexão direta
 npm run db:migrate
+
+# Verificar a configuração do reset de senha
 npm run password-reset:check
 ```
 
-O segundo comando termina com sucesso somente quando o schema, a conexão direta
-de migration e o serviço de email estão configurados.
+Teste migrations primeiro em uma branch isolada do Neon. O script de migration rejeita conexões pooled para reduzir o risco de aplicação incorreta.
 
-### Testes
+## Qualidade e testes
+
 ```bash
-# Testes unitários
+# Jest
 npm test
 
-# Testes E2E (27 testes)
+# TypeScript do app e da API
+npm run typecheck
+
+# ESLint e regras de segurança
+npm run lint
+
+# Coverage
+npm run test:coverage -- --runInBand
+
+# End-to-end web
 npm run test:e2e
 
-# Smoke tests
+# Smoke test web
 npm run test:smoke
+
+# Exportação de produção Expo
+npm run vercel-build
 ```
 
-## Estrutura do Projeto
+O CI executa testes com coverage, lint, TypeScript, verificação das migrations, auditoria de dependências e E2E em pull requests. Evitamos documentar uma contagem fixa de testes porque ela muda a cada entrega.
 
-```
-ironplate/
-├── .github/
-│   └── workflows/
-│       └── ci.yml              # GitHub Actions CI/CD
-├── __tests__/                   # Testes unitários Jest
-│   ├── calculations.test.ts
-│   ├── components.test.tsx
-│   └── hooks.test.ts
-├── e2e/                         # Testes E2E Playwright
-│   ├── app.spec.ts
-│   ├── integration.spec.ts
-│   └── smoke.spec.ts
-├── src/
-│   ├── components/              # Componentes reutilizáveis
-│   │   ├── ActionButton.tsx
-│   │   ├── MacroCard.tsx
-│   │   ├── MealCard.tsx
-│   │   └── ScreenHeader.tsx
-│   ├── constants/               # Configurações estáticas
-│   │   ├── foods.ts             # Banco de alimentos legado
-│   │   ├── portions.ts          # Conversões para medidas caseiras
-│   │   ├── taco.ts              # Tabela TACO (UNICAMP)
-│   │   └── theme.ts             # Cores, spacing, fontes
-│   ├── context/                 # Estado global
-│   │   └── AppContext.tsx
-│   ├── hooks/                   # Custom hooks
-│   │   ├── useFoodSearch.ts
-│   │   ├── useMacros.ts
-│   │   └── useWeightTrend.ts
-│   ├── screens/                 # Telas do app
-│   │   ├── HomeScreen.tsx
-│   │   ├── AddMealScreen.tsx
-│   │   ├── MealPlanScreen.tsx
-│   │   ├── WeightScreen.tsx
-│   │   ├── BodyMeasurementsScreen.tsx
-│   │   ├── EvolutionScreen.tsx
-│   │   ├── EditProfileScreen.tsx
-│   │   └── ...
-│   ├── services/                # Serviços de dados
-│   │   ├── database.ts          # Cliente autenticado da API
-│   │   ├── session.ts           # SecureStore / sessão web temporária
-│   │   └── storage.ts           # Limpeza de caches legados
-│   ├── types/                   # Definições TypeScript
-│   │   └── index.ts
-│   └── utils/                   # Funções utilitárias
-│       ├── calculations.ts      # Cálculos nutricionais
-│       ├── dietGenerator.ts     # Gerador de dietas
-│       ├── dietPdfGenerator.ts  # PDF de dietas
-│       ├── portionDisplay.ts     # Formatação de medida caseira + gramas
-│       └── pdfGenerator.ts      # PDF de medidas
-├── App.tsx                      # Componente raiz
-├── package.json
-├── tsconfig.json
-└── playwright.config.ts
+## Arquitetura resumida
+
+```text
+Web / Android / iOS
+        |
+        v
+React Native + Expo
+        |
+        v
+AppContext + services/database.ts
+        |
+        v
+API /api/users/* — autenticação JWT, validação, CORS e rate limit
+        |
+        v
+Neon Postgres
 ```
 
-## Cálculos Nutricionais
+- O Neon é a fonte de verdade de perfil, logs, refeições, treinos, peso, planos, medidas e alimentos personalizados.
+- No Android/iOS, somente a sessão compacta fica no SecureStore.
+- Na web, a sessão permanece apenas em memória e um recarregamento exige novo login.
+- AsyncStorage serve apenas para remover dados sensíveis de versões antigas; não é a persistência principal.
 
-### Equações Base
+Consulte [ARCHITECTURE.md](ARCHITECTURE.md) para os fluxos completos.
 
-| Cálculo | Fórmula | Referência |
-|---------|---------|------------|
-| **BMR** | Mifflin-St Jeor | 10×peso + 6.25×altura - 5×idade + 5 (M) / -161 (F) |
-| **TDEE** | BMR × Fator Atividade | Sedentário 1.2, Ativo 1.725 |
-| **Proteína** | Peso × Multiplicador | ISSN Position Stand |
+## Estrutura principal
 
-### Multiplicadores de Proteína (g/kg)
-
-| Objetivo | Bodybuilding | BJJ |
-|----------|--------------|-----|
-| Manutenção | 1.8 | 1.6 |
-| Bulking | 2.0 | 1.8 |
-| Cutting Conservador | 2.2 | 2.0 |
-| Cutting Preparação | 2.4 | 2.2 |
-| Pré-Competição | 2.8 | 2.5 |
-
-### Déficit/Superávit Calórico
-
-| Tipo | Déficit | Perda Esperada |
-|------|---------|----------------|
-| Cutting Conservador | -15% | 0.3-0.5%/sem |
-| Preparação | -20% | 0.5-0.7%/sem |
-| Pré-Competição | -25% | 0.7-1.0%/sem |
-| Bulking | +15% | 0.3-0.5%/sem |
-
-### Distribuição de Gordura
-
-| Objetivo | % Calorias |
-|----------|------------|
-| Cutting Conservador | 25% |
-| Preparação | 22% |
-| Pré-Competição | 20% |
-| Bulking | 28% |
-| Manutenção | 25% |
-
-## CI/CD
-
-### GitHub Actions
-
-O projeto possui pipeline CI/CD configurado:
-
-```yaml
-# .github/workflows/ci.yml
-Jobs:
-  - TypeScript Check
-  - Unit Tests (46 testes)
-  - E2E Tests (27 testes)
+```text
+api/                     Funções serverless, middleware, segurança e schema
+migrations/              Migrations SQL do Neon
+src/components/          Componentes reutilizáveis
+src/constants/           Tema, TACO, esportes, porções e treinos
+src/context/             Estado global e orquestração da persistência
+src/hooks/               Cálculos e buscas reutilizáveis
+src/knowledge/           Referências internas de nutrição esportiva
+src/screens/             Telas públicas e autenticadas
+src/services/            API, sessão, alimentos online, BLE e medidas
+src/utils/               Cálculos, dietas, substituições e exportações
+__tests__/               Testes Jest
+e2e/                     Testes Playwright
+docs/lgpd/               Documentação de privacidade e proteção de dados
 ```
 
-### Branch Protection
+## Deploy e releases
 
-A branch `master` possui proteção:
-- ✅ Status checks obrigatórios
-- ✅ Force push bloqueado
-- ✅ Admins seguem regras
+- A Vercel hospeda o frontend exportado e as funções da API configuradas em `vercel.json`.
+- Deploy de produção é disparado pela publicação de uma GitHub Release cujo alvo seja `master`.
+- O workflow aplica migrations antes de gerar e publicar o build.
+- Uma tag enviada sem publicar a release não dispara o workflow atual.
 
-## Contribuição
+Consulte [RELEASE.md](RELEASE.md) para o procedimento e [BUILD-ANDROID.md](BUILD-ANDROID.md) para builds Android com EAS.
 
-1. Fork o projeto
-2. Crie uma branch (`git checkout -b feature/nova-feature`)
-3. Commit suas mudanças (`git commit -m 'feat: nova feature'`)
-4. Push para a branch (`git push origin feature/nova-feature`)
-5. Abra um Pull Request
+## Documentação
 
-### Commits
-
-Use [Conventional Commits](https://www.conventionalcommits.org/):
-- `feat:` Nova feature
-- `fix:` Bug fix
-- `docs:` Documentação
-- `test:` Testes
-- `refactor:` Refatoração
+- [Índice da documentação](docs/README.md)
+- [Arquitetura](ARCHITECTURE.md)
+- [Changelog](CHANGELOG.md)
+- [Contribuição](CONTRIBUTING.md)
+- [Release e deploy](RELEASE.md)
+- [Build Android](BUILD-ANDROID.md)
+- [Balanças Bluetooth](BLESCALES.md)
+- [Migrations](migrations/README.md)
+- [LGPD](docs/lgpd/README.md)
 
 ## Licença
 
-MIT License - veja [LICENSE](LICENSE) para detalhes.
-
-## Contato
-
-- **GitHub**: [Fernandorsoul](https://github.com/Fernandorsoul)
-- **Projeto**: [ironplate](https://github.com/Fernandorsoul/ironplate)
-
----
-
-Desenvolvido com a **RSoul Factory Meta-Framework**.
+Distribuído sob a licença MIT. Consulte [LICENSE](LICENSE).

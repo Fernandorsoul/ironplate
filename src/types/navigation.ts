@@ -12,8 +12,7 @@ export type TabParamList = {
 
 // Stack Navigator
 export type RootStackParamList = {
-  PublicHome: { openLogin?: boolean } | undefined;
-  Register: undefined;
+  PublicHome: { openLogin?: boolean; openRegister?: boolean } | undefined;
   ForgotPassword: { token?: string } | undefined;
   PrivacyPolicy: undefined;
   Onboarding: undefined;

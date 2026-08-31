@@ -11,6 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LoginModal } from '../components/LoginModal';
+import { RegisterModal } from '../components/RegisterModal';
 import { BORDER_RADIUS, COLORS, FONT_SIZE, SPACING } from '../constants/theme';
 import type { RootStackScreenProps } from '../types/navigation';
 
@@ -40,24 +41,79 @@ const STEPS: { number: string; title: string; description: string }[] = [
   { number: '03', title: 'Acompanhe e evolua', description: 'Registre o dia e enxergue seu progresso.' },
 ];
 
+const RELEASES: {
+  badge: string;
+  date: string;
+  icon: IconName;
+  title: string;
+  description: string;
+  highlights: string[];
+  featured?: boolean;
+}[] = [
+  {
+    badge: 'NOVIDADE',
+    date: 'Agosto de 2026',
+    icon: 'restaurant-outline',
+    title: 'Dietas esportivas agora passam por validação completa',
+    description: 'Os cardápios deixaram de combinar alimentos soltos e agora partem de refeições que fazem sentido na prática.',
+    highlights: [
+      'Receitas completas para café da manhã, almoço, pré, pós-treino e ceia',
+      'Porções ajustadas para calorias, proteínas, carboidratos e gorduras',
+      'Planos fora das faixas nutricionais são bloqueados antes de aparecer',
+    ],
+    featured: true,
+  },
+  {
+    badge: 'MELHORIA',
+    date: 'Agosto de 2026',
+    icon: 'save-outline',
+    title: 'Seu peso e sua dieta permanecem salvos',
+    description: 'Reforçamos a persistência para que registros manuais de peso e o plano escolhido continuem disponíveis ao voltar ao IronPlate.',
+    highlights: [
+      'Registro manual de peso sincronizado com o banco',
+      'Plano alimentar escolhido preservado entre sessões',
+    ],
+  },
+  {
+    badge: 'EVOLUÇÃO CONTÍNUA',
+    date: 'Últimas versões',
+    icon: 'shield-checkmark-outline',
+    title: 'Mais controle nos treinos e na segurança',
+    description: 'As atualizações recentes também melhoraram a edição das fichas de treino e protegeram fluxos sensíveis do aplicativo.',
+    highlights: [
+      'Grupos musculares das fichas podem ser personalizados',
+      'Recuperação de senha e exportações receberam proteções adicionais',
+    ],
+  },
+];
+
 export default function PublicHomeScreen({
   navigation,
   route,
 }: RootStackScreenProps<'PublicHome'>) {
   const { width } = useWindowDimensions();
   const scrollRef = useRef<ScrollView>(null);
+  const [releasesOffset, setReleasesOffset] = useState(0);
   const [aboutOffset, setAboutOffset] = useState(0);
   const [loginVisible, setLoginVisible] = useState(Boolean(route.params?.openLogin));
+  const [registerVisible, setRegisterVisible] = useState(Boolean(route.params?.openRegister));
   const isDesktop = width >= 900;
   const isCompact = width < 640;
 
   useEffect(() => {
     if (route.params?.openLogin) {
+      setRegisterVisible(false);
       setLoginVisible(true);
+    } else if (route.params?.openRegister) {
+      setLoginVisible(false);
+      setRegisterVisible(true);
     }
-  }, [route.params?.openLogin]);
+  }, [route.params?.openLogin, route.params?.openRegister]);
 
-  const openLogin = () => setLoginVisible(true);
+  const openLogin = () => {
+    setRegisterVisible(false);
+    setLoginVisible(true);
+  };
 
   const closeLogin = () => {
     setLoginVisible(false);
@@ -67,8 +123,15 @@ export default function PublicHomeScreen({
   };
 
   const openRegister = () => {
-    closeLogin();
-    navigation.navigate('Register');
+    setLoginVisible(false);
+    setRegisterVisible(true);
+  };
+
+  const closeRegister = () => {
+    setRegisterVisible(false);
+    if (route.params?.openRegister) {
+      navigation.setParams({ openRegister: false });
+    }
   };
 
   const openForgotPassword = () => {
@@ -76,14 +139,26 @@ export default function PublicHomeScreen({
     navigation.navigate('ForgotPassword');
   };
 
+  const openPrivacyPolicy = () => {
+    closeRegister();
+    navigation.navigate('PrivacyPolicy');
+  };
+
   const scrollToTop = () => scrollRef.current?.scrollTo({ y: 0, animated: true });
   const scrollToAbout = () => scrollRef.current?.scrollTo({
     y: Math.max(0, aboutOffset - 88),
     animated: true,
   });
+  const scrollToReleases = () => scrollRef.current?.scrollTo({
+    y: Math.max(0, releasesOffset - 88),
+    animated: true,
+  });
 
   const captureAboutOffset = (event: LayoutChangeEvent) => {
     setAboutOffset(event.nativeEvent.layout.y);
+  };
+  const captureReleasesOffset = (event: LayoutChangeEvent) => {
+    setReleasesOffset(event.nativeEvent.layout.y);
   };
 
   return (
@@ -112,6 +187,9 @@ export default function PublicHomeScreen({
               <View style={styles.navigationLinks}>
                 <TouchableOpacity onPress={scrollToTop}>
                   <Text style={styles.navigationLink}>Início</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={scrollToReleases}>
+                  <Text style={styles.navigationLink}>Novidades</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={scrollToAbout}>
                   <Text style={styles.navigationLink}>Sobre</Text>
@@ -233,6 +311,62 @@ export default function PublicHomeScreen({
           </View>
         </View>
 
+        <View onLayout={captureReleasesOffset} style={styles.releasesSection}>
+          <View style={[styles.releasesHeader, isDesktop && styles.releasesHeaderDesktop]}>
+            <View style={styles.releasesHeaderCopy}>
+              <Text style={styles.releaseEyebrow}>NOVIDADES DO IRONPLATE</Text>
+              <Text accessibilityRole="header" style={[styles.releaseSectionTitle, isCompact && styles.releaseSectionTitleCompact]}>
+                O produto evolui junto com a sua rotina.
+              </Text>
+            </View>
+            <Text style={styles.releaseSectionDescription}>
+              Um resumo transparente das melhorias mais recentes em alimentação, progresso, treinos e segurança.
+            </Text>
+          </View>
+
+          <View style={[styles.releaseGrid, isDesktop && styles.releaseGridDesktop]}>
+            {RELEASES.map((release) => (
+              <View
+                key={`${release.badge}-${release.title}`}
+                style={[
+                  styles.releaseCard,
+                  release.featured && styles.releaseCardFeatured,
+                  isDesktop && styles.releaseCardDesktop,
+                  isDesktop && release.featured && styles.releaseCardFeaturedDesktop,
+                ]}
+              >
+                <View style={styles.releaseMetaRow}>
+                  <View style={[styles.releaseBadge, release.featured && styles.releaseBadgeFeatured]}>
+                    <Text style={[styles.releaseBadgeText, release.featured && styles.releaseBadgeTextFeatured]}>
+                      {release.badge}
+                    </Text>
+                  </View>
+                  <Text style={styles.releaseDate}>{release.date}</Text>
+                </View>
+
+                <View style={[styles.releaseIcon, release.featured && styles.releaseIconFeatured]}>
+                  <Ionicons
+                    name={release.icon}
+                    size={23}
+                    color={release.featured ? COLORS.text : COLORS.primary}
+                  />
+                </View>
+                <Text style={styles.releaseTitle}>{release.title}</Text>
+                <Text style={styles.releaseDescription}>{release.description}</Text>
+
+                <View style={styles.releaseHighlights}>
+                  {release.highlights.map((highlight) => (
+                    <View key={highlight} style={styles.releaseHighlightRow}>
+                      <Ionicons name="checkmark-circle" size={17} color={COLORS.accent} />
+                      <Text style={styles.releaseHighlightText}>{highlight}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            ))}
+          </View>
+        </View>
+
         <View onLayout={captureAboutOffset} style={styles.aboutSection}>
           <View style={[styles.aboutPanel, isDesktop && styles.aboutPanelDesktop]}>
             <View style={[styles.aboutCopy, isDesktop && styles.aboutCopyDesktop]}>
@@ -305,6 +439,12 @@ export default function PublicHomeScreen({
         onClose={closeLogin}
         onForgotPassword={openForgotPassword}
         onRegister={openRegister}
+      />
+      <RegisterModal
+        visible={registerVisible}
+        onClose={closeRegister}
+        onLogin={openLogin}
+        onPrivacyPolicy={openPrivacyPolicy}
       />
     </SafeAreaView>
   );
@@ -785,6 +925,150 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     fontSize: FONT_SIZE.sm,
     lineHeight: 22,
+  },
+  releasesSection: {
+    width: '100%',
+    maxWidth: 1180,
+    alignSelf: 'center',
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: 88,
+    borderTopWidth: 1,
+    borderTopColor: '#202332',
+  },
+  releasesHeader: {
+    gap: SPACING.md,
+  },
+  releasesHeaderDesktop: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+  },
+  releasesHeaderCopy: {
+    minWidth: 0,
+    flex: 1,
+  },
+  releaseEyebrow: {
+    color: COLORS.primary,
+    fontSize: FONT_SIZE.xs,
+    fontWeight: '800',
+    letterSpacing: 1.6,
+  },
+  releaseSectionTitle: {
+    maxWidth: 620,
+    marginTop: SPACING.sm,
+    color: COLORS.text,
+    fontSize: 38,
+    fontWeight: '900',
+    lineHeight: 44,
+    letterSpacing: -1.15,
+  },
+  releaseSectionTitleCompact: {
+    fontSize: 31,
+    lineHeight: 37,
+  },
+  releaseSectionDescription: {
+    maxWidth: 430,
+    color: COLORS.textSecondary,
+    fontSize: FONT_SIZE.sm,
+    lineHeight: 22,
+  },
+  releaseGrid: {
+    gap: SPACING.md,
+    marginTop: SPACING.xxl,
+  },
+  releaseGridDesktop: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+  },
+  releaseCard: {
+    padding: SPACING.lg,
+    borderWidth: 1,
+    borderColor: '#292D3D',
+    borderRadius: BORDER_RADIUS.lg,
+    backgroundColor: '#121522',
+  },
+  releaseCardDesktop: {
+    minWidth: 0,
+    flex: 1,
+  },
+  releaseCardFeatured: {
+    borderColor: 'rgba(255, 107, 53, 0.58)',
+    backgroundColor: '#191925',
+  },
+  releaseCardFeaturedDesktop: {
+    flex: 1.2,
+  },
+  releaseMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: SPACING.sm,
+  },
+  releaseBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: BORDER_RADIUS.full,
+    backgroundColor: '#24283A',
+  },
+  releaseBadgeFeatured: {
+    backgroundColor: 'rgba(255, 107, 53, 0.16)',
+  },
+  releaseBadgeText: {
+    color: COLORS.textSecondary,
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 1.15,
+  },
+  releaseBadgeTextFeatured: {
+    color: COLORS.primaryLight,
+  },
+  releaseDate: {
+    color: COLORS.textMuted,
+    fontSize: FONT_SIZE.xs,
+  },
+  releaseIcon: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: SPACING.lg,
+    borderRadius: BORDER_RADIUS.md,
+    backgroundColor: 'rgba(255, 107, 53, 0.12)',
+  },
+  releaseIconFeatured: {
+    backgroundColor: COLORS.primary,
+  },
+  releaseTitle: {
+    marginTop: SPACING.lg,
+    color: COLORS.text,
+    fontSize: FONT_SIZE.lg,
+    fontWeight: '900',
+    lineHeight: 24,
+  },
+  releaseDescription: {
+    marginTop: SPACING.sm,
+    color: COLORS.textSecondary,
+    fontSize: FONT_SIZE.sm,
+    lineHeight: 21,
+  },
+  releaseHighlights: {
+    gap: 10,
+    marginTop: SPACING.lg,
+    paddingTop: SPACING.md,
+    borderTopWidth: 1,
+    borderTopColor: '#2A2E3E',
+  },
+  releaseHighlightRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: SPACING.sm,
+  },
+  releaseHighlightText: {
+    minWidth: 0,
+    flex: 1,
+    color: COLORS.textSecondary,
+    fontSize: FONT_SIZE.xs,
+    lineHeight: 18,
   },
   aboutSection: {
     paddingHorizontal: SPACING.lg,

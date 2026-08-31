@@ -1,244 +1,139 @@
-# Contribuindo com IronPlate
+# Contribuindo com o IronPlate
 
-Obrigado por contribuir com o IronPlate! Este documento descreve como contribuir com o projeto.
+## Pré-requisitos
 
-## Começando
+- Node.js 22.13 ou superior.
+- npm compatível com o lockfile.
+- Git.
+- Conta Expo/EAS apenas para builds remotos.
+- Banco Neon isolado quando a mudança envolver schema ou persistência.
 
-### Pré-requisitos
-
-- Node.js 18+
-- npm ou yarn
-- Git
-- Expo CLI (opcional)
-
-### Setup do Ambiente
+## Preparação
 
 ```bash
-# Fork o repositório no GitHub
-
-# Clone seu fork
 git clone https://github.com/SEU_USUARIO/ironplate.git
 cd ironplate
-
-# Adicione o remote upstream
 git remote add upstream https://github.com/Fernandorsoul/ironplate.git
-
-# Instale dependências
-npm install
-
-# Rode o app
-npm run web
+npm ci
 ```
 
-## Fluxo de Trabalho
+Copie `.env.example` para `.env` somente quando o fluxo exigir API, banco ou email. Não use credenciais de produção no desenvolvimento e nunca versione `.env`.
 
-### 1. Crie uma Branch
+## Fluxo de branches
+
+`dev` é a branch de integração. `master` recebe releases estabilizadas.
 
 ```bash
-# Atualize seu fork
 git fetch upstream
-git checkout master
-git merge upstream/master
-
-# Crie uma branch descritiva
-git checkout -b feature/nova-feature
-# ou
-git checkout -b fix/corrigir-bug
+git switch dev
+git pull --ff-only upstream dev
+git switch -c feat/nome-da-entrega
 ```
 
-### 2. Faça suas Mudanças
+Prefixos sugeridos:
 
-- Siga os padrões de código existentes
-- Escreva testes para novas features
-- Atualize a documentação se necessário
+- `feat/` para funcionalidade;
+- `fix/` para correção;
+- `docs/` para documentação;
+- `refactor/` para mudança interna sem comportamento novo;
+- `test/` para cobertura e infraestrutura de testes.
 
-### 3. Commit suas Mudanças
+Evite misturar alterações sem relação no mesmo pull request.
 
-Use [Conventional Commits](https://www.conventionalcommits.org/):
+## Padrões de implementação
+
+### Aplicativo
+
+- Componentes compartilhados ficam em `src/components/` e são exportados por `src/components/index.ts` quando necessário.
+- Telas ficam em `src/screens/` e rotas devem ser tipadas em `src/types/navigation.ts`.
+- Regras de negócio puras ficam em `src/utils/`; acesso a serviços externos fica em `src/services/`.
+- Use `src/constants/layout.ts` para breakpoints e `src/constants/theme.ts` para tokens visuais.
+- Alterações de layout precisam considerar web, Android, iOS, telas pequenas e navegação por teclado.
+- Animações devem ser breves, não bloquear ações e respeitar movimento reduzido quando forem decorativas.
+
+### API e banco
+
+- Endpoints ficam em `api/users/`.
+- Todo payload novo deve ter schema Zod em `api/middleware/validation.ts`.
+- Endpoints privados devem validar o Bearer JWT e a identidade do titular.
+- Mudanças no schema começam em `api/db/schema.ts` e exigem migration em `migrations/`.
+- Aplique migrations apenas com `DATABASE_URL_UNPOOLED` e teste primeiro em uma branch do Neon.
+
+### Nutrição
+
+- Não altere fórmulas, limites ou receitas sem atualizar os testes e a documentação da regra.
+- A geração de dietas deve continuar passando por `validateAthleteMealPlan`.
+- Refeições geradas devem representar combinações culinárias coerentes; não monte cardápios sorteando alimentos isolados.
+- Valores de produtos externos precisam manter a referência de 100 g e a indicação de que dependem da fonte/rotulagem.
+
+### Segurança e privacidade
+
+- Não registre tokens, senhas, URLs de banco, dados de saúde ou payloads pessoais em logs.
+- Não persista sessão web em `localStorage` ou AsyncStorage.
+- Escape conteúdo do usuário antes de gerar HTML/PDF.
+- Mudanças que afetem coleta, finalidade, retenção ou compartilhamento de dados devem atualizar `docs/lgpd/`.
+
+## Commits
+
+Use Conventional Commits:
 
 ```bash
-# Formato: tipo: descrição
-git commit -m "feat: adicionar filtro de alimentos"
-git commit -m "fix: corrigir cálculo de macros"
-git commit -m "docs: atualizar README"
-git commit -m "test: adicionar testes para useMacros"
+git commit -m "feat(nutrition): adicionar substituição de refeição"
+git commit -m "fix(ui): corrigir grade no celular"
+git commit -m "docs: atualizar arquitetura"
+git commit -m "test(api): cobrir validação do endpoint"
 ```
 
-**Tipos de commit:**
-- `feat:` Nova feature
-- `fix:` Bug fix
-- `docs:` Documentação
-- `style:` Formatação (não afeta código)
-- `refactor:` Refatoração (sem mudança de funcionalidade)
-- `test:` Testes
-- `chore:` Manutenção (dependências, config)
+Tipos aceitos com frequência: `feat`, `fix`, `docs`, `test`, `refactor`, `style`, `chore` e `ci`.
 
-### 4. Push e Pull Request
+## Verificações antes do PR
 
 ```bash
-# Push sua branch
-git push origin feature/nova-feature
-
-# Crie um Pull Request no GitHub
+npm test -- --runInBand
+npm run typecheck
+npm run lint
+npm run vercel-build
 ```
 
-### 5. Pull Request
-
-No PR, inclua:
-- **Descrição clara** das mudanças
-- **Screenshots** se for mudança de UI
-- **Issues relacionadas** (se houver)
-- **Checklist** de testes realizados
-
-## Padrões de Código
-
-### TypeScript
-
-```typescript
-// Use interfaces para props
-interface ButtonProps {
-  title: string;
-  onPress: () => void;
-  disabled?: boolean;
-}
-
-// Use function components
-export function Button({ title, onPress, disabled }: ButtonProps) {
-  return (
-    <TouchableOpacity onPress={onPress} disabled={disabled}>
-      <Text>{title}</Text>
-    </TouchableOpacity>
-  );
-}
-```
-
-### Hooks
-
-```typescript
-// Prefixo use
-export function useCustomHook(data: Data[]) {
-  // Use useMemo para cálculos
-  const result = useMemo(() => {
-    return processData(data);
-  }, [data]);
-
-  return result;
-}
-```
-
-### Estilos
-
-```typescript
-// Use StyleSheet.create
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-});
-```
-
-## Testes
-
-### Testes Unitários
+Quando aplicável:
 
 ```bash
-# Rode todos os testes
-npm test
-
-# Rode testes específicos
-npm test -- --testPathPattern=calculations
-
-# Rode com coverage
-npm run test:coverage
-```
-
-### Testes E2E
-
-```bash
-# Rode todos os testes E2E
 npm run test:e2e
-
-# Rode smoke tests
 npm run test:smoke
+npx drizzle-kit check
 ```
 
-### Escrevendo Testes
+Para executar um arquivo Jest específico:
 
-```typescript
-// Teste unitário
-describe('calculateBMR', () => {
-  it('calculates BMR for male', () => {
-    const profile = { weight: 80, height: 180, age: 25, gender: 'male' };
-    expect(calculateBMR(profile)).toBe(1805);
-  });
-});
+```bash
+npm test -- --runInBand __tests__/layout.test.tsx
 ```
 
-## Estrutura de Arquivos
+## Pull request
 
-```
-src/
-├── components/     # Componentes reutilizáveis
-├── constants/      # Configurações estáticas
-├── context/        # Estado global
-├── hooks/          # Custom hooks
-├── screens/        # Telas
-├── services/       # Serviços de dados
-├── types/          # Definições TypeScript
-└── utils/          # Funções utilitárias
-```
+Abra o PR contra `dev` e inclua:
 
-### Criando um Novo Componente
+- problema e resultado esperado;
+- resumo objetivo da implementação;
+- riscos, migrations e variáveis novas;
+- testes executados;
+- screenshots ou vídeo para mudanças visuais;
+- atualização de README, changelog ou documentos afetados.
 
-1. Crie em `src/components/`
-2. Exporte em `src/components/index.ts`
-3. Escreva testes em `__tests__/`
-4. Documente as props com interfaces
+Antes de solicitar revisão, confirme que o PR contém somente arquivos relacionados e que não inclui `.env`, builds, relatórios locais ou diretórios pessoais de ferramentas.
 
-### Criando uma Nova Tela
+## Revisão
 
-1. Crie em `src/screens/`
-2. Adicione rota em `App.tsx`
-3. Escreva testes E2E em `e2e/`
+Revisores devem observar:
 
-## Issues
+- correção da regra de negócio;
+- persistência e isolamento entre usuários;
+- comportamento em telas pequenas;
+- acessibilidade e estados de carregamento/erro;
+- validação na fronteira da API;
+- regressões de segurança e privacidade;
+- testes proporcionais ao risco.
 
-### Reportando Bugs
+## Bugs e propostas
 
-Inclua:
-- **Descrição clara** do bug
-- **Passos para reproduzir**
-- **Comportamento esperado** vs atual
-- **Screenshots** se aplicável
-- **Ambiente** (OS, Node version, etc.)
-
-### Solicitando Features
-
-Inclua:
-- **Problema** que resolve
-- **Solução proposta**
-- **Alternativas** consideradas
-- **Mockups** se aplicável
-
-## Code Review
-
-### Para Revisores
-
-- Verifique se os testes passam
-- Revise a lógica de negócio
-- Confirme que a documentação está atualizada
-- Aprove com pelo menos 1 approval
-
-### Para Autores
-
-- Responda a todos os comentários
-- Faça mudanças solicitadas
-- Re-solicite review após mudanças
-
-## Perguntas?
-
-- Abra uma [Issue](https://github.com/Fernandorsoul/ironplate/issues)
-- Comente em um PR existente
-
-Obrigado por contribuir! 🚀
+Ao abrir uma issue, informe passos de reprodução, resultado atual, resultado esperado, plataforma, versão e evidências sem dados pessoais. Para funcionalidades, descreva primeiro o problema do usuário e os critérios de aceite.

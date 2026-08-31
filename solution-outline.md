@@ -1,5 +1,7 @@
 # Solution Outline — IronPlate P0 Features
 
+> **Documento histórico de implementação P0.** A solução offline descrita abaixo foi substituída pela API e pelo Neon. Consulte [ARCHITECTURE.md](ARCHITECTURE.md) para o desenho vigente.
+
 ## Arquitetura Geral
 - **Estado**: Context API existente (`AppContext`) — estender, não substituir
 - **Persistência**: AsyncStorage existente — adicionar chaves conforme necessário
