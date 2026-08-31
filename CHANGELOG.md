@@ -1,44 +1,91 @@
 # Changelog
 
-Este arquivo registra alterações funcionais relevantes do IronPlate.
+Alterações funcionais relevantes do IronPlate. A data representa a integração da entrega no fluxo de desenvolvimento; a publicação em produção depende de uma GitHub Release.
 
-## 2026-08-28 — Porções em medidas caseiras e gramas
+## Não lançado
 
-### Implementado
+### Interface
 
-- Criação de uma formatação centralizada para exibir cada alimento em medida caseira e em gramas.
-- Inclusão de `quantity` e `unit` nas porções criadas pelo gerador automático de dietas.
-- Conversão dinâmica para planos antigos que possuam apenas o peso em gramas.
-- Ampliação do catálogo de conversões para os alimentos utilizados nas dietas automáticas, incluindo claras, cottage, quinoa, salmão, tilápia, peito de peru, couve-flor, abobrinha, repolho e abacate.
-- Indicação explícita de que a medida caseira é aproximada e de que os gramas são a referência nutricional.
+- Grade de Ações rápidas corrigida para duas colunas no celular e quatro em telas maiores.
+- Cards de ação com altura uniforme, conteúdo contido, hover no web e feedback de toque.
+- Entrada escalonada dos blocos da Home e animação da barra de calorias.
 
-### Locais atualizados
+### Documentação
 
-- Opções de dieta recém-geradas.
+- README reescrito para refletir a arquitetura, os recursos e as versões atuais.
+- Guias de arquitetura, contribuição, Android e release alinhados ao código e aos workflows.
+- Índice central adicionado em `docs/README.md`.
+
+## 2026-08-30 — Página pública e cadastro
+
+### Adicionado
+
+- Seção pública de novidades com cards que resumem as entregas recentes.
+- Link de navegação direta para as novidades.
+- Modal responsivo de cadastro no mesmo padrão visual do login.
+- Alternância direta entre cadastro e login sem abrir uma nova página.
+
+### Alterado
+
+- A rota e a tela separada de cadastro foram removidas.
+- O cadastro passou a validar nome, email, senha, confirmação e aceite da Política de Privacidade no modal.
+
+## 2026-08-30 — Dietas validadas para atletas
+
+### Adicionado
+
+- Catálogo de receitas completas por horário: café da manhã, lanches, almoço, pré-treino, pós-treino, jantar e ceia.
+- Opções variadas e econômicas formadas por combinações culinárias intencionais.
+- Otimização de porções dentro de limites específicos por ingrediente.
+- Validação obrigatória de todas as refeições e dos totais do plano antes da apresentação.
+- Testes de regressão para integridade das receitas, limites, macros e perfis esportivos.
+
+### Alterado
+
+- O gerador deixou de combinar fontes nutricionais isoladas de forma aleatória.
+- Nomes das refeições agora identificam a receita selecionada.
+- Planos reprovados interrompem a geração em vez de chegar à interface.
+
+## 2026-08-30 — Persistência de peso e planos
+
+### Corrigido
+
+- Registros manuais de peso são persistidos no histórico do Neon.
+- Planos escolhidos são salvos e o plano ativo permanece selecionado entre sessões.
+- Exclusão e ativação de planos atualizam o banco e o estado do aplicativo.
+- Hidratação após login recarrega logs, planos, peso e alimentos personalizados.
+
+## 2026-08-28 — Medidas caseiras e gramas
+
+### Adicionado
+
+- Formatação centralizada para apresentar medida caseira aproximada e gramas.
+- `quantity` e `unit` nas porções criadas pelo gerador automático quando existe conversão conhecida.
+- Conversão durante a exibição de planos antigos que armazenam somente gramas.
+- Cobertura para claras, cottage, quinoa, salmão, tilápia, peito de peru, couve-flor, abobrinha, repolho, abacate e demais itens usados pelas receitas.
+
+### Aplicado em
+
+- Opções de dieta geradas.
 - Plano alimentar ativo.
-- Tela de edição do plano.
-- Cards das refeições diárias.
-- PDF/HTML exportado do plano alimentar.
+- Edição do plano.
+- Refeições diárias.
+- Exportação HTML/PDF.
 
-Exemplo de apresentação:
+Exemplo:
 
 ```text
 Banana, prata: aprox. 1 banana (120 g)
 ```
 
-### Compatibilidade
+Os gramas continuam sendo a referência dos cálculos; medidas caseiras são aproximações para facilitar a execução do plano.
 
-- **Web:** usa a mesma função TypeScript das demais plataformas; a exportação web foi concluída com sucesso.
-- **Android e iOS:** a apresentação usa somente componentes React Native e lógica TypeScript compartilhada, sem dependência de APIs exclusivas da web.
-- **PDF:** na web, o plano é aberto ou baixado como HTML; no celular, continua sendo gerado por `expo-print` e compartilhado por `expo-sharing`.
+## 2026-08 — Segurança, treinos e perfil
 
-### Validação realizada
+### Alterado
 
-- Verificação de tipos com `npx tsc --noEmit`: aprovada.
-- Testes da raiz do projeto: 57 testes aprovados.
-- Exportação web com Expo SDK 57: aprovada.
-- Teste automatizado adicionado para garantir que os alimentos das dietas geradas contenham medida caseira e gramas.
-
-### Observação de validação
-
-A execução em um aparelho Android ou iPhone físico não foi realizada nesta sessão. A compatibilidade móvel foi verificada por tipagem, testes e uso exclusivo das APIs multiplataforma já adotadas pelo projeto.
+- Grupos musculares das fichas de treino podem ser personalizados.
+- Recuperação de senha exige origem canônica configurada.
+- Tokens de recuperação são validados e consumidos de forma atômica.
+- Conteúdo de planos é escapado antes da exportação HTML.
+- Foto de perfil passou a persistir e aparecer corretamente após nova sessão.

@@ -1,62 +1,95 @@
-# Balanças Bluetooth Compatíveis — IronPlate
+# Balanças Bluetooth no IronPlate
 
-## ✅ Suportadas nativamente
+O suporte BLE é experimental e funciona somente em builds nativos Android/iOS. A presença de um parser no código não garante compatibilidade com todos os modelos, revisões de hardware ou firmwares de uma marca.
 
-### Tanita
-| Modelo | Serviço GATT | Char UUID | Parser |
-|--------|-------------|-----------|--------|
-| BC-758, BC-601, BC-545 | `e95d96ee-0000-0000-1000-78db6dd559b0` | auto-discover | `parseTanitaPayload()` Layout A/B |
-| MS-160, MS-300, MS-550 | Mesmo serviço BC series | auto-discover | Mesmo |
-| HD-380, HD-382 | Mesmo serviço BC series | auto-discover | Mesmo |
+Na web, use o registro manual de peso.
 
-**Métricas disponíveis:** peso (0.01kg), impedância/Ω, % gordura, massa muscular (0.01kg), % água, massa óssea (0.01kg), gordura visceral
+## Protocolos implementados
 
-### Xiaomi / Mi Body Composition Scale 2 (MJSCL02YL)
-| Modelo | Serviço GATT | Char UUID | Parser |
-|--------|-------------|-----------|--------|
-| MJSCL02YL (Mi Scale 2) | `0000fee0-...` ou `0000fecb-...` | `fee2` | `parseXiaomiPayload()` |
-| MJSCL01YD | `0000fee0-...` | `fee2` | Mesmo parser |
+| Família/protocolo | Identificação principal | Leitura implementada |
+| --- | --- | --- |
+| Bluetooth SIG Weight Scale | Serviço `0x181D`, característica `0x2A9D` | Peso métrico ou imperial |
+| Bluetooth SIG Body Composition | Serviço `0x181B` | Descoberta e fallback de payload |
+| Xiaomi/Mi Scale | Serviços `0xFEE0` ou `0xFECB`, característica `0xFEE2` | Peso e, quando presentes, gordura, impedância e massa muscular |
+| Tanita proprietário | Serviço iniciado por `e95d96ee` e características `a02ec7*` | Parser heurístico de peso e composição disponível no frame |
+| OKOK/Chipsea V1 | Serviço `0xFFF0`, notificação `0xFFF4` | Peso, impedância e timestamp quando presentes |
+| OKOK/Chipsea V2/V20 | Serviços/características `0xFFB0`, `0xFFB2`, `0xFFB3`, `0xFFF2` e `0xFFF3` | Peso e BIA conforme o formato detectado |
+| Desconhecido | Serviços enumerados após conexão | Fallback heurístico limitado |
 
-**Métricas disponíveis:** peso (0.01kg), % gordura, impedância (Ω), massa muscular (0.01kg)
+O scanner também tenta ler `manufacturerData` transmitido por broadcast em dispositivos Chipsea compatíveis.
 
-### HOGG Weight Measurement (Padrão Bluetooth SIG)
-| Marcas genéricas | Serviço GATT | Char UUID | Parser |
-|-----------------|-------------|-----------|--------|
-| Qualquer marca que implemente BT WSP | `0000181d-0000-1000-8000-00805f9b34fb` | `00002a9d` | `parseWeightMeasurement()` |
+## O que “suportado” significa
 
-**Métricas disponíveis:** apenas peso (0.005kg métrico ou 0.01×0.4536kg imperial)
+O serviço consegue descobrir o dispositivo, conectar, enumerar características e interpretar um payload que corresponde às validações implementadas. Para considerar um modelo homologado, ainda é necessário registrar:
 
----
+- nome comercial e revisão de hardware;
+- versão de firmware;
+- Android/iOS e versão do sistema;
+- UUIDs observados;
+- métricas comparadas com o visor e com o aplicativo oficial;
+- reconexão e repetição de leitura.
 
-## 🔧 Sem suporte direto (requem workaround manual)
+Sem esse teste, trate a compatibilidade como tentativa experimental. Não use listas de modelos apenas por compartilharem uma marca.
 
-As seguintes balanças **não transmitem dados via BLE open**:
-- **Withings Body+ / Body Comp** — App proprietário fecha os dados; API não documentada para BLE directo
-- **Omron** — Protocolo fechado, sem reverse-engineering público relevante
-- **Philips / Walaboi** — Dados ficam no app Philips SmartLife
-- **Emser** — App próprio, protocolo BLE desconhecido/publicamente disponível
-- **Go Smart** — App próprio, protocolo fechadosem specs públicas
+## Métricas
 
-> **Workaround:** Se sua balança não estiver na lista acima, você ainda pode registrar peso manualmente na tela "Peso Corporal".
+Dependendo do protocolo, uma leitura pode conter somente peso ou também:
 
----
+- impedância, resistência e reactância;
+- gordura corporal e visceral;
+- massa muscular e esquelética;
+- água, proteína e massa óssea;
+- IMC, metabolismo basal, idade estimada e ângulo de fase.
 
-## ⚠️ Requisitos Android
+O aplicativo só apresenta métricas realmente recebidas no payload. Valores de composição calculados pelo firmware da balança podem usar fórmulas proprietárias e não devem ser tratados como diagnóstico.
 
-Para funcionar, o Android precisa de:
-1. **Bluetooth ligado**
-2. **Localização ligada** (Android < 12) ou permissão `BLUETOOTH_SCAN` + `BLUETOOTH_CONNECT` (Android 12+)
-3. **GPS ativo** em alguns dispositivos mais antigos
-4. **Não bloquear o app pela bateria** (modo economia)
+## Uso
 
-Se a conexão falhar, abra Configurações → Apps → IronPlate → Permissões e confirme todas as autorizações.
+1. Abra a tela **Peso** em um build nativo.
+2. Toque em **Conectar balança**.
+3. Conceda as permissões solicitadas.
+4. Ligue/suba na balança e aguarde uma leitura estável.
+5. Confira o valor antes de salvar.
+6. Se a conexão falhar, cancele o scan antes de tentar novamente.
 
----
+O peso salvo é enviado à API e persistido em `weight_history`. O registro manual continua disponível mesmo quando o BLE não encontra um dispositivo.
 
-## 📋 Fluxo de uso
+## Requisitos Android
 
-1. Abra o app e vá na aba **"Peso"**
-2. Toque em **"Conectar balança"**
-3. Suba na balança enquanto espera
-4. Quando as métricas aparecerem → toque em **"Salvar Todas"**
-5. Ou vá em **"Avaliação Antropométrica"** → selecione **"Bioimpedância"** → **"Sincronizar da Balança"**
+- Android abaixo da API 31: localização pode ser exigida para o scan BLE.
+- Android 12 ou superior: permissões de scan e conexão Bluetooth.
+- Bluetooth ligado; alguns aparelhos antigos também exigem GPS ativo.
+- O aplicativo oficial da balança deve estar fechado para evitar disputa pela conexão GATT.
+
+Confira as permissões efetivas no AndroidManifest do build gerado. A configuração nativa pode mudar conforme as versões dos plugins.
+
+## iOS
+
+O CoreBluetooth gerencia a autorização no sistema. A descrição de uso, a descoberta e a leitura precisam ser validadas em iPhone físico; o simulador não substitui esse teste.
+
+## Limitações conhecidas
+
+- Protocolos fechados podem mudar sem aviso.
+- Algumas balanças transmitem apenas por broadcast e outras exigem conexão/notify.
+- Métricas adicionais podem chegar em frames separados.
+- O fallback genérico pode reconhecer um número plausível que não represente a métrica esperada; sempre confira o visor.
+- Composição corporal por bioimpedância varia com hidratação, alimentação e condições de medição.
+
+## Como reportar um modelo
+
+Abra uma issue sem dados pessoais e inclua:
+
+- marca, modelo, hardware e firmware;
+- plataforma e versão do sistema;
+- etapa em que o fluxo falha;
+- UUIDs e bytes anonimizados quando disponíveis;
+- valor exibido pela balança e valor interpretado pelo app.
+
+Não publique identificadores permanentes do aparelho ou informações de saúde de usuários.
+
+## Referências internas
+
+- Scanner e parsers: `src/services/bluetoothScale.ts`.
+- Parsers Chipsea V20: `src/services/bluetoothScaleV20.ts`.
+- Tela de peso: `src/screens/WeightScreen.tsx`.
+- Build Android: [BUILD-ANDROID.md](BUILD-ANDROID.md).

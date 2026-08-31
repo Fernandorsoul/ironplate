@@ -1,5 +1,7 @@
 # IronPlate - Intake Brief
 
+> **Documento histórico.** Este brief registra a proposta inicial offline-first e não descreve a arquitetura atual. Para o estado implementado, consulte [README.md](README.md) e [ARCHITECTURE.md](ARCHITECTURE.md). O Neon e a API substituíram a persistência local planejada.
+
 ## Problema
 Atletas de bodybuilding e BJJ precisam gerenciar nutrição de forma específica para suas modalidades, mas apps genéricos não atendem às necessidades únicas (timing de refeições, macros para performance, ciclos de bulking/cutting).
 

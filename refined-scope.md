@@ -1,5 +1,7 @@
 # IronPlate — Refined Scope (Product Owner)
 
+> **Documento histórico de discovery.** Status, gaps e escopo abaixo representam o início do projeto. Não use este arquivo como fonte de verdade da versão atual; consulte [README.md](README.md), [CHANGELOG.md](CHANGELOG.md) e [ARCHITECTURE.md](ARCHITECTURE.md).
+
 ## Status: Discovery Complete
 
 ## Estado Atual vs Requisitos
