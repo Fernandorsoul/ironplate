@@ -49,7 +49,17 @@ async function apiFetch(
 
 async function expectOk(response: Response): Promise<void> {
   if (response.ok) return;
-  throw new ApiError(`API request failed with status ${response.status}`, response.status);
+
+  let message = `API request failed with status ${response.status}`;
+  try {
+    const payload = await response.json() as { error?: unknown };
+    if (typeof payload.error === 'string' && payload.error.trim()) {
+      message = payload.error;
+    }
+  } catch {
+    // Some infrastructure errors return an empty or non-JSON response body.
+  }
+  throw new ApiError(message, response.status);
 }
 
 async function authenticate(

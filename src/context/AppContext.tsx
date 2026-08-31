@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { Alert, Platform } from 'react-native';
 import { UserProfile, DailyLog, MealPlan, WeightEntry, Macros, Food, WeeklySummary, Meal, Workout } from '../types';
-import { calculateMacros } from '../utils/calculations';
+import { calculateMacros, sumMacros } from '../utils/calculations';
 import * as Database from '../services/database';
 import { purgeLegacyLocalData } from '../services/storage';
 import { clearSession, loadSession, saveSession } from '../services/session';
@@ -70,6 +70,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [targetMacros, setTargetMacros] = useState<Macros | null>(null);
   const [dailyLogs, setDailyLogs] = useState<DailyLog[]>([]);
   const dailyLogsRef = useRef<DailyLog[]>([]);
+  const dailyLogUpdateQueueRef = useRef<Promise<void>>(Promise.resolve());
   const [mealPlans, setMealPlans] = useState<MealPlan[]>([]);
   const [weightHistory, setWeightHistory] = useState<WeightEntry[]>([]);
   const [customFoods, setCustomFoods] = useState<Food[]>([]);
@@ -86,8 +87,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     setProfileState(savedProfile);
     setTargetMacros(savedProfile ? calculateMacros(savedProfile) : null);
-    dailyLogsRef.current = logs || [];
-    setDailyLogs(logs || []);
+    const sortedLogs = [...(logs || [])].sort((a, b) => a.date.localeCompare(b.date));
+    dailyLogsRef.current = sortedLogs;
+    setDailyLogs(sortedLogs);
     setMealPlans(plans || []);
     setWeightHistory(weight || []);
     setCustomFoods(savedCustomFoods || []);
@@ -133,16 +135,35 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
   }, [getTodayDate]);
 
-  const updateTodayLog = useCallback(async (updater: (log: DailyLog) => DailyLog) => {
-    if (!userId) throw new Error('Authentication required');
-    const today = getTodayDate();
-    const currentLog = getTodayLog();
-    const updated = updater(currentLog);
-    await Database.saveDailyLog(userId, updated);
-    const newLogs = dailyLogsRef.current.filter(log => log.date !== today);
-    newLogs.push(updated);
-    dailyLogsRef.current = newLogs;
-    setDailyLogs(newLogs);
+  const updateTodayLog = useCallback((updater: (log: DailyLog) => DailyLog): Promise<void> => {
+    if (!userId) return Promise.reject(new Error('Authentication required'));
+
+    const executeUpdate = async () => {
+      const today = getTodayDate();
+      const currentLog = getTodayLog();
+      const candidate = updater(currentLog);
+      const updated: DailyLog = {
+        ...candidate,
+        totalMacros: sumMacros(candidate.meals.map(meal => meal.totalMacros)),
+      };
+
+      await Database.saveDailyLog(userId, updated);
+
+      const newLogs = dailyLogsRef.current.filter(log => log.date !== today);
+      newLogs.push(updated);
+      newLogs.sort((a, b) => a.date.localeCompare(b.date));
+      dailyLogsRef.current = newLogs;
+      setDailyLogs(newLogs);
+    };
+
+    const queuedUpdate = dailyLogUpdateQueueRef.current
+      .catch(() => undefined)
+      .then(executeUpdate);
+    dailyLogUpdateQueueRef.current = queuedUpdate.then(
+      () => undefined,
+      () => undefined,
+    );
+    return queuedUpdate;
   }, [getTodayDate, getTodayLog, userId]);
 
   const login = useCallback(async (email: string, password: string): Promise<boolean> => {
@@ -225,12 +246,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await updateTodayLog(log => ({
       ...log,
       meals: [...log.meals, meal],
-      totalMacros: {
-        calories: log.totalMacros.calories + meal.totalMacros.calories,
-        protein: log.totalMacros.protein + meal.totalMacros.protein,
-        carbs: log.totalMacros.carbs + meal.totalMacros.carbs,
-        fat: log.totalMacros.fat + meal.totalMacros.fat,
-      },
     }));
   }, [updateTodayLog]);
 
@@ -241,12 +256,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return {
         ...log,
         meals: log.meals.filter(m => m.id !== mealId),
-        totalMacros: {
-          calories: log.totalMacros.calories - meal.totalMacros.calories,
-          protein: log.totalMacros.protein - meal.totalMacros.protein,
-          carbs: log.totalMacros.carbs - meal.totalMacros.carbs,
-          fat: log.totalMacros.fat - meal.totalMacros.fat,
-        },
       };
     });
   }, [updateTodayLog]);
