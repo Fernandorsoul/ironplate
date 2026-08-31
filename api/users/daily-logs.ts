@@ -20,6 +20,45 @@ function parseMuscleGroups(value: unknown): string[] | undefined {
   }
 }
 
+interface MacroValues {
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+}
+
+function roundMacros(macros: MacroValues): MacroValues {
+  return {
+    calories: Math.round(macros.calories * 1000) / 1000,
+    protein: Math.round(macros.protein * 1000) / 1000,
+    carbs: Math.round(macros.carbs * 1000) / 1000,
+    fat: Math.round(macros.fat * 1000) / 1000,
+  };
+}
+
+function calculatePortionMacros(portion: { food: { macros: MacroValues }; grams: number }): MacroValues {
+  const factor = portion.grams / 100;
+  return roundMacros({
+    calories: portion.food.macros.calories * factor,
+    protein: portion.food.macros.protein * factor,
+    carbs: portion.food.macros.carbs * factor,
+    fat: portion.food.macros.fat * factor,
+  });
+}
+
+function calculateMealTotals(foods: Array<{ macros: MacroValues }>): MacroValues {
+  const totals = foods.reduce(
+    (sum, portion) => ({
+      calories: sum.calories + portion.macros.calories,
+      protein: sum.protein + portion.macros.protein,
+      carbs: sum.carbs + portion.macros.carbs,
+      fat: sum.fat + portion.macros.fat,
+    }),
+    { calories: 0, protein: 0, carbs: 0, fat: 0 },
+  );
+  return roundMacros(totals);
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (applyCors(req, res, ['GET', 'POST'])) return;
   if (req.method !== 'GET' && req.method !== 'POST') {
@@ -38,6 +77,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const { userId, log } = parsed.data;
         if (!await requireUserAccess(req, res, userId)) return;
         const logId = `${userId}_${log.date}`;
+        const persistedMeals = log.meals.map(meal => {
+          const foods = meal.foods.map(portion => ({
+            ...portion,
+            macros: calculatePortionMacros(portion),
+          }));
+          return {
+            ...meal,
+            foods,
+            totalMacros: calculateMealTotals(foods),
+          };
+        });
 
         await sql.transaction(txn => [
           txn`
@@ -67,7 +117,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             VALUES (${`${userId}_${log.date}`}, ${userId}, ${log.date}, ${log.weight})
             ON CONFLICT (user_id, date) DO UPDATE SET weight = EXCLUDED.weight
           `]),
-          ...log.meals.flatMap(meal => [
+          ...persistedMeals.flatMap(meal => [
             txn`
               INSERT INTO meals (
                 id, daily_log_id, user_id, name, timing, time,
