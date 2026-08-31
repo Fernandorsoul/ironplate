@@ -1,184 +1,178 @@
-# Guia de Release e Deploy
+# Release e deploy do IronPlate
 
-## Visão Geral
+## Como o deploy funciona
 
-O deploy na Vercel é triggerado **automaticamente** quando:
-1. Uma **release é publicada** no GitHub (apenas se targeting master)
-2. Uma **tag `v*` é pushada** (apenas se na branch master)
+O workflow `.github/workflows/deploy.yml` é acionado somente quando uma GitHub Release é publicada.
 
-## Fluxo de Release
+Para continuar, a release precisa:
 
-### Método 1: Script Automatizado (Recomendado)
+1. apontar para uma tag cujo commit pertence à `master`;
+2. ter `target_commitish` igual a `master`;
+3. encontrar os secrets necessários no GitHub Actions.
 
-```bash
-# 1. Certifique-se de estar na master com tudo commitado
-git checkout master
-git pull origin master
+Um push comum, um pull request ou o envio isolado de uma tag não dispara o deploy atual.
 
-# 2. Executar script de release
-./scripts/release.sh 1.0.0 "Primeira release estável"
+## Fluxo de branches
 
-# 3. O script vai:
-#    - Criar tag v1.0.0
-#    - Pushar a tag (triggera deploy)
-#    - Mostrar link para criar release no GitHub
-
-# 4. Criar release no GitHub (opcional mas recomendado)
-#    Acesse: https://github.com/Fernandorsoul/ironplate/releases/new?tag=v1.0.0
+```text
+feat/* ou fix/*
+       ↓ PR
+      dev
+       ↓ PR de estabilização
+    master
+       ↓ tag + GitHub Release publicada
+Vercel production
 ```
 
-### Método 2: Manual
+## Pré-release
+
+Na `dev`:
+
+- finalize os PRs que fazem parte da versão;
+- atualize `CHANGELOG.md` e a seção pública de novidades quando necessário;
+- confirme migrations, variáveis novas e compatibilidade de clientes antigos;
+- execute os testes e builds proporcionais à mudança.
+
+Antes de levar para `master`:
 
 ```bash
-# 1. Certifique-se de estar na master
-git checkout master
-git pull origin master
-
-# 2. Criar tag
-git tag -a v1.0.0 -m "Release v1.0.0"
-
-# 3. Pushar tag (triggera deploy)
-git push origin v1.0.0
-
-# 4. Criar release no GitHub
-gh release create v1.0.0 --title "Release v1.0.0" --notes "Notas da release..."
+npm ci
+npm test -- --runInBand
+npm run typecheck
+npm run lint
+npx drizzle-kit check
+npm run vercel-build
 ```
 
-## Configuração do Deploy
+Mudanças visuais devem ter revisão em largura móvel e desktop. Mudanças BLE, PDF, SecureStore ou permissões exigem build nativo e teste em aparelho.
 
-### Variáveis de Ambiente Necessárias
+## Publicando uma versão
 
-No GitHub (Settings → Secrets and variables → Actions):
-- `VERCEL_TOKEN`: Token de acesso da Vercel
+### 1. Sincronize a `master`
 
-Obter token em: [Vercel Account Settings → Tokens](https://vercel.com/account/tokens)
+Depois do PR de estabilização ser aprovado e mesclado:
 
-### Verificações de Segurança
-
-O workflow `deploy.yml` verifica:
-1. ✅ Tag deve começar com `v` (ex: `v1.0.0`)
-2. ✅ Release deve targeting branch `master`
-3. ✅ Push de tag deve ser na branch `master`
-
-### O que NÃO triggera deploy
-
-- ❌ Push em branches `dev`, `staging`, `feat/*`
-- ❌ Tags sem prefixo `v` (ex: `1.0.0`)
-- ❌ Releases targeting outras branches
-- ❌ Pull requests
-
-## Estrutura de Versões
-
-Seguimos [Semantic Versioning](https://semver.org/):
-
-- **MAJOR**: Mudanças incompatíveis (ex: `1.0.0` → `2.0.0`)
-- **MINOR**: Novas funcionalidades compatíveis (ex: `1.0.0` → `1.1.0`)
-- **PATCH**: Correções de bugs (ex: `1.0.0` → `1.0.1`)
-
-Exemplos:
-- `v1.0.0` - Primeira release estável
-- `v1.1.0` - Novas funcionalidades
-- `v1.1.1` - Correção de bug
-- `v2.0.0` - Breaking changes
-
-## Monitoramento do Deploy
-
-### GitHub Actions
-Acompanhe em: https://github.com/Fernandorsoul/ironplate/actions
-
-### Vercel Dashboard
-Acompanhe em: https://vercel.com/rs-oul/ironplate/deployments
-
-### Logs de Deploy
 ```bash
-# Ver logs do workflow
+git switch master
+git pull --ff-only origin master
+git status --short
+```
+
+O working tree precisa estar limpo.
+
+### 2. Verifique a próxima versão
+
+O projeto usa tags `vMAJOR.MINOR.PATCH`, por exemplo:
+
+- `v1.1.0`: funcionalidade compatível;
+- `v1.1.1`: correção compatível;
+- `v2.0.0`: mudança incompatível.
+
+Confira as tags existentes:
+
+```bash
+git tag --sort=-version:refname
+```
+
+### 3. Crie e envie a tag
+
+Manual:
+
+```bash
+git tag -a v1.1.0 -m "Release v1.1.0"
+git push origin v1.1.0
+```
+
+Ou use o script existente:
+
+```bash
+./scripts/release.sh 1.1.0 "Resumo da versão"
+```
+
+O script cria e envia a tag, mas a publicação da GitHub Release no passo seguinte continua obrigatória para iniciar o workflow.
+
+### 4. Publique a GitHub Release
+
+```bash
+gh release create v1.1.0 \
+  --target master \
+  --title "IronPlate v1.1.0" \
+  --generate-notes
+```
+
+Também é possível publicar pela interface do GitHub. Confirme explicitamente que o target é `master` antes de publicar.
+
+## Etapas automáticas
+
+Após a publicação, o workflow:
+
+1. baixa o commit da tag;
+2. confirma que ele pertence à `master`;
+3. instala Node.js 22.13 e as dependências;
+4. aplica migrations usando `DATABASE_URL_UNPOOLED`;
+5. carrega a configuração de produção da Vercel;
+6. executa `vercel build --prod`;
+7. publica o artefato com `vercel deploy --prebuilt --prod`.
+
+O `vercel.json` desabilita deploy automático por integração Git. O workflow de release é a fonte de verdade do deploy de produção.
+
+## Secrets necessários
+
+Configure em GitHub → Settings → Secrets and variables → Actions:
+
+| Secret | Uso |
+| --- | --- |
+| `VERCEL_TOKEN` | Autenticar build e deploy na Vercel |
+| `DATABASE_URL_UNPOOLED` | Aplicar migrations com conexão direta ao Neon |
+
+As variáveis de runtime da API e do frontend também precisam existir no ambiente Production da Vercel, conforme `.env.example`.
+
+## Verificação pós-deploy
+
+- [ ] Workflow concluído sem erro.
+- [ ] Página pública e seção de novidades carregam.
+- [ ] Cadastro, login e logout funcionam.
+- [ ] Recuperação de senha gera email com origem correta.
+- [ ] Plano ativo, peso manual e demais dados persistem após novo login.
+- [ ] API bloqueia origem não autorizada e chamadas sem token.
+- [ ] Smoke tests executados contra a URL de produção.
+- [ ] Logs não contêm tokens, senhas ou dados pessoais.
+
+## Monitoramento
+
+```bash
+# Execuções recentes do deploy
 gh run list --workflow=deploy.yml
 
-# Ver logs específicos
-gh run view <run-id> --log
+# Detalhes de uma execução
+gh run view ID_DA_EXECUCAO --log
 ```
+
+- GitHub Actions: `https://github.com/Fernandorsoul/ironplate/actions`
+- Vercel: use o dashboard do projeto e confirme o domínio de produção antes do smoke test.
+
+## Falha antes do deploy
+
+Se a migration falhar, o workflow não publica o novo frontend. Corrija a migration em uma branch isolada, gere uma nova versão patch e mantenha a tag/release com falha como registro histórico.
+
+Não mova nem sobrescreva uma tag publicada.
 
 ## Rollback
 
-Se algo der errado:
+Como a release pode incluir migration, rollback não deve ser feito movendo a tag anterior. Prefira:
 
-```bash
-# 1. Identificar tag anterior
-git tag -l --sort=-v:refname
+1. identificar o último commit estável;
+2. criar um commit de reversão compatível com o schema já aplicado;
+3. validar em `dev` e `master`;
+4. publicar uma nova versão patch;
+5. executar o smoke test novamente.
 
-# 2. Criar nova tag apontando para commit anterior
-git tag -a v1.0.1-hotfix <commit-hash> -m "Hotfix v1.0.1"
+Se o problema estiver apenas no frontend e o schema for compatível, a Vercel também permite promover um deployment anterior. Registre a ação e ainda prepare uma versão patch para reconciliar Git e produção.
 
-# 3. Pushar (triggera novo deploy)
-git push origin v1.0.1-hotfix
-```
+## O que não fazer
 
-## Checklist de Release
-
-- [ ] Todos os PRs mergeados na master
-- [ ] CI passando na master
-- [ ] Testes manuais realizados
-- [ ] Versão atualizada no `package.json` (opcional)
-- [ ] Changelog atualizado (opcional)
-- [ ] Tag criada e pushada
-- [ ] Release criada no GitHub
-- [ ] Deploy verificado na Vercel
-- [ ] Smoke tests pós-deploy
-
-## Troubleshooting
-
-### Deploy não triggera
-
-1. Verifique se a tag começa com `v`: `git tag -l`
-2. Verifique se está na master: `git branch --show-current`
-3. Verifique secrets no GitHub: Settings → Secrets
-4. Verifique logs do workflow: Actions → Deploy to Vercel
-
-### Erro "VERCEL_TOKEN not found"
-
-Adicione o token em:
-GitHub → Settings → Secrets and variables → Actions → New repository secret
-- Name: `VERCEL_TOKEN`
-- Value: `<seu token da Vercel>`
-
-### Deploy falha
-
-1. Verifique logs do workflow
-2. Verifique se `vercel.json` está configurado corretamente
-3. Verifique se há erros de build
-4. Tente redeploy manual via Vercel Dashboard
-
-## Exemplo Completo
-
-```bash
-# Preparar release
-git checkout master
-git pull origin master
-npm test  # Garantir que testes passam
-
-# Criar release
-./scripts/release.sh 1.2.0 "Adiciona recuperação de senha e rate limiting"
-
-# Aguardar deploy (~2-3 minutos)
-# Verificar em: https://vercel.com/rs-oul/ironplate/deployments
-
-# Criar release no GitHub com notas
-gh release create v1.2.0 --title "Release v1.2.0" --notes "
-## Novidades
-- Recuperação de senha com verificação de email
-- Rate limiting em todos os endpoints API
-- Política de privacidade LGPD compliant
-- Exclusão de conta
-
-## Correções
-- Fix no cálculo de macros
-- Fix no layout da tela de perfil
-"
-```
-
-## Suporte
-
-Para dúvidas ou problemas:
-- Documentação Vercel: https://vercel.com/docs
-- GitHub Actions: https://docs.github.com/actions
-- Issues do projeto: https://github.com/Fernandorsoul/ironplate/issues
+- Não publicar release a partir de `dev` ou de uma feature branch.
+- Não usar `DATABASE_URL` pooled para migrations.
+- Não colocar segredos em `EXPO_PUBLIC_*`.
+- Não apagar ou reposicionar tags já publicadas.
+- Não declarar a versão pronta sem testar os fluxos afetados.

@@ -2,11 +2,17 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { generalRateLimit } from '../middleware/rateLimit';
 import { applyCors } from '../middleware/cors';
 import { getSql } from '../middleware/db';
-import { deleteMealPlanSchema, mealPlanPostSchema, userIdSchema, validationError } from '../middleware/validation';
+import {
+  activateMealPlanSchema,
+  deleteMealPlanSchema,
+  mealPlanPostSchema,
+  userIdSchema,
+  validationError,
+} from '../middleware/validation';
 import { requireUserAccess } from '../middleware/auth';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (applyCors(req, res, ['GET', 'POST', 'DELETE'])) return;
+  if (applyCors(req, res, ['GET', 'POST', 'PUT', 'DELETE'])) return;
 
   const sql = getSql();
   if (!sql) {
@@ -60,26 +66,61 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!await requireUserAccess(req, res, userId)) return;
         const plan = parsed.data.plan as Record<string, any>;
 
-        // INSERT OR REPLACE (SQLite) is not valid PostgreSQL; use upsert semantics instead
-        await sql`
-          INSERT INTO meal_plans (id, user_id, name, goal, total_calories, total_protein, total_carbs, total_fat, meals_json, is_active, created_at, updated_at)
-          VALUES (${plan.id}, ${userId}, ${plan.name}, ${plan.goal}, ${plan.totalMacros.calories}, ${plan.totalMacros.protein}, ${plan.totalMacros.carbs}, ${plan.totalMacros.fat}, ${JSON.stringify(plan.meals)}, ${plan.isActive || false}, ${plan.createdAt}, NOW())
-          ON CONFLICT (id) DO UPDATE SET
-            name = EXCLUDED.name,
-            goal = EXCLUDED.goal,
-            total_calories = EXCLUDED.total_calories,
-            total_protein = EXCLUDED.total_protein,
-            total_carbs = EXCLUDED.total_carbs,
-            total_fat = EXCLUDED.total_fat,
-            meals_json = EXCLUDED.meals_json,
-            is_active = EXCLUDED.is_active,
-            updated_at = NOW()
-          WHERE meal_plans.user_id = EXCLUDED.user_id
-        `;
+        await sql.transaction(txn => [
+          ...(plan.isActive ? [txn`
+            UPDATE meal_plans
+            SET is_active = false, updated_at = NOW()
+            WHERE user_id = ${userId} AND id <> ${plan.id} AND is_active = true
+          `] : []),
+          txn`
+            INSERT INTO meal_plans (id, user_id, name, goal, total_calories, total_protein, total_carbs, total_fat, meals_json, is_active, created_at, updated_at)
+            VALUES (${plan.id}, ${userId}, ${plan.name}, ${plan.goal}, ${plan.totalMacros.calories}, ${plan.totalMacros.protein}, ${plan.totalMacros.carbs}, ${plan.totalMacros.fat}, ${JSON.stringify(plan.meals)}, ${plan.isActive ?? false}, ${plan.createdAt}, NOW())
+            ON CONFLICT (id) DO UPDATE SET
+              name = EXCLUDED.name,
+              goal = EXCLUDED.goal,
+              total_calories = EXCLUDED.total_calories,
+              total_protein = EXCLUDED.total_protein,
+              total_carbs = EXCLUDED.total_carbs,
+              total_fat = EXCLUDED.total_fat,
+              meals_json = EXCLUDED.meals_json,
+              is_active = EXCLUDED.is_active,
+              updated_at = NOW()
+            WHERE meal_plans.user_id = EXCLUDED.user_id
+          `,
+        ]);
 
         return res.status(201).json({ success: true });
       } catch (error) {
         console.error('Save meal plan error:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+      }
+    }
+
+    if (req.method === 'PUT') {
+      try {
+        const parsed = activateMealPlanSchema.safeParse(req.body);
+        if (!parsed.success) {
+          return validationError(res, parsed.error.issues);
+        }
+        const { userId, planId } = parsed.data;
+        if (!await requireUserAccess(req, res, userId)) return;
+
+        const updated = await sql`
+          UPDATE meal_plans
+          SET is_active = (id = ${planId}), updated_at = NOW()
+          WHERE user_id = ${userId}
+            AND EXISTS (
+              SELECT 1 FROM meal_plans target
+              WHERE target.id = ${planId} AND target.user_id = ${userId}
+            )
+          RETURNING id
+        `;
+        if (!(updated as any[]).some(plan => plan.id === planId)) {
+          return res.status(404).json({ error: 'Meal plan not found' });
+        }
+        return res.status(200).json({ success: true });
+      } catch (error) {
+        console.error('Activate meal plan error:', error);
         return res.status(500).json({ error: 'Internal server error' });
       }
     }
