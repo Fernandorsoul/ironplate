@@ -35,7 +35,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const result = (entries as any[]).map(e => ({
           date: e.date,
           weight: e.weight,
-          bodyFat: e.body_fat || undefined,
+          bodyFat: e.body_fat ?? undefined,
         }));
 
         return res.status(200).json(result);
@@ -56,13 +56,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!await requireUserAccess(req, res, userId)) return;
         const entry = parsed.data.entry as Record<string, any>;
 
-        await sql`
-          INSERT INTO weight_history (id, user_id, date, weight, body_fat)
-          VALUES (${`${userId}_${entry.date}`}, ${userId}, ${entry.date}, ${entry.weight}, ${entry.bodyFat || null})
-          ON CONFLICT(user_id, date) DO UPDATE SET
-            weight = EXCLUDED.weight,
-            body_fat = EXCLUDED.body_fat
-        `;
+        const entryId = `${userId}_${entry.date}`;
+        await sql.transaction(txn => [
+          txn`
+            INSERT INTO weight_history (id, user_id, date, weight, body_fat)
+            VALUES (${entryId}, ${userId}, ${entry.date}, ${entry.weight}, ${entry.bodyFat ?? null})
+            ON CONFLICT(user_id, date) DO UPDATE SET
+              weight = EXCLUDED.weight,
+              body_fat = COALESCE(EXCLUDED.body_fat, weight_history.body_fat)
+          `,
+          txn`
+            INSERT INTO daily_logs (id, user_id, date, weight, updated_at)
+            VALUES (${entryId}, ${userId}, ${entry.date}, ${entry.weight}, NOW())
+            ON CONFLICT(user_id, date) DO UPDATE SET
+              weight = EXCLUDED.weight,
+              updated_at = NOW()
+            WHERE daily_logs.user_id = EXCLUDED.user_id
+          `,
+        ]);
 
         return res.status(201).json({ success: true });
       } catch (error) {
