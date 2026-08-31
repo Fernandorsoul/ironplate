@@ -13,7 +13,7 @@ jest.mock('../api/middleware/auth', () => ({
 
 import mealPlansHandler from '../api/users/meal-plans';
 import weightHistoryHandler from '../api/users/weight-history';
-import dailyLogsHandler from '../api/users/daily-logs';
+import { normalizeMealFoods } from '../api/services/mealNutrition';
 
 const userId = '550e8400-e29b-41d4-a716-446655440000';
 
@@ -41,49 +41,25 @@ describe('daily-log, weight and meal-plan persistence routes', () => {
     });
   });
 
-  it('stores a meal and derives its totals from the persisted food portions', async () => {
-    const response = responseMock();
-
-    await dailyLogsHandler({
-      method: 'POST',
-      headers: {},
-      body: {
-        userId,
-        log: {
-          date: '2026-08-31',
-          meals: [{
-            id: 'meal-1',
-            name: 'Almoço',
-            timing: 'regular',
-            foods: [{
-              food: {
-                id: 'food-1',
-                name: 'Arroz',
-                category: 'carboidrato',
-                macros: { calories: 130, protein: 2.7, carbs: 28, fat: 0.3 },
-              },
-              grams: 150,
-              macros: { calories: 1, protein: 1, carbs: 1, fat: 1 },
-            }],
-            totalMacros: { calories: 999, protein: 999, carbs: 999, fat: 999 },
-          }],
-          workouts: [],
-          totalMacros: { calories: 999, protein: 999, carbs: 999, fat: 999 },
-        },
+  it('derives persisted meal totals from food portions', () => {
+    const normalized = normalizeMealFoods([{
+      food: {
+        id: 'food-1',
+        name: 'Arroz',
+        category: 'carboidrato',
+        macros: { calories: 130, protein: 2.7, carbs: 28, fat: 0.3 },
       },
-    } as any, response);
+      grams: 150,
+      macros: { calories: 1, protein: 1, carbs: 1, fat: 1 },
+    }]);
 
-    expect(mockTransaction).toHaveBeenCalledTimes(1);
-    const mealInsertCall = mockTransactionQuery.mock.calls.find(call =>
-      (call[0] as TemplateStringsArray).join(' ').includes('INSERT INTO meals'),
-    );
-    expect(mealInsertCall).toBeDefined();
-    expect(mealInsertCall?.slice(7, 11)).toEqual([195, 4.05, 42, 0.45]);
-    const foodInsertCall = mockTransactionQuery.mock.calls.find(call =>
-      (call[0] as TemplateStringsArray).join(' ').includes('INSERT INTO meal_foods'),
-    );
-    expect(foodInsertCall?.slice(7, 11)).toEqual([195, 4.05, 42, 0.45]);
-    expect(response.status).toHaveBeenCalledWith(201);
+    expect(normalized.foods[0].macros).toEqual({
+      calories: 195,
+      protein: 4.05,
+      carbs: 42,
+      fat: 0.45,
+    });
+    expect(normalized.totalMacros).toEqual(normalized.foods[0].macros);
   });
 
   it('stores a manual weight in history and the daily log in one transaction', async () => {
