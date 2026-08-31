@@ -4,7 +4,12 @@ import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../constants/theme';
 import { FOOD_DATABASE, MEAL_TIMING_LABELS } from '../constants/foods';
 import { useApp } from '../context/AppContext';
 import { useFoodSearch, useOnlineFoodSearch } from '../hooks';
-import { calculatePortionMacros, sumMacros } from '../utils/calculations';
+import {
+  calculatePortionMacros,
+  formatNutritionValue,
+  roundNutritionValue,
+  sumMacros,
+} from '../utils/calculations';
 import { findPortionsForFood } from '../constants/portions';
 import { Food, Meal, MealTiming } from '../types';
 import { ApiError } from '../services/database';
@@ -52,9 +57,20 @@ export default function AddMealScreen({ navigation }: any) {
   };
 
   const updateGrams = (index: number, grams: string) => {
-    const numGrams = parseInt(grams) || 0;
+    const parsedGrams = parseFloat(grams.replace(',', '.'));
+    const numGrams = Number.isFinite(parsedGrams) ? Math.max(0, parsedGrams) : 0;
     setSelectedFoods(prev =>
-      prev.map((item, i) => i === index ? { ...item, grams: numGrams } : item)
+      prev.map((item, i) => {
+        if (i !== index) return item;
+        const portions = item.food.portions || findPortionsForFood(item.food.name);
+        const portionDef = portions?.find(p => p.unit === item.unit);
+        const quantity = item.unit === 'g'
+          ? numGrams
+          : portionDef
+            ? roundNutritionValue(numGrams / portionDef.gramsPerUnit)
+            : item.quantity;
+        return { ...item, grams: numGrams, quantity };
+      })
     );
   };
 
@@ -64,7 +80,11 @@ export default function AddMealScreen({ navigation }: any) {
       if (i !== index) return item;
       const portions = item.food.portions || findPortionsForFood(item.food.name);
       const portionDef = portions?.find(p => p.unit === item.unit);
-      const newGrams = portionDef ? Math.round(value * portionDef.gramsPerUnit) : item.grams;
+      const newGrams = item.unit === 'g'
+        ? value
+        : portionDef
+          ? roundNutritionValue(value * portionDef.gramsPerUnit)
+          : item.grams;
       return { ...item, quantity: value, grams: newGrams };
     }));
   };
@@ -74,8 +94,12 @@ export default function AddMealScreen({ navigation }: any) {
       if (i !== index) return item;
       const portions = item.food.portions || findPortionsForFood(item.food.name);
       const portionDef = portions?.find(p => p.unit === unit);
-      const newGrams = portionDef ? Math.round(item.quantity * portionDef.gramsPerUnit) : item.grams;
-      return { ...item, unit, grams: newGrams };
+      const quantity = unit === 'g'
+        ? item.grams
+        : portionDef
+          ? roundNutritionValue(item.grams / portionDef.gramsPerUnit)
+          : item.quantity;
+      return { ...item, unit, quantity };
     }));
   };
 
@@ -93,10 +117,14 @@ export default function AddMealScreen({ navigation }: any) {
       Alert.alert('Erro', 'Adicione pelo menos um alimento');
       return;
     }
+    if (selectedFoods.some(item => item.grams <= 0 || item.quantity <= 0)) {
+      Alert.alert('Erro', 'Informe uma quantidade maior que zero para cada alimento');
+      return;
+    }
 
     const meal: Meal = {
       id: Crypto.randomUUID(),
-      name: mealName,
+      name: mealName.trim(),
       timing,
       foods: selectedFoods.map(item => ({
         food: item.food,
@@ -194,7 +222,7 @@ export default function AddMealScreen({ navigation }: any) {
                 <View style={styles.foodInfo}>
                   <Text style={styles.foodName}>{item.food.name}</Text>
                   <Text style={styles.foodMacros}>
-                    {calculatePortionMacros(item.food, item.grams).calories} kcal
+                    {formatNutritionValue(calculatePortionMacros(item.food, item.grams).calories)} kcal
                   </Text>
                 </View>
                 <View style={styles.foodActions}>
@@ -240,10 +268,10 @@ export default function AddMealScreen({ navigation }: any) {
           <View style={styles.totalCard}>
             <Text style={styles.totalTitle}>Total</Text>
             <View style={styles.totalMacros}>
-              <Text style={[styles.totalMacro, { color: COLORS.calories }]}>{Math.round(totalMacros.calories)} kcal</Text>
-              <Text style={[styles.totalMacro, { color: COLORS.protein }]}>P: {totalMacros.protein}g</Text>
-              <Text style={[styles.totalMacro, { color: COLORS.carbs }]}>C: {totalMacros.carbs}g</Text>
-              <Text style={[styles.totalMacro, { color: COLORS.fat }]}>G: {totalMacros.fat}g</Text>
+              <Text style={[styles.totalMacro, { color: COLORS.calories }]}>{formatNutritionValue(totalMacros.calories)} kcal</Text>
+              <Text style={[styles.totalMacro, { color: COLORS.protein }]}>P: {formatNutritionValue(totalMacros.protein)}g</Text>
+              <Text style={[styles.totalMacro, { color: COLORS.carbs }]}>C: {formatNutritionValue(totalMacros.carbs)}g</Text>
+              <Text style={[styles.totalMacro, { color: COLORS.fat }]}>G: {formatNutritionValue(totalMacros.fat)}g</Text>
             </View>
           </View>
         )}

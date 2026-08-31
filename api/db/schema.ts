@@ -60,6 +60,8 @@ export const mealFoods = pgTable('meal_foods', {
   foodName: text('food_name').notNull(),
   foodCategory: text('food_category'),
   grams: doublePrecision('grams').notNull(),
+  quantity: doublePrecision('quantity'),
+  unit: text('unit'),
   calories: doublePrecision('calories').default(0).notNull(),
   protein: doublePrecision('protein').default(0).notNull(),
   carbs: doublePrecision('carbs').default(0).notNull(),
