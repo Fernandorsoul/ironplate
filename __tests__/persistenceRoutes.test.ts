@@ -13,6 +13,7 @@ jest.mock('../api/middleware/auth', () => ({
 
 import mealPlansHandler from '../api/users/meal-plans';
 import weightHistoryHandler from '../api/users/weight-history';
+import { normalizeMealFoods } from '../api/services/mealNutrition';
 
 const userId = '550e8400-e29b-41d4-a716-446655440000';
 
@@ -30,7 +31,7 @@ function statementAt(index: number): string {
   return (mockTransactionQuery.mock.calls[index][0] as TemplateStringsArray).join(' ');
 }
 
-describe('weight and meal-plan persistence routes', () => {
+describe('daily-log, weight and meal-plan persistence routes', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockTransactionQuery.mockImplementation(() => Promise.resolve([]));
@@ -38,6 +39,27 @@ describe('weight and meal-plan persistence routes', () => {
       const queries = buildQueries(mockTransactionQuery);
       return Promise.all(queries);
     });
+  });
+
+  it('derives persisted meal totals from food portions', () => {
+    const normalized = normalizeMealFoods([{
+      food: {
+        id: 'food-1',
+        name: 'Arroz',
+        category: 'carboidrato',
+        macros: { calories: 130, protein: 2.7, carbs: 28, fat: 0.3 },
+      },
+      grams: 150,
+      macros: { calories: 1, protein: 1, carbs: 1, fat: 1 },
+    }]);
+
+    expect(normalized.foods[0].macros).toEqual({
+      calories: 195,
+      protein: 4.05,
+      carbs: 42,
+      fat: 0.45,
+    });
+    expect(normalized.totalMacros).toEqual(normalized.foods[0].macros);
   });
 
   it('stores a manual weight in history and the daily log in one transaction', async () => {
