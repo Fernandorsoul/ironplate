@@ -137,7 +137,7 @@ export const TACO_DATABASE: Food[] = [
   { id: 'taco_073', name: 'Queijo, muçarela', macros: { calories: 330, protein: 22.6, carbs: 3.1, fat: 26.0 }, category: 'Leite e derivados' },
   { id: 'taco_074', name: 'Queijo, parmesão', macros: { calories: 453, protein: 35.8, carbs: 3.7, fat: 33.6 }, category: 'Leite e derivados' },
   { id: 'taco_075', name: 'Requeijão, cremoso', macros: { calories: 257, protein: 11.3, carbs: 3.5, fat: 22.6 }, category: 'Leite e derivados' },
-  { id: 'taco_076', name: 'Whey protein (referência)', macros: { calories: 120, protein: 24.0, carbs: 3.0, fat: 1.5 }, category: 'Leite e derivados' },
+  { id: 'taco_076', name: 'Whey protein (referência; conferir rótulo)', macros: { calories: 400, protein: 80.0, carbs: 10.0, fat: 5.0 }, category: 'Leite e derivados' },
 
   // ────────────────────────────────────────────────────────
   // LEGUMINOSAS E DERIVADOS
@@ -173,6 +173,7 @@ export const TACO_DATABASE: Food[] = [
   // ────────────────────────────────────────────────────────
   { id: 'taco_094', name: 'Suco de laranja, natural', macros: { calories: 36, protein: 0.5, carbs: 8.4, fat: 0.1 }, category: 'Bebidas' },
   { id: 'taco_095', name: 'Água de coco', macros: { calories: 22, protein: 0.3, carbs: 5.3, fat: 0.1 }, category: 'Bebidas' },
+  { id: 'taco_096', name: 'Café, infusão 10%, sem açúcar', macros: { calories: 9, protein: 0.7, carbs: 1.5, fat: 0.1 }, category: 'Bebidas' },
 ];
 
 // ============================================================

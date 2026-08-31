@@ -1,149 +1,273 @@
-// Diet Generator v3 — Baseado em evidências científicas de nutrição esportiva
-// Fontes: ISSN, ACSM, NSCA, TACO, Helms et al. (2014), Ruiz-Castellano et al. (2021)
+// Diet Generator v4 — Refeições completas com porções otimizadas por macro
+// Fontes: ISSN, ACSM, TACO e Sports Dietitians Australia
 
 import { Food, Meal, MealPlan, MealTiming, Macros, UserProfile, Goal } from '../types';
 import { TACO_DATABASE } from '../constants/taco';
-import { calculateMacros, calculatePortionMacros, sumMacros, calculateTDEE, calculateTargetCalories } from './calculations';
+import { calculateMacros, calculatePortionMacros, sumMacros } from './calculations';
 import { getPortionQuantity } from './portionDisplay';
-import { getFoodCostTier } from './dietSubstitutions';
 import * as Crypto from 'expo-crypto';
 import { getSportOption, isCombatSport, isStrengthFocusedSport } from '../constants/sports';
 
 // ============================================================
-// DISTRIBUIÇÃO DE REFEIÇÕES POR ESPORTE
+// REFEIÇÕES COMPLETAS PARA ATLETAS
 // ============================================================
 
 interface MealConfig {
   name: string;
-  pct: number;
   timing: MealTiming;
+  proteinPct: number;
+  carbsPct: number;
+  fatPct: number;
+}
+
+interface RecipeIngredient {
+  foodId: string;
+  preferredGrams: number;
+  minGrams: number;
+  maxGrams: number;
+  step?: number;
+  fixed?: boolean;
+}
+
+interface AthleteMealRecipe {
+  name: string;
+  ingredients: RecipeIngredient[];
+  budget?: boolean;
 }
 
 type DietStrategy = 'variety' | 'budget';
 
-const MEAL_CONFIGS: Record<string, MealConfig[]> = {
-  bodybuilding: [
-    { name: 'Café da Manhã', pct: 0.20, timing: 'regular' },
-    { name: 'Lanche da Manhã', pct: 0.10, timing: 'regular' },
-    { name: 'Almoço', pct: 0.25, timing: 'regular' },
-    { name: 'Pré-treino', pct: 0.15, timing: 'pre_workout' },
-    { name: 'Pós-treino', pct: 0.10, timing: 'post_workout' },
-    { name: 'Jantar', pct: 0.20, timing: 'regular' },
-  ],
-  bjj: [
-    { name: 'Café da Manhã', pct: 0.25, timing: 'regular' },
-    { name: 'Almoço', pct: 0.30, timing: 'regular' },
-    { name: 'Pré-treino', pct: 0.15, timing: 'pre_workout' },
-    { name: 'Pós-treino', pct: 0.10, timing: 'post_workout' },
-    { name: 'Jantar', pct: 0.20, timing: 'regular' },
-  ],
-  both: [
-    { name: 'Café da Manhã', pct: 0.20, timing: 'regular' },
-    { name: 'Lanche da Manhã', pct: 0.10, timing: 'regular' },
-    { name: 'Almoço', pct: 0.25, timing: 'regular' },
-    { name: 'Pré-treino', pct: 0.15, timing: 'pre_workout' },
-    { name: 'Pós-treino', pct: 0.10, timing: 'post_workout' },
-    { name: 'Jantar', pct: 0.20, timing: 'regular' },
-  ],
-};
+const ingredient = (
+  foodId: string,
+  preferredGrams: number,
+  minGrams: number,
+  maxGrams: number,
+  options: Pick<RecipeIngredient, 'step' | 'fixed'> = {},
+): RecipeIngredient => ({ foodId, preferredGrams, minGrams, maxGrams, ...options });
 
-// ============================================================
-// BANCOS DE ALIMENTOS POR CATEGORIA
-// ============================================================
-
-const PROTEIN_SOURCES: Record<string, { id: string; name: string; min: number; max: number }[]> = {
+// As combinações são intencionais: cada opção representa um prato ou lanche que
+// faz sentido culinariamente. As quantidades são ajustadas depois para a meta do
+// atleta. Referências de distribuição: ISSN (20–40 g de proteína a cada 3–4 h)
+// e Sports Dietitians Australia (refeições com carboidrato + proteína + vegetais).
+const ATHLETE_MEAL_RECIPES: Record<string, AthleteMealRecipe[]> = {
   'Café da Manhã': [
-    { id: 'taco_063', name: 'Ovo inteiro', min: 100, max: 200 },
-    { id: 'taco_064', name: 'Clara de ovo', min: 100, max: 300 },
-    { id: 'taco_069', name: 'Iogurte grego', min: 150, max: 300 },
+    {
+      name: 'Sanduíche integral com cottage e ovos + café preto sem açúcar',
+      ingredients: [
+        ingredient('taco_096', 200, 200, 200, { fixed: true }),
+        ingredient('taco_006', 50, 25, 200, { step: 25 }),
+        ingredient('taco_071', 60, 30, 250, { step: 15 }),
+        ingredient('taco_063', 100, 50, 200, { step: 50 }),
+        ingredient('taco_064', 0, 0, 300, { step: 33 }),
+        ingredient('taco_032', 100, 50, 300, { step: 25 }),
+      ],
+    },
+    {
+      name: 'Bowl de iogurte grego com aveia, banana e amendoim',
+      ingredients: [
+        ingredient('taco_070', 170, 100, 400, { step: 10 }),
+        ingredient('taco_076', 0, 0, 50, { step: 5 }),
+        ingredient('taco_003', 40, 10, 120, { step: 5 }),
+        ingredient('taco_028', 100, 50, 250, { step: 10 }),
+        ingredient('taco_087', 10, 0, 40, { step: 5 }),
+      ],
+    },
+    {
+      name: 'Ovos com pão integral, banana e café preto sem açúcar',
+      budget: true,
+      ingredients: [
+        ingredient('taco_096', 200, 200, 200, { fixed: true }),
+        ingredient('taco_006', 50, 25, 150, { step: 25 }),
+        ingredient('taco_063', 100, 50, 250, { step: 50 }),
+        ingredient('taco_064', 100, 0, 300, { step: 33 }),
+        ingredient('taco_028', 100, 50, 250, { step: 10 }),
+      ],
+    },
   ],
   'Lanche da Manhã': [
-    { id: 'taco_076', name: 'Whey protein', min: 25, max: 50 },
-    { id: 'taco_069', name: 'Iogurte grego', min: 150, max: 200 },
-    { id: 'taco_071', name: 'Cottage', min: 100, max: 200 },
+    {
+      name: 'Iogurte grego com banana e aveia',
+      ingredients: [
+        ingredient('taco_070', 170, 100, 300, { step: 10 }),
+        ingredient('taco_076', 0, 0, 40, { step: 5 }),
+        ingredient('taco_028', 100, 50, 200, { step: 10 }),
+        ingredient('taco_003', 20, 0, 60, { step: 5 }),
+      ],
+    },
+    {
+      name: 'Pão integral com cottage e maçã',
+      ingredients: [
+        ingredient('taco_006', 50, 25, 100, { step: 25 }),
+        ingredient('taco_071', 90, 30, 200, { step: 15 }),
+        ingredient('taco_030', 120, 50, 200, { step: 10 }),
+      ],
+    },
+    {
+      name: 'Sanduíche integral de ovos com banana',
+      budget: true,
+      ingredients: [
+        ingredient('taco_006', 50, 25, 100, { step: 25 }),
+        ingredient('taco_063', 50, 50, 150, { step: 50 }),
+        ingredient('taco_064', 66, 0, 200, { step: 33 }),
+        ingredient('taco_028', 100, 50, 180, { step: 10 }),
+      ],
+    },
   ],
   'Almoço': [
-    { id: 'taco_051', name: 'Peito de frango', min: 150, max: 300 },
-    { id: 'taco_053', name: 'Patinho', min: 150, max: 250 },
-    { id: 'taco_054', name: 'Alcatra', min: 150, max: 250 },
-    { id: 'taco_045', name: 'Salmão', min: 150, max: 250 },
-    { id: 'taco_059', name: 'Peru', min: 150, max: 300 },
+    {
+      name: 'Frango grelhado com arroz, feijão e brócolis',
+      ingredients: [
+        ingredient('taco_051', 150, 60, 350, { step: 10 }),
+        ingredient('taco_001', 150, 40, 400, { step: 10 }),
+        ingredient('taco_077', 100, 40, 250, { step: 10 }),
+        ingredient('taco_016', 100, 50, 200, { step: 10 }),
+        ingredient('taco_041', 5, 0, 20, { step: 1 }),
+      ],
+    },
+    {
+      name: 'Patinho com arroz integral, feijão preto e salada',
+      ingredients: [
+        ingredient('taco_053', 150, 60, 300, { step: 10 }),
+        ingredient('taco_002', 150, 40, 400, { step: 10 }),
+        ingredient('taco_078', 100, 40, 250, { step: 10 }),
+        ingredient('taco_021', 60, 30, 150, { step: 10 }),
+        ingredient('taco_022', 80, 40, 180, { step: 10 }),
+        ingredient('taco_041', 5, 0, 20, { step: 1 }),
+      ],
+    },
+    {
+      name: 'Frango grelhado com arroz, feijão e abobrinha',
+      budget: true,
+      ingredients: [
+        ingredient('taco_051', 150, 60, 350, { step: 10 }),
+        ingredient('taco_001', 150, 40, 400, { step: 10 }),
+        ingredient('taco_077', 100, 40, 250, { step: 10 }),
+        ingredient('taco_019', 100, 50, 200, { step: 10 }),
+        ingredient('taco_041', 5, 0, 25, { step: 1 }),
+      ],
+    },
   ],
   'Pré-treino': [
-    { id: 'taco_076', name: 'Whey protein', min: 25, max: 40 },
-    { id: 'taco_064', name: 'Clara de ovo', min: 100, max: 200 },
+    {
+      name: 'Iogurte grego com banana, aveia e mel',
+      ingredients: [
+        ingredient('taco_070', 170, 80, 300, { step: 10 }),
+        ingredient('taco_076', 0, 0, 50, { step: 5 }),
+        ingredient('taco_028', 120, 50, 250, { step: 10 }),
+        ingredient('taco_003', 30, 0, 80, { step: 5 }),
+        ingredient('taco_092', 10, 0, 25, { step: 5 }),
+      ],
+    },
+    {
+      name: 'Sanduíche integral de cottage e peru desfiado',
+      ingredients: [
+        ingredient('taco_006', 50, 25, 125, { step: 25 }),
+        ingredient('taco_071', 60, 30, 180, { step: 15 }),
+        ingredient('taco_059', 80, 40, 200, { step: 10 }),
+        ingredient('taco_022', 50, 20, 100, { step: 10 }),
+        ingredient('taco_028', 100, 0, 250, { step: 10 }),
+      ],
+    },
+    {
+      name: 'Batata-doce com frango grelhado (2–3 h antes)',
+      budget: true,
+      ingredients: [
+        ingredient('taco_009', 180, 60, 600, { step: 10 }),
+        ingredient('taco_051', 100, 40, 300, { step: 10 }),
+        ingredient('taco_022', 60, 30, 120, { step: 10 }),
+      ],
+    },
   ],
   'Pós-treino': [
-    { id: 'taco_076', name: 'Whey protein', min: 30, max: 50 },
-    { id: 'taco_064', name: 'Clara de ovo', min: 100, max: 250 },
+    {
+      name: 'Bowl de iogurte, whey, banana e aveia',
+      ingredients: [
+        ingredient('taco_070', 170, 80, 300, { step: 10 }),
+        ingredient('taco_076', 30, 15, 50, { step: 5 }),
+        ingredient('taco_028', 120, 50, 250, { step: 10 }),
+        ingredient('taco_003', 20, 0, 80, { step: 5 }),
+      ],
+    },
+    {
+      name: 'Arroz com frango e brócolis para recuperação',
+      ingredients: [
+        ingredient('taco_001', 150, 40, 350, { step: 10 }),
+        ingredient('taco_051', 120, 50, 280, { step: 10 }),
+        ingredient('taco_016', 80, 40, 150, { step: 10 }),
+      ],
+    },
+    {
+      name: 'Arroz com frango e cenoura para recuperação',
+      budget: true,
+      ingredients: [
+        ingredient('taco_001', 150, 40, 350, { step: 10 }),
+        ingredient('taco_051', 120, 50, 280, { step: 10 }),
+        ingredient('taco_020', 80, 40, 150, { step: 10 }),
+      ],
+    },
   ],
   'Jantar': [
-    { id: 'taco_045', name: 'Salmão', min: 150, max: 250 },
-    { id: 'taco_047', name: 'Tilápia', min: 150, max: 300 },
-    { id: 'taco_051', name: 'Peito de frango', min: 150, max: 250 },
-    { id: 'taco_054', name: 'Alcatra', min: 150, max: 200 },
+    {
+      name: 'Tilápia com arroz, feijão e brócolis',
+      ingredients: [
+        ingredient('taco_047', 160, 60, 350, { step: 10 }),
+        ingredient('taco_001', 120, 40, 350, { step: 10 }),
+        ingredient('taco_077', 80, 40, 220, { step: 10 }),
+        ingredient('taco_016', 100, 50, 200, { step: 10 }),
+        ingredient('taco_041', 5, 0, 20, { step: 1 }),
+      ],
+    },
+    {
+      name: 'Frango grelhado com batata-doce e legumes',
+      ingredients: [
+        ingredient('taco_051', 150, 60, 320, { step: 10 }),
+        ingredient('taco_009', 180, 60, 600, { step: 10 }),
+        ingredient('taco_017', 100, 50, 200, { step: 10 }),
+        ingredient('taco_019', 100, 50, 200, { step: 10 }),
+        ingredient('taco_041', 5, 0, 20, { step: 1 }),
+      ],
+    },
+    {
+      name: 'Frango com arroz, feijão e legumes',
+      budget: true,
+      ingredients: [
+        ingredient('taco_051', 150, 60, 350, { step: 10 }),
+        ingredient('taco_001', 120, 40, 350, { step: 10 }),
+        ingredient('taco_077', 80, 40, 220, { step: 10 }),
+        ingredient('taco_019', 100, 50, 200, { step: 10 }),
+        ingredient('taco_041', 5, 0, 25, { step: 1 }),
+      ],
+    },
+  ],
+  'Ceia': [
+    {
+      name: 'Cottage com mamão e amêndoas',
+      ingredients: [
+        ingredient('taco_071', 150, 60, 300, { step: 15 }),
+        ingredient('taco_032', 120, 50, 250, { step: 10 }),
+        ingredient('taco_083', 10, 0, 30, { step: 5 }),
+      ],
+    },
+    {
+      name: 'Iogurte grego com morango e aveia',
+      ingredients: [
+        ingredient('taco_070', 170, 80, 350, { step: 10 }),
+        ingredient('taco_076', 0, 0, 50, { step: 5 }),
+        ingredient('taco_037', 120, 50, 250, { step: 10 }),
+        ingredient('taco_003', 20, 0, 60, { step: 5 }),
+      ],
+    },
+    {
+      name: 'Cottage com banana e amendoim',
+      budget: true,
+      ingredients: [
+        ingredient('taco_071', 120, 60, 300, { step: 15 }),
+        ingredient('taco_028', 100, 50, 220, { step: 10 }),
+        ingredient('taco_087', 10, 0, 30, { step: 5 }),
+      ],
+    },
   ],
 };
-
-const CARB_SOURCES: Record<string, { id: string; name: string; min: number; max: number }[]> = {
-  'Café da Manhã': [
-    { id: 'taco_003', name: 'Aveia', min: 40, max: 80 },
-    { id: 'taco_028', name: 'Banana', min: 80, max: 150 },
-    { id: 'taco_029', name: 'Banana nanica', min: 80, max: 150 },
-  ],
-  'Lanche da Manhã': [
-    { id: 'taco_028', name: 'Banana', min: 80, max: 120 },
-    { id: 'taco_030', name: 'Maçã', min: 120, max: 200 },
-  ],
-  'Almoço': [
-    { id: 'taco_001', name: 'Arroz branco', min: 100, max: 250 },
-    { id: 'taco_002', name: 'Arroz integral', min: 100, max: 250 },
-    { id: 'taco_009', name: 'Batata-doce', min: 150, max: 300 },
-  ],
-  'Pré-treino': [
-    { id: 'taco_003', name: 'Aveia', min: 40, max: 60 },
-    { id: 'taco_009', name: 'Batata-doce', min: 100, max: 200 },
-    { id: 'taco_028', name: 'Banana', min: 80, max: 120 },
-  ],
-  'Pós-treino': [
-    { id: 'taco_028', name: 'Banana', min: 100, max: 200 },
-    { id: 'taco_001', name: 'Arroz branco', min: 100, max: 200 },
-  ],
-  'Jantar': [
-    { id: 'taco_002', name: 'Arroz integral', min: 100, max: 200 },
-    { id: 'taco_014', name: 'Quinoa', min: 80, max: 150 },
-    { id: 'taco_004', name: 'Macarrão', min: 100, max: 200 },
-  ],
-};
-
-const FAT_SOURCES: Record<string, { id: string; name: string; min: number; max: number }[]> = {
-  'Café da Manhã': [
-    { id: 'taco_083', name: 'Amêndoas', min: 15, max: 30 },
-    { id: 'taco_087', name: 'Amendoim', min: 15, max: 30 },
-  ],
-  'Lanche da Manhã': [
-    { id: 'taco_038', name: 'Abacate', min: 50, max: 100 },
-  ],
-  'Almoço': [
-    { id: 'taco_041', name: 'Azeite de oliva', min: 5, max: 15 },
-  ],
-  'Pré-treino': [],
-  'Pós-treino': [],
-  'Jantar': [
-    { id: 'taco_041', name: 'Azeite de oliva', min: 5, max: 15 },
-    { id: 'taco_083', name: 'Amêndoas', min: 15, max: 25 },
-  ],
-};
-
-const VEGGIES = [
-  { id: 'taco_016', name: 'Brócolis' },
-  { id: 'taco_017', name: 'Couve-flor' },
-  { id: 'taco_019', name: 'Espinafre' },
-  { id: 'taco_020', name: 'Alface' },
-  { id: 'taco_021', name: 'Tomate' },
-  { id: 'taco_022', name: 'Cenoura' },
-  { id: 'taco_026', name: 'Abobrinha' },
-];
 
 // ============================================================
 // FUNÇÕES AUXILIARES
@@ -153,39 +277,11 @@ function getFoodById(id: string): Food | undefined {
   return TACO_DATABASE.find(f => f.id === id);
 }
 
-function pickRandom<T>(arr: T[]): T {
-  return arr[Math.floor(Math.random() * arr.length)];
-}
-
-function pickTwo<T>(arr: T[]): [T, T] {
-  const shuffled = [...arr].sort(() => Math.random() - 0.5);
-  return [shuffled[0], shuffled[1]];
-}
-
-function selectSource<T extends { id: string }>(
-  options: T[],
-  variation: number,
-  strategy: DietStrategy,
-): T {
-  if (strategy === 'budget') {
-    return [...options].sort((a, b) => getFoodCostTier(a.id) - getFoodCostTier(b.id))[0];
-  }
-  return options[variation % options.length];
-}
-
-function selectTwoSources<T extends { id: string }>(options: T[], strategy: DietStrategy): [T, T] {
-  if (strategy === 'budget') {
-    const sorted = [...options].sort((a, b) => getFoodCostTier(a.id) - getFoodCostTier(b.id));
-    return [sorted[0], sorted[1]];
-  }
-  return pickTwo(options);
-}
-
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
-const MEAL_TEMPLATES: Record<number, Omit<MealConfig, 'pct'>[]> = {
+const MEAL_TEMPLATES: Record<number, Pick<MealConfig, 'name' | 'timing'>[]> = {
   3: [{ name: 'Café da Manhã', timing: 'regular' }, { name: 'Almoço', timing: 'regular' }, { name: 'Jantar', timing: 'regular' }],
   4: [{ name: 'Café da Manhã', timing: 'regular' }, { name: 'Almoço', timing: 'regular' }, { name: 'Pré-treino', timing: 'pre_workout' }, { name: 'Jantar', timing: 'regular' }],
   5: [{ name: 'Café da Manhã', timing: 'regular' }, { name: 'Almoço', timing: 'regular' }, { name: 'Pré-treino', timing: 'pre_workout' }, { name: 'Pós-treino', timing: 'post_workout' }, { name: 'Jantar', timing: 'regular' }],
@@ -196,53 +292,146 @@ const MEAL_TEMPLATES: Record<number, Omit<MealConfig, 'pct'>[]> = {
 
 function buildMealConfigs(mealCount: number): MealConfig[] {
   const templates = MEAL_TEMPLATES[clamp(Math.round(mealCount), 3, 8)];
-  const weights = templates.map(meal =>
-    meal.timing !== 'regular' ? 1.15 : meal.name === 'Almoço' || meal.name === 'Jantar' ? 1.25 : 0.8
+  const weights = templates.map(meal => {
+    const isMainMeal = meal.name === 'Almoço' || meal.name === 'Jantar';
+    const isWorkoutMeal = meal.timing !== 'regular';
+    const isBreakfast = meal.name === 'Café da Manhã';
+    const isBedtime = meal.name === 'Ceia';
+
+    return {
+      protein: isMainMeal ? 1.35 : isWorkoutMeal ? 1.2 : isBreakfast ? 1.2 : isBedtime ? 0.9 : 0.7,
+      carbs: isMainMeal ? 1.25 : isWorkoutMeal ? 1.45 : isBreakfast ? 1.15 : isBedtime ? 0.5 : 0.7,
+      fat: isMainMeal ? 1.5 : isWorkoutMeal ? 0.35 : isBreakfast ? 1.3 : isBedtime ? 1 : 0.8,
+    };
+  });
+  const totals = weights.reduce(
+    (sum, weight) => ({
+      protein: sum.protein + weight.protein,
+      carbs: sum.carbs + weight.carbs,
+      fat: sum.fat + weight.fat,
+    }),
+    { protein: 0, carbs: 0, fat: 0 },
   );
-  const total = weights.reduce((sum, value) => sum + value, 0);
-  return templates.map((meal, index) => ({ ...meal, pct: weights[index] / total }));
+
+  return templates.map((meal, index) => ({
+    ...meal,
+    proteinPct: weights[index].protein / totals.protein,
+    carbsPct: weights[index].carbs / totals.carbs,
+    fatPct: weights[index].fat / totals.fat,
+  }));
 }
 
-function sourceKey(mealName: string): string {
-  if (mealName === 'Lanche da Tarde') return 'Lanche da Manhã';
-  if (mealName === 'Ceia') return 'Jantar';
-  return mealName;
+function getRecipesForMeal(mealName: string): AthleteMealRecipe[] {
+  const key = mealName === 'Lanche da Tarde' ? 'Lanche da Manhã' : mealName;
+  return ATHLETE_MEAL_RECIPES[key] || [];
+}
+
+function validateRecipeDefinition(mealName: string, recipe: AthleteMealRecipe): string[] {
+  const errors: string[] = [];
+  const ids = recipe.ingredients.map(item => item.foodId);
+  const foods = recipe.ingredients.map(item => getFoodById(item.foodId)).filter((food): food is Food => Boolean(food));
+
+  if (recipe.ingredients.length < 2) errors.push('deve conter pelo menos dois ingredientes');
+  if (new Set(ids).size !== ids.length) errors.push('contém ingredientes duplicados');
+
+  for (const item of recipe.ingredients) {
+    if (!getFoodById(item.foodId)) errors.push(`alimento inexistente: ${item.foodId}`);
+    if (item.minGrams < 0 || item.maxGrams < item.minGrams) errors.push(`limites inválidos: ${item.foodId}`);
+    if (item.preferredGrams < item.minGrams || item.preferredGrams > item.maxGrams) {
+      errors.push(`porção preferida fora dos limites: ${item.foodId}`);
+    }
+    if (item.fixed && (item.minGrams !== item.maxGrams || item.preferredGrams !== item.minGrams)) {
+      errors.push(`ingrediente fixo com porções divergentes: ${item.foodId}`);
+    }
+  }
+
+  if (!foods.some(food => food.macros.protein >= 8)) errors.push('não possui fonte relevante de proteína');
+  if (!foods.some(food => food.macros.carbs >= 10)) errors.push('não possui fonte relevante de carboidrato');
+  if ((mealName === 'Almoço' || mealName === 'Jantar')
+    && !foods.some(food => food.category === 'Verduras, hortaliças e derivados')) {
+    errors.push('refeição principal sem verdura ou legume');
+  }
+
+  return errors;
+}
+
+function selectRecipe(mealName: string, variation: number, strategy: DietStrategy): AthleteMealRecipe {
+  const recipes = getRecipesForMeal(mealName);
+  const varietyRecipes = recipes.filter(recipe => !recipe.budget);
+  const selected = strategy === 'budget'
+    ? recipes.find(recipe => recipe.budget)
+    : varietyRecipes[variation % varietyRecipes.length];
+
+  if (!selected) throw new Error(`Nenhuma receita esportiva disponível para ${mealName}`);
+  const errors = validateRecipeDefinition(mealName, selected);
+  if (errors.length > 0) {
+    throw new Error(`Receita esportiva inválida (${mealName} — ${selected.name}): ${errors.join('; ')}`);
+  }
+  return selected;
 }
 
 function macroError(macros: Macros, target: Macros): number {
   const relative = (actual: number, expected: number) => Math.abs(actual - expected) / Math.max(expected, 1);
-  return relative(macros.calories, target.calories) * 1.5 + relative(macros.protein, target.protein) * 2
-    + relative(macros.carbs, target.carbs) + relative(macros.fat, target.fat);
+  return relative(macros.calories, target.calories) * 2
+    + relative(macros.protein, target.protein) * 4
+    + relative(macros.carbs, target.carbs) * 1.5
+    + relative(macros.fat, target.fat) * 1.5;
 }
 
-function optimizePortions(foods: { food: Food; grams: number }[], target: Macros) {
-  let result = foods.map(item => ({ ...item }));
+interface PreparedIngredient extends RecipeIngredient {
+  food: Food;
+  grams: number;
+}
+
+function getMacrosForIngredients(ingredients: PreparedIngredient[]): Macros {
+  return sumMacros(ingredients.map(item => calculatePortionMacros(item.food, item.grams)));
+}
+
+function getCandidateGrams(item: PreparedIngredient): number[] {
+  if (item.fixed) return [item.preferredGrams];
+  const step = item.step || 5;
+  const values = new Set<number>([item.minGrams, item.maxGrams, item.preferredGrams]);
+  for (let value = item.minGrams; value <= item.maxGrams; value += step) {
+    values.add(Math.round(value));
+  }
+  return [...values].sort((a, b) => a - b);
+}
+
+function optimizeRecipePortions(recipe: AthleteMealRecipe, target: Macros): PreparedIngredient[] {
+  let result = recipe.ingredients
+    .map(item => {
+      const food = getFoodById(item.foodId);
+      if (!food) return null;
+      return {
+        ...item,
+        food,
+        grams: clamp(item.preferredGrams, item.minGrams, item.maxGrams),
+      } satisfies PreparedIngredient;
+    })
+    .filter((item): item is PreparedIngredient => Boolean(item));
+
   for (let pass = 0; pass < 5; pass += 1) {
-    result = result.map((item, index) => {
+    for (let index = 0; index < result.length; index += 1) {
+      const item = result[index];
       let bestGrams = item.grams;
-      let bestError = macroError(sumMacros(result.map((candidate, i) =>
-        calculatePortionMacros(candidate.food, i === index ? bestGrams : candidate.grams)
-      )), target);
-      for (const factor of [0.75, 0.9, 1.1, 1.25]) {
-        const grams = clamp(Math.round(item.grams * factor), 5, 400);
-        const error = macroError(sumMacros(result.map((candidate, i) =>
-          calculatePortionMacros(candidate.food, i === index ? grams : candidate.grams)
-        )), target);
+      let bestError = macroError(getMacrosForIngredients(result), target);
+
+      for (const grams of getCandidateGrams(item)) {
+        const candidate = result.map((ingredientItem, ingredientIndex) =>
+          ingredientIndex === index ? { ...ingredientItem, grams } : ingredientItem
+        );
+        const error = macroError(getMacrosForIngredients(candidate), target);
         if (error < bestError) {
           bestError = error;
           bestGrams = grams;
         }
       }
-      return { ...item, grams: bestGrams };
-    });
-  }
-  return result;
-}
 
-function calculateGramsForMacro(food: Food, targetMacro: keyof Macros, targetAmount: number): number {
-  const macroPer100g = food.macros[targetMacro];
-  if (macroPer100g === 0) return 0;
-  return Math.round((targetAmount / macroPer100g) * 100);
+      result[index] = { ...item, grams: bestGrams };
+    }
+  }
+
+  return result.filter(item => item.grams > 0);
 }
 
 // ============================================================
@@ -252,66 +441,19 @@ function calculateGramsForMacro(food: Food, targetMacro: keyof Macros, targetAmo
 function generateMeal(
   config: MealConfig,
   targetMacros: Macros,
-  profile: UserProfile,
   variation: number,
   strategy: DietStrategy,
 ): Meal {
-  const foods: { food: Food; grams: number }[] = [];
   const mealName = config.name;
-  const lookupKey = sourceKey(mealName);
+  const recipe = selectRecipe(mealName, variation, strategy);
 
-  // Macros alvo para esta refeição
-  const mealTargetCalories = Math.round(targetMacros.calories * config.pct);
-  const mealTargetProtein = Math.round(targetMacros.protein * config.pct);
-  const mealTargetCarbs = Math.round(targetMacros.carbs * config.pct);
-  const mealTargetFat = Math.round(targetMacros.fat * config.pct);
-
-  // === PROTEÍNA ===
-  const proteinOptions = PROTEIN_SOURCES[lookupKey] || PROTEIN_SOURCES['Almoço'];
-  const proteinSource = selectSource(proteinOptions, variation, strategy);
-  const proteinFood = getFoodById(proteinSource.id);
-  
-  if (proteinFood) {
-    let grams = calculateGramsForMacro(proteinFood, 'protein', mealTargetProtein);
-    grams = clamp(grams, proteinSource.min, proteinSource.max);
-    foods.push({ food: proteinFood, grams });
-  }
-
-  // === CARBOIDRATO ===
-  const carbOptions = CARB_SOURCES[lookupKey] || CARB_SOURCES['Almoço'];
-  const carbSource = selectSource(carbOptions, variation, strategy);
-  const carbFood = getFoodById(carbSource.id);
-  
-  if (carbFood) {
-    let grams = calculateGramsForMacro(carbFood, 'carbs', mealTargetCarbs);
-    grams = clamp(grams, carbSource.min, carbSource.max);
-    foods.push({ food: carbFood, grams });
-  }
-
-  // === GORDURA ===
-  const fatOptions = FAT_SOURCES[lookupKey] || [];
-  if (fatOptions.length > 0 && mealTargetFat > 5) {
-    const fatSource = selectSource(fatOptions, variation, strategy);
-    const fatFood = getFoodById(fatSource.id);
-    
-    if (fatFood) {
-      let grams = calculateGramsForMacro(fatFood, 'fat', mealTargetFat);
-      grams = clamp(grams, fatSource.min, fatSource.max);
-      foods.push({ food: fatFood, grams });
-    }
-  }
-
-  // === VERDURAS (Almoço e Jantar) ===
-  if (mealName === 'Almoço' || mealName === 'Jantar') {
-    const [veg1, veg2] = selectTwoSources(VEGGIES, strategy);
-    const vegFood1 = getFoodById(veg1.id);
-    const vegFood2 = getFoodById(veg2.id);
-    if (vegFood1) foods.push({ food: vegFood1, grams: 100 });
-    if (vegFood2) foods.push({ food: vegFood2, grams: 80 });
-  }
-
-  // Calcula macros totais da refeição
-  const optimizedFoods = optimizePortions(foods, {
+  // Proteína é distribuída ao longo do dia; carboidratos são priorizados perto
+  // do treino; e a maior parte da gordura fica nas refeições regulares.
+  const mealTargetProtein = targetMacros.protein * config.proteinPct;
+  const mealTargetCarbs = targetMacros.carbs * config.carbsPct;
+  const mealTargetFat = targetMacros.fat * config.fatPct;
+  const mealTargetCalories = mealTargetProtein * 4 + mealTargetCarbs * 4 + mealTargetFat * 9;
+  const optimizedFoods = optimizeRecipePortions(recipe, {
     calories: mealTargetCalories,
     protein: mealTargetProtein,
     carbs: mealTargetCarbs,
@@ -322,7 +464,7 @@ function generateMeal(
 
   return {
     id: Crypto.randomUUID(),
-    name: mealName,
+    name: `${mealName} — ${recipe.name}`,
     timing: config.timing,
     foods: optimizedFoods.map((f, i) => ({
       food: f.food,
@@ -332,6 +474,97 @@ function generateMeal(
     })),
     totalMacros,
   };
+}
+
+// ============================================================
+// PORTÃO OBRIGATÓRIO DE VALIDAÇÃO
+// ============================================================
+
+export interface AthleteMealPlanValidation {
+  valid: boolean;
+  errors: string[];
+  macroPercentages: Pick<Macros, 'calories' | 'protein' | 'carbs' | 'fat'>;
+}
+
+const PLAN_MACRO_RANGES = {
+  calories: { min: 90, max: 110 },
+  protein: { min: 90, max: 120 },
+  carbs: { min: 85, max: 120 },
+  fat: { min: 70, max: 125 },
+} as const;
+
+function percentOfTarget(actual: number, target: number): number {
+  return target > 0 ? actual / target * 100 : 0;
+}
+
+function validateGeneratedMeal(meal: Meal): string[] {
+  const errors: string[] = [];
+  const separator = ' — ';
+  const separatorIndex = meal.name.indexOf(separator);
+  if (separatorIndex < 0) return [`${meal.name}: não está vinculada a uma receita validada`];
+
+  const mealName = meal.name.slice(0, separatorIndex);
+  const recipeName = meal.name.slice(separatorIndex + separator.length);
+  const recipe = getRecipesForMeal(mealName).find(item => item.name === recipeName);
+  if (!recipe) return [`${meal.name}: receita não cadastrada`];
+
+  const portionsByFoodId = new Map(meal.foods.map(portion => [portion.food.id, portion]));
+  if (portionsByFoodId.size !== meal.foods.length) errors.push(`${meal.name}: alimento duplicado`);
+
+  for (const portion of meal.foods) {
+    const definition = recipe.ingredients.find(item => item.foodId === portion.food.id);
+    if (!definition) {
+      errors.push(`${meal.name}: ${portion.food.name} está fora da receita`);
+      continue;
+    }
+    if (!Number.isFinite(portion.grams)
+      || portion.grams < definition.minGrams
+      || portion.grams > definition.maxGrams) {
+      errors.push(`${meal.name}: porção de ${portion.food.name} fora dos limites`);
+    }
+  }
+
+  for (const definition of recipe.ingredients.filter(item => item.minGrams > 0)) {
+    if (!portionsByFoodId.has(definition.foodId)) {
+      errors.push(`${meal.name}: ingrediente obrigatório ausente (${definition.foodId})`);
+    }
+  }
+
+  const recalculated = sumMacros(meal.foods.map(portion => calculatePortionMacros(portion.food, portion.grams)));
+  for (const macro of ['calories', 'protein', 'carbs', 'fat'] as const) {
+    if (Math.abs(recalculated[macro] - meal.totalMacros[macro]) > 0.1) {
+      errors.push(`${meal.name}: total de ${macro} inconsistente`);
+    }
+  }
+
+  return errors;
+}
+
+export function validateAthleteMealPlan(plan: MealPlan, profile: UserProfile): AthleteMealPlanValidation {
+  const errors = plan.meals.flatMap(validateGeneratedMeal);
+  const target = calculateMacros(profile);
+  const recalculatedTotal = sumMacros(plan.meals.map(meal => meal.totalMacros));
+  const macroPercentages = {
+    calories: percentOfTarget(recalculatedTotal.calories, target.calories),
+    protein: percentOfTarget(recalculatedTotal.protein, target.protein),
+    carbs: percentOfTarget(recalculatedTotal.carbs, target.carbs),
+    fat: percentOfTarget(recalculatedTotal.fat, target.fat),
+  };
+
+  if (plan.meals.length < 3 || plan.meals.length > 8) errors.push('quantidade de refeições fora do intervalo de 3 a 8');
+  if (plan.goal !== profile.goal) errors.push('objetivo do plano diferente do perfil');
+
+  for (const macro of ['calories', 'protein', 'carbs', 'fat'] as const) {
+    if (Math.abs(recalculatedTotal[macro] - plan.totalMacros[macro]) > 0.1) {
+      errors.push(`total diário de ${macro} inconsistente`);
+    }
+    const range = PLAN_MACRO_RANGES[macro];
+    if (macroPercentages[macro] < range.min || macroPercentages[macro] > range.max) {
+      errors.push(`${macro} fora da faixa validada (${Math.round(macroPercentages[macro])}% da meta)`);
+    }
+  }
+
+  return { valid: errors.length === 0, errors, macroPercentages };
 }
 
 // ============================================================
@@ -345,14 +578,13 @@ export function generateDiet(
   strategy: DietStrategy = 'variety',
 ): MealPlan {
   const targetMacros = calculateMacros(profile);
-  const tdee = calculateTDEE(profile);
 
   // Seleciona distribuição baseada no esporte
   const mealConfigs = buildMealConfigs(mealCount);
 
   // Gera refeições com variação
   const meals: Meal[] = mealConfigs.map(config => 
-    generateMeal(config, targetMacros, profile, optionIndex, strategy)
+    generateMeal(config, targetMacros, optionIndex, strategy)
   );
 
   // Calcula totais
@@ -363,7 +595,7 @@ export function generateDiet(
   const sportLabel = getSportOption(profile.sport).shortLabel;
   const optionLabel = strategy === 'budget' ? 'Opção Econômica' : `Opção ${optionIndex + 1}`;
 
-  return {
+  const plan: MealPlan = {
     id: Crypto.randomUUID(),
     name: `${goalLabel} ${sportLabel} - ${optionLabel}`,
     goal: profile.goal,
@@ -372,6 +604,13 @@ export function generateDiet(
     createdAt: new Date().toISOString(),
     supplements: getSupplementRecommendations(profile),
   };
+
+  const validation = validateAthleteMealPlan(plan, profile);
+  if (!validation.valid) {
+    throw new Error(`Plano alimentar reprovado pela validação: ${validation.errors.join('; ')}`);
+  }
+
+  return plan;
 }
 
 export function generateBudgetDiet(profile: UserProfile, mealCount: number = 8): MealPlan {
@@ -466,18 +705,31 @@ export function analyzeDiet(plan: MealPlan, profile: UserProfile): {
   // Proteína
   const proteinPerKg = total.protein / profile.weight;
   const proteinPct = Math.round((total.protein / targetMacros.protein) * 100);
-  if (proteinPerKg < 1.6) {
-    adjustments.push(`Proteína baixa (${proteinPerKg.toFixed(1)} g/kg). Mínimo: 1.6 g/kg`);
+  if (proteinPct < 90) {
+    adjustments.push(`Proteína abaixo da meta (${proteinPct}%)`);
     score -= 20;
-  } else if (proteinPerKg > 3.0) {
-    adjustments.push(`Proteína muito alta (${proteinPerKg.toFixed(1)} g/kg)`);
-    score -= 5;
+  } else if (proteinPct > 115) {
+    adjustments.push(`Proteína acima da meta (${proteinPct}%)`);
+    score -= 10;
+  }
+
+  // Carboidratos
+  const carbsPct = Math.round((total.carbs / targetMacros.carbs) * 100);
+  if (carbsPct < 85) {
+    adjustments.push(`Carboidratos abaixo da meta (${carbsPct}%)`);
+    score -= 10;
+  } else if (carbsPct > 115) {
+    adjustments.push(`Carboidratos acima da meta (${carbsPct}%)`);
+    score -= 10;
   }
 
   // Gordura
   const fatPct = Math.round((total.fat / targetMacros.fat) * 100);
   if (fatPct < 80) {
-    adjustments.push(`Gordura muito baixa (${fatPct}% da meta)`);
+    adjustments.push(`Gordura abaixo da meta (${fatPct}%)`);
+    score -= 10;
+  } else if (fatPct > 120) {
+    adjustments.push(`Gordura acima da meta (${fatPct}%)`);
     score -= 10;
   }
 
@@ -494,7 +746,7 @@ export function analyzeDiet(plan: MealPlan, profile: UserProfile): {
     summary: {
       calories: { target: targetMacros.calories, actual: total.calories, pct: caloriePct },
       protein: { target: targetMacros.protein, actual: total.protein, pct: proteinPct },
-      carbs: { target: targetMacros.carbs, actual: total.carbs, pct: Math.round((total.carbs / targetMacros.carbs) * 100) },
+      carbs: { target: targetMacros.carbs, actual: total.carbs, pct: carbsPct },
       fat: { target: targetMacros.fat, actual: total.fat, pct: fatPct },
       proteinPerKg,
       mealsCount: plan.meals.length,

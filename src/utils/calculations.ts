@@ -86,23 +86,24 @@ export function calculateMacros(profile: UserProfile): Macros {
   const calories = calculateTargetCalories(profile);
   const { weight, goal, sport } = profile;
 
-  // Protein by goal and sport (g/kg) - Based on ISSN evidence
-  // Helms et al. (2014): 2.3-3.1 g/kg FFM during cutting
-  // Morton et al. (2018): 1.6 g/kg minimum for muscle growth
+  // Proteína por peso corporal quando a massa livre de gordura não está
+  // disponível. Valores maiores citados para pré-contest (2,3–3,1 g/kg)
+  // referem-se à massa livre de gordura e não devem ser aplicados diretamente
+  // ao peso total.
   let proteinMultiplier: number;
   
   switch (goal) {
     case 'cutting_conservative':
-      proteinMultiplier = isStrengthFocusedSport(sport) ? 2.2 : 2.0;
+      proteinMultiplier = isStrengthFocusedSport(sport) ? 2.0 : 1.8;
       break;
     case 'cutting_preparation':
-      proteinMultiplier = isStrengthFocusedSport(sport) ? 2.4 : 2.2;
+      proteinMultiplier = isStrengthFocusedSport(sport) ? 2.2 : 2.0;
       break;
     case 'cutting_precontest':
-      proteinMultiplier = isStrengthFocusedSport(sport) ? 2.8 : 2.5;
+      proteinMultiplier = isStrengthFocusedSport(sport) ? 2.2 : 2.0;
       break;
     case 'bulking':
-      proteinMultiplier = isStrengthFocusedSport(sport) ? 2.0 : 1.8;
+      proteinMultiplier = isStrengthFocusedSport(sport) ? 1.8 : 1.6;
       break;
     case 'maintenance':
     default:
@@ -110,8 +111,6 @@ export function calculateMacros(profile: UserProfile): Macros {
       break;
   }
   
-  const protein = Math.round(weight * proteinMultiplier);
-
   // Fat: varies by goal
   // Cutting: lower fat to prioritize carbs for training performance
   // Bulking: moderate fat for hormonal support
@@ -137,6 +136,20 @@ export function calculateMacros(profile: UserProfile): Macros {
   
   const fatCalories = calories * fatPct;
   const fat = Math.round((fatCalories / 9) * 1000) / 1000;
+
+  // Reserva energia para carboidratos, essenciais para sustentar o treinamento.
+  // O piso prático de 1,5 g/kg é limitado quando necessário para preservar ao
+  // menos 1,6 g/kg de proteína; perfis clínicos ainda exigem avaliação individual.
+  const requestedProtein = weight * proteinMultiplier;
+  const percentageCarbFloor = calories * 0.20;
+  const performanceCarbFloor = weight * 1.5 * 4;
+  const energyAfterMinimumProtein = calories - fatCalories - weight * 1.6 * 4;
+  const minimumCarbCalories = Math.min(
+    Math.max(percentageCarbFloor, performanceCarbFloor),
+    Math.max(percentageCarbFloor, energyAfterMinimumProtein),
+  );
+  const maxProteinByEnergy = Math.max(0, (calories - fatCalories - minimumCarbCalories) / 4);
+  const protein = Math.round(Math.min(requestedProtein, maxProteinByEnergy));
 
   // Remaining calories from carbs
   const proteinCalories = protein * 4;
