@@ -8,11 +8,12 @@ import { Food, FoodPortion, Meal, MealTiming } from '../types';
 
 const EditMealScreen = ({ route, navigation }: any) => {
   const { meal: initialMeal } = route.params;
+  const { updateMealInToday } = useApp();
   const [name, setName] = useState(initialMeal.name);
   const [timing, setTiming] = useState<MealTiming>(initialMeal.timing);
   const [selectedFoods, setSelectedFoods] = useState<FoodPortion[]>(initialMeal.foods);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!name) {
       Alert.alert('Erro', 'Nome da refeiÃ§Ã£o Ã© obrigatÃ³rio');
       return;
@@ -30,9 +31,13 @@ const EditMealScreen = ({ route, navigation }: any) => {
       totalMacros: sumMacros(selectedFoods.map(item => calculatePortionMacros(item.food, item.grams))),
     };
 
-    useApp().removeMealFromToday(initialMeal.id);
-    useApp().addMealToToday(newMeal);
-    navigation.goBack();
+    try {
+      await updateMealInToday(newMeal);
+      navigation.goBack();
+    } catch (error) {
+      console.error('Error updating meal:', error);
+      Alert.alert('Não foi possível salvar', 'Confira sua conexão e tente novamente.');
+    }
   };
 
   const handleAddFood = (food: Food) => {

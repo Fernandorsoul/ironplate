@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../constants/theme';
+import { formatNutritionValue } from '../utils/calculations';
 
 interface MacroCardProps {
   label: string;
@@ -15,8 +16,8 @@ export function MacroCard({ label, current, target, color, percentage, unit = 'g
   return (
     <View style={styles.card}>
       <Text style={styles.label}>{label}</Text>
-      <Text style={[styles.value, { color }]}>{current}{unit}</Text>
-      <Text style={styles.target}>/ {target}{unit}</Text>
+      <Text style={[styles.value, { color }]}>{formatNutritionValue(current)}{unit}</Text>
+      <Text style={styles.target}>/ {formatNutritionValue(target)}{unit}</Text>
       <View style={styles.bar}>
         <View style={[styles.barFill, { width: `${Math.min(percentage, 100)}%`, backgroundColor: color }]} />
       </View>

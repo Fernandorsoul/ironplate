@@ -24,6 +24,7 @@ interface AppContextType {
   dailyLogs: DailyLog[];
   todayLog: DailyLog | null;
   addMealToToday: (meal: Meal) => Promise<void>;
+  updateMealInToday: (meal: Meal) => Promise<void>;
   removeMealFromToday: (mealId: string) => Promise<void>;
   addWorkoutToToday: (workout: Workout) => Promise<void>;
   removeWorkoutFromToday: (workoutId: string) => Promise<void>;
@@ -249,6 +250,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }));
   }, [updateTodayLog]);
 
+  const updateMealInToday = useCallback(async (meal: Meal) => {
+    await updateTodayLog(log => ({
+      ...log,
+      meals: log.meals.map(existing => existing.id === meal.id ? meal : existing),
+    }));
+  }, [updateTodayLog]);
+
   const removeMealFromToday = useCallback(async (mealId: string) => {
     await updateTodayLog(log => {
       const meal = log.meals.find(m => m.id === mealId);
@@ -386,6 +394,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         dailyLogs,
         todayLog: getTodayLog(),
         addMealToToday,
+        updateMealInToday,
         removeMealFromToday,
         addWorkoutToToday,
         removeWorkoutFromToday,

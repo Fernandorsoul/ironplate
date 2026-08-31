@@ -12,8 +12,10 @@ jest.mock('../api/middleware/auth', () => ({
 }));
 
 import mealPlansHandler from '../api/users/meal-plans';
+import dailyLogsHandler from '../api/users/daily-logs';
 import weightHistoryHandler from '../api/users/weight-history';
-import { normalizeMealFoods } from '../api/services/mealNutrition';
+import { calculateMacrosPer100Grams, normalizeMealFoods } from '../api/services/mealNutrition';
+import { dailyLogPostSchema } from '../api/middleware/validation';
 
 const userId = '550e8400-e29b-41d4-a716-446655440000';
 
@@ -60,6 +62,135 @@ describe('daily-log, weight and meal-plan persistence routes', () => {
       fat: 0.45,
     });
     expect(normalized.totalMacros).toEqual(normalized.foods[0].macros);
+    expect(calculateMacrosPer100Grams(normalized.foods[0].macros, 0)).toEqual({
+      calories: 0,
+      protein: 0,
+      carbs: 0,
+      fat: 0,
+    });
+  });
+
+  it('returns daily-log meals that can be saved again without corrupting macros', async () => {
+    const storedRow = {
+      log_id: `${userId}_2026-08-31`,
+      date: '2026-08-31',
+      log_weight: null,
+      notes: null,
+      meal_id: 'meal-1',
+      meal_name: 'Almoço',
+      timing: 'regular',
+      meal_time: '12:00',
+      total_calories: 195,
+      total_protein: 4.05,
+      total_carbs: 42,
+      total_fat: 0.45,
+      food_id: 'meal-1_0',
+      food_ref_id: 'food-1',
+      food_name: 'Arroz',
+      food_category: 'carboidrato',
+      grams: 150,
+      quantity: 1.5,
+      unit: 'xicara',
+      calories: 195,
+      protein: 4.05,
+      carbs: 42,
+      fat: 0.45,
+      workout_id: null,
+    };
+    mockSql.mockResolvedValue([
+      storedRow,
+      { ...storedRow },
+      {
+        ...storedRow,
+        meal_id: 'meal-2',
+        meal_name: 'Refeição sem alimentos',
+        total_calories: 0,
+        total_protein: 0,
+        total_carbs: 0,
+        total_fat: 0,
+        food_id: null,
+        food_ref_id: null,
+        food_name: null,
+        food_category: null,
+        grams: null,
+        quantity: null,
+        unit: null,
+        calories: null,
+        protein: null,
+        carbs: null,
+        fat: null,
+        workout_id: 'workout-1',
+        workout_name: 'Treino',
+        type: 'strength',
+        duration: 60,
+        intensity: 'medium',
+        workout_time: '18:00',
+        split_id: null,
+        split_day_id: null,
+        muscle_groups_json: '["chest", 1]',
+      },
+    ]);
+    const response = responseMock();
+
+    await dailyLogsHandler({
+      method: 'GET',
+      headers: {},
+      query: { userId, limit: '30' },
+    } as any, response);
+
+    expect(response.status).toHaveBeenCalledWith(200);
+    const logs = response.json.mock.calls[0][0];
+    const log = logs[0];
+    const portion = log.meals[0].foods[0];
+    expect(portion).not.toHaveProperty('id');
+    expect(portion).toMatchObject({
+      grams: 150,
+      quantity: 1.5,
+      unit: 'xicara',
+      macros: { calories: 195, protein: 4.05, carbs: 42, fat: 0.45 },
+      food: {
+        id: 'food-1',
+        macros: { calories: 130, protein: 2.7, carbs: 28, fat: 0.3 },
+      },
+    });
+    expect(log.totalMacros).toEqual({ calories: 195, protein: 4.05, carbs: 42, fat: 0.45 });
+    expect(dailyLogPostSchema.safeParse({ userId, log }).success).toBe(true);
+
+    mockTransaction.mockClear();
+    mockTransactionQuery.mockClear();
+    const saveResponse = responseMock();
+    await dailyLogsHandler({
+      method: 'POST',
+      headers: {},
+      body: { userId, log },
+    } as any, saveResponse);
+
+    expect(saveResponse.status).toHaveBeenCalledWith(201);
+    expect(mockTransaction).toHaveBeenCalledTimes(1);
+    expect(statementAt(5)).toContain('quantity, unit');
+  });
+
+  it('rejects unsupported methods and malformed daily logs before a transaction', async () => {
+    const methodResponse = responseMock();
+    await dailyLogsHandler({ method: 'DELETE', headers: {} } as any, methodResponse);
+    expect(methodResponse.status).toHaveBeenCalledWith(405);
+
+    const invalidPostResponse = responseMock();
+    await dailyLogsHandler({
+      method: 'POST',
+      headers: {},
+      body: { userId, log: { date: 'invalid' } },
+    } as any, invalidPostResponse);
+    expect(invalidPostResponse.status).toHaveBeenCalledWith(400);
+    expect(mockTransaction).not.toHaveBeenCalled();
+
+    const invalidGetResponse = responseMock();
+    await dailyLogsHandler({
+      method: 'GET',
+      headers: {},
+      query: { userId: 'invalid-user', limit: '30' },
+    } as any, invalidGetResponse);
+    expect(invalidGetResponse.status).toHaveBeenCalledWith(400);
   });
 
   it('stores a manual weight in history and the daily log in one transaction', async () => {
