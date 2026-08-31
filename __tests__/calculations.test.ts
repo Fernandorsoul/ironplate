@@ -8,6 +8,8 @@ import {
   getMacroPercentages,
   calculateWorkoutCalories,
   calculateDailyEnergyExpenditure,
+  formatNutritionValue,
+  roundNutritionValue,
 } from '../src/utils/calculations';
 import { UserProfile } from '../src/types';
 
@@ -221,6 +223,20 @@ describe('Nutrition Calculations', () => {
     it('handles single item array', () => {
       const macros = { calories: 150, protein: 25, carbs: 15, fat: 8 };
       expect(sumMacros([macros])).toEqual(macros);
+    });
+  });
+
+  describe('nutrition value precision', () => {
+    it('rounds values to at most three decimal places', () => {
+      expect(roundNutritionValue(0.1 + 0.2)).toBe(0.3);
+      expect(roundNutritionValue(12.34567)).toBe(12.346);
+    });
+
+    it('formats decimal values with a comma and without unnecessary zeros', () => {
+      expect(formatNutritionValue(12)).toBe('12');
+      expect(formatNutritionValue(12.3)).toBe('12,3');
+      expect(formatNutritionValue(12.34567)).toBe('12,346');
+      expect(formatNutritionValue(Number.NaN)).toBe('0');
     });
   });
 

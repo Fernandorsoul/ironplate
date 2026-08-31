@@ -4,6 +4,18 @@ import { UserProfile, Macros, Workout } from '../types';
 import { ACTIVITY_LEVELS } from '../constants/foods';
 import { isStrengthFocusedSport } from '../constants/sports';
 
+export function roundNutritionValue(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.round((value + Number.EPSILON) * 1000) / 1000;
+}
+
+export function formatNutritionValue(value: number): string {
+  return roundNutritionValue(value)
+    .toFixed(3)
+    .replace(/\.?0+$/, '')
+    .replace('.', ',');
+}
+
 // Mifflin-St Jeor equation for BMR
 export function calculateBMR(profile: UserProfile): number {
   const { weight, height, age, gender } = profile;
@@ -163,10 +175,10 @@ export function calculateMacros(profile: UserProfile): Macros {
 export function calculatePortionMacros(food: { macros: Macros }, grams: number): Macros {
   const factor = grams / 100;
   return {
-    calories: Math.round(food.macros.calories * factor * 1000) / 1000,
-    protein: Math.round(food.macros.protein * factor * 1000) / 1000,
-    carbs: Math.round(food.macros.carbs * factor * 1000) / 1000,
-    fat: Math.round(food.macros.fat * factor * 1000) / 1000,
+    calories: roundNutritionValue(food.macros.calories * factor),
+    protein: roundNutritionValue(food.macros.protein * factor),
+    carbs: roundNutritionValue(food.macros.carbs * factor),
+    fat: roundNutritionValue(food.macros.fat * factor),
   };
 }
 
@@ -183,10 +195,10 @@ export function sumMacros(macrosList: Macros[]): Macros {
   );
   // Round to 3 decimal places to avoid floating point issues
   return {
-    calories: Math.round(sum.calories * 1000) / 1000,
-    protein: Math.round(sum.protein * 1000) / 1000,
-    carbs: Math.round(sum.carbs * 1000) / 1000,
-    fat: Math.round(sum.fat * 1000) / 1000,
+    calories: roundNutritionValue(sum.calories),
+    protein: roundNutritionValue(sum.protein),
+    carbs: roundNutritionValue(sum.carbs),
+    fat: roundNutritionValue(sum.fat),
   };
 }
 

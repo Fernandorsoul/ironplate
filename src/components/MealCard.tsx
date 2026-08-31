@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { Meal } from '../types';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../constants/theme';
 import { formatFoodPortion } from '../utils/portionDisplay';
+import { formatNutritionValue } from '../utils/calculations';
 
 interface MealCardProps {
   meal: Meal;
@@ -23,7 +24,7 @@ export function MealCard({ meal, onDelete }: MealCardProps) {
       <View style={styles.header}>
         <Text style={styles.name}>{meal.name}</Text>
         <View style={styles.right}>
-          <Text style={styles.calories}>{meal.totalMacros.calories} kcal</Text>
+          <Text style={styles.calories}>{formatNutritionValue(meal.totalMacros.calories)} kcal</Text>
           {onDelete && (
             <TouchableOpacity onPress={handleDelete}>
               <Text style={styles.deleteButton}>✕</Text>
@@ -32,9 +33,9 @@ export function MealCard({ meal, onDelete }: MealCardProps) {
         </View>
       </View>
       <View style={styles.macros}>
-        <Text style={[styles.macro, { color: COLORS.protein }]}>P: {meal.totalMacros.protein}g</Text>
-        <Text style={[styles.macro, { color: COLORS.carbs }]}>C: {meal.totalMacros.carbs}g</Text>
-        <Text style={[styles.macro, { color: COLORS.fat }]}>G: {meal.totalMacros.fat}g</Text>
+        <Text style={[styles.macro, { color: COLORS.protein }]}>P: {formatNutritionValue(meal.totalMacros.protein)}g</Text>
+        <Text style={[styles.macro, { color: COLORS.carbs }]}>C: {formatNutritionValue(meal.totalMacros.carbs)}g</Text>
+        <Text style={[styles.macro, { color: COLORS.fat }]}>G: {formatNutritionValue(meal.totalMacros.fat)}g</Text>
       </View>
       {meal.foods.map((portion, index) => (
         <Text key={index} style={styles.portion}>

@@ -15,7 +15,11 @@ import { isPhoneLayout, SMALL_PHONE_BREAKPOINT } from '../constants/layout';
 import { useApp } from '../context/AppContext';
 import { MacroCard, ActionButton, MealCard, ProfileAvatar } from '../components';
 import { useMacros } from '../hooks';
-import { calculateDailyEnergyExpenditure, calculateWorkoutCalories } from '../utils/calculations';
+import {
+  calculateDailyEnergyExpenditure,
+  calculateWorkoutCalories,
+  formatNutritionValue,
+} from '../utils/calculations';
 
 export default function HomeScreen({ navigation }: any) {
   const { width } = useWindowDimensions();
@@ -107,10 +111,10 @@ export default function HomeScreen({ navigation }: any) {
       {/* Calorie Ring */}
       <Animated.View style={[styles.calorieCard, entranceStyle(1)]}>
         <View style={styles.calorieCircle}>
-          <Text style={styles.calorieNumber}>{current.calories}</Text>
+          <Text style={styles.calorieNumber}>{formatNutritionValue(current.calories)}</Text>
           <Text style={styles.calorieLabel}>kcal</Text>
         </View>
-        <Text style={styles.calorieTarget}>Meta: {targetMacros?.calories || 0} kcal</Text>
+        <Text style={styles.calorieTarget}>Meta: {formatNutritionValue(targetMacros?.calories || 0)} kcal</Text>
         <View style={styles.calorieBar}>
           <Animated.View style={[styles.calorieBarFill, { transform: [{ scaleX: calorieProgress }] }]} />
         </View>
