@@ -35,8 +35,16 @@ const METRIC_CARDS: MetricCardDef[] = [
   { key: 'basalMetabolism', label: 'Metabolismo Basal', unit: 'kcal/dia' },
 ];
 
+function getLocalDateString(date = new Date()): string {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0'),
+  ].join('-');
+}
+
 export default function WeightScreen({ navigation }: any) {
-  const { userId, profile, weightHistory, setTodayWeight, addWeightEntry } = useApp();
+  const { userId, profile, weightHistory, addWeightEntry } = useApp();
   const stopRef = useRef<(() => void) | null>(null);
   const [scaleStatus, setScaleStatus] = useState('Nenhuma balança conectada');
   const [isScanning, setIsScanning] = useState(false);
@@ -83,8 +91,16 @@ export default function WeightScreen({ navigation }: any) {
       Alert.alert('Erro', 'Digite um peso válido (30–300 kg)');
       return;
     }
-    await saveToApp(w, undefined);
-    setManualWeight('');
+    setSaving(true);
+    try {
+      await saveToApp(w, undefined);
+      setManualWeight('');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erro desconhecido';
+      Alert.alert('Erro', `NÃ£o foi possÃ­vel salvar o peso: ${msg}`);
+    } finally {
+      setSaving(false);
+    }
   };
 
   // ─── Save scale readout ──────────────────────────────────────
@@ -97,9 +113,8 @@ export default function WeightScreen({ navigation }: any) {
     try {
       // Use saveBodyMeasurement to store full composition data
       if (userId) {
-        const today = new Date().toISOString().split('T')[0];
         await saveBodyMeasurement(userId, {
-          date: today,
+          date: getLocalDateString(),
           weight: readout.weight,
           bodyFat: readout.bodyFat,
           resistance: readout.resistance,
@@ -126,12 +141,9 @@ export default function WeightScreen({ navigation }: any) {
     }
   };
 
-  /** Internal helper: update weight entry in local state */
+  /** Internal helper: persist the weight and update the local state. */
   const saveToApp = async (weight: number, bodyFat?: number) => {
-    await setTodayWeight(weight);
-    if (bodyFat != null) {
-      await addWeightEntry({ date: new Date().toISOString().split('T')[0], weight, bodyFat });
-    }
+    await addWeightEntry({ date: getLocalDateString(), weight, bodyFat });
     Alert.alert('Sucesso', `${weight.toFixed(1)} kg registrado${bodyFat != null ? `, ${bodyFat}% BF` : ''}`);
   };
 
@@ -191,8 +203,12 @@ export default function WeightScreen({ navigation }: any) {
               onChangeText={setManualWeight}
             />
             <Text style={styles.unitLabel}>kg</Text>
-            <TouchableOpacity style={styles.saveButton} onPress={handleSaveManual}>
-              <Text style={styles.saveButtonText}>Salvar</Text>
+            <TouchableOpacity
+              style={[styles.saveButton, saving && styles.readoutSaveDisabled]}
+              onPress={handleSaveManual}
+              disabled={saving}
+            >
+              <Text style={styles.saveButtonText}>{saving ? 'Salvandoâ€¦' : 'Salvar'}</Text>
             </TouchableOpacity>
           </View>
         </View>
