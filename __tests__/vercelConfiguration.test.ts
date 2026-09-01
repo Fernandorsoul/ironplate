@@ -3,7 +3,12 @@ import path from 'path';
 
 interface VercelConfiguration {
   builds: Array<{ src: string; use: string }>;
-  routes: Array<{ src?: string; dest?: string }>;
+  routes: Array<{
+    src?: string;
+    dest?: string;
+    status?: number;
+    headers?: Record<string, string>;
+  }>;
 }
 
 const repositoryRoot = path.join(__dirname, '..');
@@ -12,6 +17,14 @@ const configuration = JSON.parse(
 ) as VercelConfiguration;
 
 describe('Vercel Hobby deployment configuration', () => {
+  it('permanently redirects the legacy PublicHome path to the site root', () => {
+    expect(configuration.routes[0]).toEqual({
+      src: '/PublicHome/?',
+      status: 308,
+      headers: { Location: '/' },
+    });
+  });
+
   it('publishes only user API handlers and remains within the 12-function limit', () => {
     expect(configuration.builds[0]).toEqual({
       src: 'api/users/*.ts',

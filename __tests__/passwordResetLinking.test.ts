@@ -2,12 +2,29 @@ jest.mock('expo-linking', () => ({
   createURL: (path: string) => `ironplate://${path.replace(/^\//, '')}`,
 }));
 
-import { getStateFromPath } from '@react-navigation/native';
+import { getPathFromState, getStateFromPath } from '@react-navigation/native';
 import { passwordResetLinking } from '../src/navigation/linking';
 import { isValidResetToken } from '../src/utils/passwordReset';
 
 describe('password reset links', () => {
   const token = 'a'.repeat(64);
+
+  it('maps the site root to PublicHome', () => {
+    const state = getStateFromPath('/', passwordResetLinking.config);
+
+    expect(state?.routes).toEqual([
+      expect.objectContaining({ name: 'PublicHome' }),
+    ]);
+  });
+
+  it('serializes PublicHome as the site root', () => {
+    const path = getPathFromState(
+      { routes: [{ name: 'PublicHome' }] },
+      passwordResetLinking.config,
+    );
+
+    expect(path).toBe('/');
+  });
 
   it('maps the reset URL to ForgotPassword with its token', () => {
     const state = getStateFromPath(
