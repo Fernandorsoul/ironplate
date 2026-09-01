@@ -12,6 +12,9 @@ export const passwordResetLinking: LinkingOptions<RootStackParamList> = {
   ],
   config: {
     screens: {
+      PublicHome: {
+        path: '',
+      },
       ForgotPassword: {
         path: 'reset-password',
         parse: {
