@@ -15,6 +15,13 @@
   ],
   "routes": [
     {
+      "src": "/PublicHome/?",
+      "status": 308,
+      "headers": {
+        "Location": "/"
+      }
+    },
+    {
       "src": "/api/users/forgot-password/?",
       "dest": "/api/users/password-reset.ts?operation=forgot"
     },
