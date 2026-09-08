@@ -21,7 +21,7 @@ export function HydrationCard({ profile, currentMl = 0, onChange }: HydrationCar
   return (
     <View style={styles.card} testID="hydration-card">
       <Text style={styles.eyebrow}>HIDRATAÇÃO</Text>
-      <Text style={styles.title}>Meta: {formatLiters(hydration.dailyTargetMl)} L por dia</Text>
+      <Text style={styles.title}>Meta inicial de líquidos: {formatLiters(hydration.dailyTargetMl)} L por dia</Text>
       <Text style={styles.progress}>{formatLiters(currentMl)} L registrados ({Math.round(progress * 100)}%)</Text>
       <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${progress * 100}%` }]} /></View>
       {onChange ? (

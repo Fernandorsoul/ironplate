@@ -1,6 +1,7 @@
 // IronPlate Types
 
 export type ActivityLevel = 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active';
+export type UserRole = 'student' | 'professional' | 'admin';
 export type Goal =
   | 'bulking'
   | 'weight_loss'
@@ -67,6 +68,7 @@ export interface UserProfile {
   photoUri?: string;
   targetWeightKg?: number;
   hydrationGoalMl?: number;
+  role?: UserRole;
   age: number;
   weight: number; // kg
   height: number; // cm

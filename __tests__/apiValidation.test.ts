@@ -1,5 +1,6 @@
 import {
   dailyLogPostSchema,
+  administrativeIdentifierPostSchema,
   limitSchema,
   loginSchema,
   mealPlanPostSchema,
@@ -8,6 +9,10 @@ import {
   resetPasswordSchema,
   updateSchema,
   userIdSchema,
+  professionalLinkDecisionSchema,
+  professionalProfileDecisionSchema,
+  professionalLinkPostSchema,
+  professionalProfilePostSchema,
 } from '../api/middleware/validation';
 
 const userId = '550e8400-e29b-41d4-a716-446655440000';
@@ -32,6 +37,24 @@ describe('API input validation', () => {
   it('requires a UUID for user identifiers', () => {
     expect(userIdSchema.safeParse(userId).success).toBe(true);
     expect(userIdSchema.safeParse('1 OR 1=1').success).toBe(false);
+  });
+
+  it('validates professional credentials, consent links and protected CPF input', () => {
+    expect(professionalProfilePostSchema.safeParse({
+      displayName: 'Dra. Ana',
+      registrationType: 'CREF',
+      registrationNumber: '12345-G',
+      registrationRegion: 'SP',
+    }).success).toBe(true);
+    expect(professionalLinkPostSchema.safeParse({
+      studentId: userId,
+      purpose: 'Acompanhamento nutricional',
+      consentVersion: '2026-01',
+    }).success).toBe(true);
+    expect(professionalLinkDecisionSchema.safeParse({ linkId: userId, decision: 'approve' }).success).toBe(true);
+    expect(professionalProfileDecisionSchema.safeParse({ profileId: userId, decision: 'approve' }).success).toBe(true);
+    expect(administrativeIdentifierPostSchema.safeParse({ identifierType: 'cpf', value: '12345678901' }).success).toBe(true);
+    expect(administrativeIdentifierPostSchema.safeParse({ identifierType: 'cpf', value: '123' }).success).toBe(false);
   });
 
   it('allows only explicitly supported update fields and bounded values', () => {

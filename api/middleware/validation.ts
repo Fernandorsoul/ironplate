@@ -42,6 +42,37 @@ export const registerSchema = z.object({
 
 export const userIdSchema = z.string().uuid('userId must be a valid UUID');
 
+const professionalRegistrationSchema = z.object({
+  displayName: z.string().trim().min(2).max(120),
+  registrationType: z.string().trim().min(2).max(40),
+  registrationNumber: z.string().trim().min(2).max(40),
+  registrationRegion: z.string().trim().min(2).max(40),
+  bio: z.string().trim().max(2_000).optional(),
+}).strict();
+
+export const professionalProfilePostSchema = professionalRegistrationSchema;
+
+export const professionalProfileDecisionSchema = z.object({
+  profileId: userIdSchema,
+  decision: z.enum(['approve', 'reject']),
+}).strict();
+
+export const professionalLinkPostSchema = z.object({
+  studentId: userIdSchema,
+  purpose: z.string().trim().min(3).max(160),
+  consentVersion: z.string().trim().min(1).max(40),
+}).strict();
+
+export const professionalLinkDecisionSchema = z.object({
+  linkId: userIdSchema,
+  decision: z.enum(['approve', 'revoke']),
+}).strict();
+
+export const administrativeIdentifierPostSchema = z.object({
+  identifierType: z.literal('cpf'),
+  value: z.string().trim().regex(/^\d{11}$/, 'CPF must contain 11 digits'),
+}).strict();
+
 const sportSchema = z.enum([
   'bodybuilding', 'bjj', 'both', 'running', 'cycling', 'swimming', 'soccer',
   'functional', 'calisthenics', 'walking', 'hybrid', 'other',
