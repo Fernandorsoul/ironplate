@@ -68,6 +68,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
            WHERE p.professional_id = ${id}
          )
     `;
+    await sql`
+      DELETE FROM professional_notifications
+      WHERE recipient_user_id = ${id} OR actor_user_id = ${id}
+         OR appointment_id IN (
+           SELECT id FROM professional_appointments
+           WHERE professional_id = ${id} OR student_id = ${id}
+         )
+    `;
+    await sql`
+      DELETE FROM professional_appointment_events
+      WHERE appointment_id IN (
+        SELECT id FROM professional_appointments
+        WHERE professional_id = ${id} OR student_id = ${id}
+      )
+    `;
+    await sql`DELETE FROM professional_appointments WHERE professional_id = ${id} OR student_id = ${id}`;
+    await sql`DELETE FROM professional_schedule_blockouts WHERE professional_id = ${id}`;
+    await sql`DELETE FROM professional_availability_rules WHERE professional_id = ${id}`;
     await sql`DELETE FROM professional_training_plans WHERE professional_id = ${id} OR student_id = ${id}`;
     await sql`DELETE FROM professional_nutrition_plans WHERE professional_id = ${id} OR student_id = ${id}`;
     await sql`DELETE FROM professional_exercises WHERE owner_professional_id = ${id}`;

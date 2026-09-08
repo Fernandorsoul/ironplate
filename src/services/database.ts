@@ -3,7 +3,12 @@ import {
   Food,
   MealPlan,
   ProfessionalExercise,
+  ProfessionalAppointmentType,
+  ProfessionalAvailabilityRule,
+  ProfessionalBookableSlot,
   ProfessionalNutritionPlan,
+  ProfessionalScheduleBlockout,
+  ProfessionalScheduleImpact,
   ProfessionalTrainingExecution,
   ProfessionalTrainingPlan,
   TrainingPrescriptionSession,
@@ -319,6 +324,111 @@ export async function recordProfessionalTrainingExecution(input: {
   });
   await expectOk(response);
   return await response.json() as { id: string; status: ProfessionalTrainingExecution['status'] };
+}
+
+type AvailabilityRuleInput = Omit<
+  ProfessionalAvailabilityRule,
+  'id' | 'active' | 'createdAt' | 'updatedAt'
+>;
+
+type ScheduleBlockoutInput = Omit<
+  ProfessionalScheduleBlockout,
+  'id' | 'status' | 'createdAt' | 'updatedAt'
+>;
+
+export interface ScheduleImpactDecision {
+  appointmentId: string;
+  action: 'keep' | 'decline' | 'cancel' | 'reschedule';
+  proposedSlots?: string[];
+}
+
+export async function getProfessionalAvailability(): Promise<{
+  rules: ProfessionalAvailabilityRule[];
+  blockouts: ProfessionalScheduleBlockout[];
+}> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=availability');
+  await expectOk(response);
+  return await response.json() as {
+    rules: ProfessionalAvailabilityRule[];
+    blockouts: ProfessionalScheduleBlockout[];
+  };
+}
+
+export async function getProfessionalBookableSlots(input: {
+  professionalId: string;
+  appointmentType: ProfessionalAppointmentType;
+  from: string;
+  to: string;
+}): Promise<ProfessionalBookableSlot[]> {
+  const query = new URLSearchParams({ mode: 'slots', ...input });
+  const response = await apiFetch(
+    `/users/get?resource=professionals&operation=availability&${query.toString()}`,
+  );
+  await expectOk(response);
+  return await response.json() as ProfessionalBookableSlot[];
+}
+
+export async function createProfessionalAvailabilityRule(
+  rule: AvailabilityRuleInput,
+): Promise<{ id: string; active: true }> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=availability', {
+    method: 'POST',
+    body: JSON.stringify({ resource: 'rule', rule }),
+  });
+  await expectOk(response);
+  return await response.json() as { id: string; active: true };
+}
+
+export async function updateProfessionalAvailabilityRule(input: {
+  ruleId: string;
+  action: 'update' | 'deactivate' | 'reactivate';
+  rule?: AvailabilityRuleInput;
+}): Promise<void> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=availability', {
+    method: 'PUT',
+    body: JSON.stringify({ resource: 'rule', ...input }),
+  });
+  await expectOk(response);
+}
+
+export async function previewProfessionalBlockout(
+  blockout: ScheduleBlockoutInput,
+): Promise<ProfessionalScheduleImpact[]> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=availability', {
+    method: 'POST',
+    body: JSON.stringify({ resource: 'blockout', blockout, preview: true }),
+  });
+  await expectOk(response);
+  const result = await response.json() as { impacts: ProfessionalScheduleImpact[] };
+  return result.impacts;
+}
+
+export async function createProfessionalBlockout(input: {
+  blockout: ScheduleBlockoutInput;
+  impactDecisions?: ScheduleImpactDecision[];
+}): Promise<{ id: string; status: 'active'; impactedAppointments: number }> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=availability', {
+    method: 'POST',
+    body: JSON.stringify({ resource: 'blockout', ...input }),
+  });
+  await expectOk(response);
+  return await response.json() as { id: string; status: 'active'; impactedAppointments: number };
+}
+
+export async function updateProfessionalBlockout(input: {
+  blockoutId: string;
+  action: 'update' | 'cancel' | 'cancel_future';
+  blockout?: ScheduleBlockoutInput;
+  effectiveUntil?: string;
+  preview?: boolean;
+  impactDecisions?: ScheduleImpactDecision[];
+}): Promise<{ impacts?: ProfessionalScheduleImpact[] }> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=availability', {
+    method: 'PUT',
+    body: JSON.stringify({ resource: 'blockout', ...input }),
+  });
+  await expectOk(response);
+  return await response.json() as { impacts?: ProfessionalScheduleImpact[] };
 }
 
 export async function saveCustomFood(userId: string, food: Food): Promise<void> {
