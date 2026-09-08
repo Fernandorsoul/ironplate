@@ -5,6 +5,7 @@ import { requireAuth } from '../middleware/auth';
 import profileHandler from '../professionals/profile';
 import linksHandler from '../professionals/links';
 import reviewHandler from '../professionals/review';
+import nutritionPlansHandler from '../professionals/nutrition-plans';
 import { handleAdministrativeIdentifier } from './administrativeIdentifier';
 
 export async function handleProfessionalRoutes(req: VercelRequest, res: VercelResponse) {
@@ -12,6 +13,7 @@ export async function handleProfessionalRoutes(req: VercelRequest, res: VercelRe
   if (operation === 'profile') return profileHandler(req, res);
   if (operation === 'links') return linksHandler(req, res);
   if (operation === 'review') return reviewHandler(req, res);
+  if (operation === 'nutrition-plans') return nutritionPlansHandler(req, res);
   if (operation !== 'identifier') return res.status(404).json({ error: 'Unknown professional operation' });
 
   if (applyCors(req, res, ['GET', 'PUT'])) return;

@@ -220,6 +220,33 @@ export const mealPlanPostSchema = z.object({
   }).passthrough(),
 }).strict();
 
+const professionalNutritionPlanContentSchema = z.object({
+  title: z.string().trim().min(1).max(160),
+  objective: z.string().trim().max(500).optional(),
+  meals: z.array(mealSchema).max(100),
+  totalMacros: macrosSchema,
+  changeSummary: z.string().trim().max(500).optional(),
+});
+
+export const professionalNutritionPlanPostSchema = z.object({
+  studentId: userIdSchema,
+  ...professionalNutritionPlanContentSchema.shape,
+}).strict();
+
+export const professionalNutritionPlanPutSchema = z.object({
+  planId: idSchema,
+  action: z.enum(['update', 'publish', 'archive']),
+  ...professionalNutritionPlanContentSchema.partial().shape,
+}).strict().superRefine((value, context) => {
+  if (value.action === 'update' && (!value.title || !value.meals || !value.totalMacros)) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'title, meals and totalMacros are required when updating a plan',
+      path: ['action'],
+    });
+  }
+});
+
 export const deleteMealPlanSchema = z.object({
   userId: userIdSchema,
   planId: idSchema,
