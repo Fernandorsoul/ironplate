@@ -16,6 +16,7 @@ export type RootStackParamList = {
   PublicHome: { openLogin?: boolean; openRegister?: boolean } | undefined;
   ForgotPassword: { token?: string } | undefined;
   PrivacyPolicy: undefined;
+  ProfessionalConsent: { token?: string } | undefined;
   Onboarding: undefined;
   BodyMeasurements: undefined;
   MainTabs: NavigatorScreenParams<TabParamList>;

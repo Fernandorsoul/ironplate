@@ -24,12 +24,19 @@ hold:
 
 1. The actor has an active professional role compatible with the data scope.
 2. The matching professional credential is verified.
-3. The professional-student link is active.
-4. The latest consent is granted for that scope.
+3. The professional-student link is active and has not expired.
+4. The latest append-only consent snapshot is granted, unexpired, and includes that scope.
 
 Self-access is allowed without a professional role. Existing personal endpoints continue to use
 `requireUserAccess`, so changing an ID in a URL or payload never grants delegated access by
 itself. Professional endpoints use `getScopedActiveLink`, which delegates to the central policy.
+The granular scopes are `basic_profile`, `nutrition_data`, `meals_adherence`, `meal_plans`,
+`weight`, `body_measurements`, `prescribed_training`, `training_execution`, and
+`scheduling`.
+
+Invitations contain a 256-bit one-time token. Only its SHA-256 hash is persisted, and acceptance
+atomically consumes it before creating or reactivating a link. Consent changes append a new record;
+authorization never accepts an older granted record after a later revocation.
 
 ## Adding endpoints
 

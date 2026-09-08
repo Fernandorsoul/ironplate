@@ -168,6 +168,55 @@ export interface ProfessionalProfile {
   updatedAt: string;
 }
 
+export type ProfessionalConsentScope =
+  | 'basic_profile'
+  | 'nutrition_data'
+  | 'meals_adherence'
+  | 'meal_plans'
+  | 'weight'
+  | 'body_measurements'
+  | 'prescribed_training'
+  | 'training_execution'
+  | 'scheduling';
+
+export interface ProfessionalLink {
+  id: string;
+  professionalId: string;
+  studentId: string;
+  viewerRole: 'student' | 'professional';
+  professionalName: string;
+  professionalRoles: Array<'nutritionist' | 'fitness_professional'>;
+  registrations: string[];
+  status: 'invited' | 'active' | 'revoked' | 'declined' | 'expired';
+  purpose: string;
+  requestedScopes: ProfessionalConsentScope[];
+  grantedScopes: ProfessionalConsentScope[];
+  consentStatus: 'requested' | 'granted' | 'revoked' | 'declined' | 'expired';
+  consentVersion: string;
+  activatedAt?: string;
+  expiresAt?: string;
+  revokedAt?: string;
+  lastChangedAt: string;
+}
+
+export interface ProfessionalInvitationPreview {
+  professionalId: string;
+  professionalName: string;
+  professionalRoles: Array<'nutritionist' | 'fitness_professional'>;
+  registrations: Array<{
+    role: 'nutritionist' | 'fitness_professional';
+    type: 'CRN' | 'CREF';
+    number: string;
+    region: string;
+  }>;
+  purpose: string;
+  scopes: ProfessionalConsentScope[];
+  consentVersion: string;
+  durationDays: number;
+  expiresAt: string;
+  revocationNotice: string;
+}
+
 export interface SupplementRecommendation {
   name: string;
   dose: string;

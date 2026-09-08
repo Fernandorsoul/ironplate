@@ -116,7 +116,13 @@ describe('professional appointment workflow', () => {
       body: { professionalId, appointmentType: 'fitness_session', startsAt, timeZone: 'America/Sao_Paulo' },
     } as any, response);
 
-    expect(mockGetScopedActiveLink).toHaveBeenCalledWith(mockSql, professionalId, studentId, 'scheduling');
+    expect(mockGetScopedActiveLink).toHaveBeenCalledWith(
+      mockSql,
+      professionalId,
+      studentId,
+      'scheduling',
+      { action: 'write', recordAccess: false },
+    );
     expect(sqlStatement(mockTransactionQuery, 0)).toContain('professional_appointments');
     expect(sqlStatement(mockTransactionQuery, 1)).toContain('professional_appointment_events');
     expect(response.status).toHaveBeenCalledWith(201);

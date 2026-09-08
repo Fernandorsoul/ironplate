@@ -249,14 +249,40 @@ export const professionalCredentials = pgTable('professional_credentials', {
   index('professional_credentials_user_idx').on(table.userId),
 ]);
 
+export const professionalLinkInvitations = pgTable('professional_link_invitations', {
+  id: text('id').primaryKey(),
+  professionalId: text('professional_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  tokenHash: text('token_hash').notNull(),
+  professionalRolesJson: text('professional_roles_json').notNull(),
+  purpose: text('purpose').notNull(),
+  scopesJson: text('scopes_json').notNull(),
+  consentVersion: text('consent_version').notNull(),
+  durationDays: integer('duration_days').notNull(),
+  status: text('status').default('issued').notNull(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  acceptedBy: text('accepted_by').references(() => users.id, { onDelete: 'set null' }),
+  usedAt: timestamp('used_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex('professional_link_invitations_token_unique').on(table.tokenHash),
+  index('professional_link_invitations_professional_idx').on(table.professionalId, table.createdAt),
+]);
+
 export const professionalStudentLinks = pgTable('professional_student_links', {
   id: text('id').primaryKey(),
   professionalId: text('professional_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   studentId: text('student_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   requestedBy: text('requested_by').notNull().references(() => users.id),
-  status: text('status').default('pending').notNull(),
+  status: text('status').default('invited').notNull(),
   purpose: text('purpose').notNull(),
   consentVersion: text('consent_version').notNull(),
+  requestedScopesJson: text('requested_scopes_json').default('[]').notNull(),
+  professionalRolesJson: text('professional_roles_json').default('[]').notNull(),
+  origin: text('origin').default('invite_link').notNull(),
+  activatedAt: timestamp('activated_at', { withTimezone: true }),
+  expiresAt: timestamp('expires_at', { withTimezone: true }),
+  revokedAt: timestamp('revoked_at', { withTimezone: true }),
+  lastActionBy: text('last_action_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
@@ -487,9 +513,11 @@ export const consentRecords = pgTable('consent_records', {
   status: text('status').default('requested').notNull(),
   grantedAt: timestamp('granted_at', { withTimezone: true }),
   revokedAt: timestamp('revoked_at', { withTimezone: true }),
+  expiresAt: timestamp('expires_at', { withTimezone: true }),
+  changedBy: text('changed_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
-  uniqueIndex('consent_records_link_unique').on(table.linkId),
+  index('consent_records_link_created_idx').on(table.linkId, table.createdAt),
   index('consent_records_subject_idx').on(table.subjectUserId),
 ]);
 

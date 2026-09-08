@@ -98,13 +98,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 ON v.plan_id = p.id AND v.version = p.published_version AND v.status = 'published'
               JOIN professional_student_links l
                 ON l.id = p.link_id AND l.status = 'active'
-              JOIN consent_records c
-                ON c.link_id = l.id AND c.status = 'granted' AND c.scopes_json::jsonb ? 'training'
+              JOIN LATERAL (
+                SELECT status, scopes_json, expires_at
+                FROM consent_records
+                WHERE link_id = l.id
+                ORDER BY created_at DESC, id DESC
+                LIMIT 1
+              ) c ON c.status = 'granted' AND c.scopes_json::jsonb ? 'prescribed_training'
               WHERE p.student_id = ${identity.userId} AND p.status = 'published'
+                AND (l.expires_at IS NULL OR l.expires_at > NOW())
+                AND (c.expires_at IS NULL OR c.expires_at > NOW())
                 AND (p.starts_on IS NULL OR p.starts_on <= CURRENT_DATE::text)
                 AND (p.ends_on IS NULL OR p.ends_on >= CURRENT_DATE::text)
               ORDER BY p.published_at DESC
             `;
+        if (educator) {
+          await Promise.all((rows as Record<string, any>[]).map(row => writeAuditLog(sql, {
+            actorUserId: identity.userId,
+            subjectUserId: row.student_id,
+            action: 'professional_content.read',
+            entityType: 'professional_training_plan',
+            entityId: row.id,
+            metadata: { version: row.version },
+          })));
+        }
         return res.status(200).json((rows as Record<string, any>[]).map(mapTrainingPlan));
       }
 
@@ -113,7 +130,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (req.method === 'POST') {
         const parsed = professionalTrainingPlanPostSchema.safeParse(req.body);
         if (!parsed.success) return validationError(res, parsed.error.issues);
-        const linkId = await getScopedActiveLink(sql, identity.userId, parsed.data.studentId, 'training');
+        const linkId = await getScopedActiveLink(sql, identity.userId, parsed.data.studentId, 'prescribed_training');
         if (!linkId) return res.status(403).json({ error: 'Active training consent required' });
         const exerciseIds = collectExerciseIds(parsed.data.sessions);
         if (!await exercisesAreAccessible(sql, identity.userId, exerciseIds)) {
@@ -162,7 +179,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       `;
       if (plans.length === 0) return res.status(404).json({ error: 'Training plan not found' });
       const plan = plans[0];
-      if (!await getScopedActiveLink(sql, identity.userId, plan.student_id, 'training')) {
+      if (!await getScopedActiveLink(sql, identity.userId, plan.student_id, 'prescribed_training')) {
         return res.status(403).json({ error: 'Active training consent required' });
       }
 

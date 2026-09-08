@@ -37,6 +37,7 @@ import EditProfileScreen from './src/screens/EditProfileScreen';
 import PrivacyPolicyScreen from './src/screens/PrivacyPolicyScreen';
 import PublicHomeScreen from './src/screens/PublicHomeScreen';
 import ProfessionalAreaScreen from './src/screens/ProfessionalAreaScreen';
+import ProfessionalConsentScreen from './src/screens/ProfessionalConsentScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<TabParamList>();
@@ -129,6 +130,7 @@ function AppNavigator() {
           <Stack.Screen name="PublicHome" component={PublicHomeScreen} />
           <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
           <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} options={{ headerShown: true, title: 'Política de Privacidade' }} />
+          <Stack.Screen name="ProfessionalConsent" component={ProfessionalConsentScreen} />
         </>
       ) : !isOnboarded ? (
         // Onboarding screen
@@ -154,6 +156,7 @@ function AppNavigator() {
           <Stack.Screen name="Evolution" component={EvolutionScreen} />
           <Stack.Screen name="EditProfile" component={EditProfileScreen} />
           <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} options={{ headerShown: true, title: 'Política de Privacidade' }} />
+          <Stack.Screen name="ProfessionalConsent" component={ProfessionalConsentScreen} />
           <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
         </>
       )}
