@@ -127,6 +127,22 @@ export interface MealPlan {
   supplements?: SupplementRecommendation[];
 }
 
+export interface ProfessionalNutritionPlan {
+  id: string;
+  professionalId: string;
+  studentId: string;
+  title: string;
+  objective?: string;
+  status: 'draft' | 'published' | 'archived';
+  version: number;
+  meals: Meal[];
+  totalMacros: Macros;
+  changeSummary?: string;
+  createdAt: string;
+  updatedAt: string;
+  publishedAt?: string;
+}
+
 export interface SupplementRecommendation {
   name: string;
   dose: string;

@@ -1,4 +1,4 @@
-import { DailyLog, Food, MealPlan, UserProfile } from '../types';
+import { DailyLog, Food, MealPlan, ProfessionalNutritionPlan, UserProfile } from '../types';
 import type { BodyMeasurement } from './measurementTypes';
 import { clearSession, getAccessToken } from './session';
 
@@ -176,6 +176,45 @@ export async function activateMealPlan(userId: string, planId: string): Promise<
     body: JSON.stringify({ userId, planId }),
   });
   await expectOk(response);
+}
+
+export async function getProfessionalNutritionPlans(): Promise<ProfessionalNutritionPlan[]> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=nutrition-plans');
+  await expectOk(response);
+  return await response.json() as ProfessionalNutritionPlan[];
+}
+
+export async function createProfessionalNutritionPlan(input: {
+  studentId: string;
+  title: string;
+  objective?: string;
+  meals: MealPlan['meals'];
+  totalMacros: MealPlan['totalMacros'];
+  changeSummary?: string;
+}): Promise<{ id: string; version: number; status: 'draft' }> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=nutrition-plans', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+  await expectOk(response);
+  return await response.json() as { id: string; version: number; status: 'draft' };
+}
+
+export async function updateProfessionalNutritionPlan(input: {
+  planId: string;
+  action: 'update' | 'publish' | 'archive';
+  title?: string;
+  objective?: string;
+  meals?: MealPlan['meals'];
+  totalMacros?: MealPlan['totalMacros'];
+  changeSummary?: string;
+}): Promise<{ id: string; version?: number; status: ProfessionalNutritionPlan['status'] }> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=nutrition-plans', {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  });
+  await expectOk(response);
+  return await response.json() as { id: string; version?: number; status: ProfessionalNutritionPlan['status'] };
 }
 
 export async function saveCustomFood(userId: string, food: Food): Promise<void> {

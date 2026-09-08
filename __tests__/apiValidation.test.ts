@@ -13,6 +13,8 @@ import {
   professionalProfileDecisionSchema,
   professionalLinkPostSchema,
   professionalProfilePostSchema,
+  professionalNutritionPlanPostSchema,
+  professionalNutritionPlanPutSchema,
 } from '../api/middleware/validation';
 
 const userId = '550e8400-e29b-41d4-a716-446655440000';
@@ -127,6 +129,18 @@ describe('API input validation', () => {
     expect(mealPlanPostSchema.safeParse({ userId, plan: { ...plan, goal: 'invalid' } }).success).toBe(false);
     expect(limitSchema.safeParse('100').success).toBe(true);
     expect(limitSchema.safeParse('101').success).toBe(false);
+  });
+
+  it('requires complete nutrition content for a professional plan update', () => {
+    const content = {
+      title: 'Plano de acompanhamento',
+      meals: [],
+      totalMacros: { calories: 2000, protein: 150, carbs: 220, fat: 60 },
+    };
+    expect(professionalNutritionPlanPostSchema.safeParse({ studentId: userId, ...content }).success).toBe(true);
+    expect(professionalNutritionPlanPutSchema.safeParse({ planId: 'plan-1', action: 'publish' }).success).toBe(true);
+    expect(professionalNutritionPlanPutSchema.safeParse({ planId: 'plan-1', action: 'update', title: 'Rascunho' }).success).toBe(false);
+    expect(professionalNutritionPlanPutSchema.safeParse({ planId: 'plan-1', action: 'archive' }).success).toBe(true);
   });
 
   it('accepts only strict, finite food portions with supported units', () => {

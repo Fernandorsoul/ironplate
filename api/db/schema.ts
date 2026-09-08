@@ -230,6 +230,43 @@ export const professionalStudentLinks = pgTable('professional_student_links', {
   index('professional_student_links_student_idx').on(table.studentId),
 ]);
 
+export const professionalNutritionPlans = pgTable('professional_nutrition_plans', {
+  id: text('id').primaryKey(),
+  professionalId: text('professional_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  studentId: text('student_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  linkId: text('link_id').notNull().references(() => professionalStudentLinks.id, { onDelete: 'cascade' }),
+  title: text('title').notNull(),
+  objective: text('objective'),
+  status: text('status').default('draft').notNull(),
+  currentVersion: integer('current_version').default(1).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  publishedAt: timestamp('published_at', { withTimezone: true }),
+}, (table) => [
+  index('professional_nutrition_plans_professional_idx').on(table.professionalId),
+  index('professional_nutrition_plans_student_idx').on(table.studentId),
+  index('professional_nutrition_plans_link_idx').on(table.linkId),
+]);
+
+export const professionalNutritionPlanVersions = pgTable('professional_nutrition_plan_versions', {
+  id: text('id').primaryKey(),
+  planId: text('plan_id').notNull().references(() => professionalNutritionPlans.id, { onDelete: 'cascade' }),
+  version: integer('version').notNull(),
+  mealsJson: text('meals_json').notNull(),
+  totalCalories: doublePrecision('total_calories').default(0).notNull(),
+  totalProtein: doublePrecision('total_protein').default(0).notNull(),
+  totalCarbs: doublePrecision('total_carbs').default(0).notNull(),
+  totalFat: doublePrecision('total_fat').default(0).notNull(),
+  changeSummary: text('change_summary'),
+  status: text('status').default('draft').notNull(),
+  createdBy: text('created_by').notNull().references(() => users.id),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  publishedAt: timestamp('published_at', { withTimezone: true }),
+}, (table) => [
+  uniqueIndex('professional_nutrition_plan_versions_unique').on(table.planId, table.version),
+  index('professional_nutrition_plan_versions_plan_idx').on(table.planId),
+]);
+
 export const consentRecords = pgTable('consent_records', {
   id: text('id').primaryKey(),
   linkId: text('link_id').notNull().references(() => professionalStudentLinks.id, { onDelete: 'cascade' }),
