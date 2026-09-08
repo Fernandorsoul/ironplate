@@ -51,6 +51,7 @@ function mapRule(row: Record<string, any>): AvailabilityRuleRecord & { active: b
     bufferAfterMinutes: row.buffer_after_minutes,
     minimumNoticeMinutes: row.minimum_notice_minutes,
     maximumBookingDays: row.maximum_booking_days,
+    requestHoldMinutes: row.request_hold_minutes,
     effectiveFrom: row.effective_from,
     effectiveUntil: row.effective_until ?? undefined,
     active: row.active,
@@ -300,12 +301,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             INSERT INTO professional_availability_rules (
               id, professional_id, appointment_type, weekday, start_time, end_time, time_zone,
               duration_minutes, slot_interval_minutes, buffer_before_minutes, buffer_after_minutes,
-              minimum_notice_minutes, maximum_booking_days, effective_from, effective_until
+              minimum_notice_minutes, maximum_booking_days, effective_from, effective_until,
+              request_hold_minutes
             ) VALUES (
               ${id}, ${identity.userId}, ${rule.appointmentType}, ${rule.weekday}, ${rule.startTime},
               ${rule.endTime}, ${rule.timeZone}, ${rule.durationMinutes}, ${rule.slotIntervalMinutes},
               ${rule.bufferBeforeMinutes}, ${rule.bufferAfterMinutes}, ${rule.minimumNoticeMinutes},
-              ${rule.maximumBookingDays}, ${rule.effectiveFrom}, ${rule.effectiveUntil ?? null}
+              ${rule.maximumBookingDays}, ${rule.effectiveFrom}, ${rule.effectiveUntil ?? null},
+              ${rule.requestHoldMinutes}
             )
           `;
           await writeAuditLog(sql, {
@@ -368,6 +371,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               duration_minutes = ${rule.durationMinutes}, slot_interval_minutes = ${rule.slotIntervalMinutes},
               buffer_before_minutes = ${rule.bufferBeforeMinutes}, buffer_after_minutes = ${rule.bufferAfterMinutes},
               minimum_notice_minutes = ${rule.minimumNoticeMinutes}, maximum_booking_days = ${rule.maximumBookingDays},
+              request_hold_minutes = ${rule.requestHoldMinutes},
               effective_from = ${rule.effectiveFrom}, effective_until = ${rule.effectiveUntil ?? null}, updated_at = NOW()
             WHERE id = ${parsed.data.ruleId} AND professional_id = ${identity.userId}
           `;

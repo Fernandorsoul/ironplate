@@ -51,8 +51,8 @@ DST transition are rejected, while stored appointment instants remain UTC.
 
 Migration `0006_careful_skrulls.sql` adds a PostgreSQL GiST exclusion constraint over each
 professional's buffered appointment interval for occupying statuses. This is the database-level
-guard against concurrent overlapping requests or confirmations. Issue #100 is responsible for
-expiring stale holds before creating or transitioning appointment records.
+guard against concurrent overlapping requests or confirmations. The appointment workflow expires
+stale holds before creating or transitioning appointment records.
 
 Creation, update, deactivation, future cancellation, and impact decisions are recorded in the
 audit/event trail. Availability, blockouts, appointments, events, and notifications are included

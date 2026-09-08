@@ -268,6 +268,7 @@ export interface ProfessionalAvailabilityRule {
   bufferAfterMinutes: number;
   minimumNoticeMinutes: number;
   maximumBookingDays: number;
+  requestHoldMinutes: number;
   effectiveFrom: string;
   effectiveUntil?: string;
   active: boolean;
@@ -308,6 +309,55 @@ export interface ProfessionalScheduleImpact {
   startsAt: string;
   endsAt: string;
   allowedActions: Array<'keep' | 'decline' | 'cancel' | 'reschedule'>;
+}
+
+export type ProfessionalAppointmentStatus =
+  | 'requested'
+  | 'confirmed'
+  | 'declined'
+  | 'reschedule_proposed'
+  | 'cancelled_by_student'
+  | 'cancelled_by_professional'
+  | 'completed'
+  | 'no_show'
+  | 'expired';
+
+export interface ProfessionalAppointmentEvent {
+  id: string;
+  eventType: string;
+  fromStatus?: ProfessionalAppointmentStatus;
+  toStatus?: ProfessionalAppointmentStatus;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface ProfessionalAppointment {
+  id: string;
+  professionalId: string;
+  studentId: string;
+  appointmentType: ProfessionalAppointmentType;
+  startsAt: string;
+  endsAt: string;
+  timeZone: string;
+  durationMinutes: number;
+  status: ProfessionalAppointmentStatus;
+  holdExpiresAt?: string;
+  proposedSlots?: string[];
+  neutralTitle: string;
+  origin: 'student_request' | 'professional_reschedule';
+  events: ProfessionalAppointmentEvent[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProfessionalNotification {
+  id: string;
+  appointmentId?: string;
+  notificationType: string;
+  title: string;
+  body: string;
+  readAt?: string;
+  createdAt: string;
 }
 
 export interface DailyLog {

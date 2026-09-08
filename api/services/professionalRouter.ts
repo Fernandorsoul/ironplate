@@ -10,6 +10,8 @@ import exercisesHandler from '../professionals/exercises';
 import trainingPlansHandler from '../professionals/training-plans';
 import trainingExecutionsHandler from '../professionals/training-executions';
 import availabilityHandler from '../professionals/availability';
+import appointmentsHandler from '../professionals/appointments';
+import notificationsHandler from '../professionals/notifications';
 import { handleAdministrativeIdentifier } from './administrativeIdentifier';
 
 export async function handleProfessionalRoutes(req: VercelRequest, res: VercelResponse) {
@@ -22,6 +24,8 @@ export async function handleProfessionalRoutes(req: VercelRequest, res: VercelRe
   if (operation === 'training-plans') return trainingPlansHandler(req, res);
   if (operation === 'training-executions') return trainingExecutionsHandler(req, res);
   if (operation === 'availability') return availabilityHandler(req, res);
+  if (operation === 'appointments') return appointmentsHandler(req, res);
+  if (operation === 'notifications') return notificationsHandler(req, res);
   if (operation !== 'identifier') return res.status(404).json({ error: 'Unknown professional operation' });
 
   if (applyCors(req, res, ['GET', 'PUT'])) return;

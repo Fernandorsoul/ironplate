@@ -11,6 +11,7 @@ export interface AvailabilityRuleRecord {
   bufferAfterMinutes: number;
   minimumNoticeMinutes: number;
   maximumBookingDays: number;
+  requestHoldMinutes?: number;
   effectiveFrom: string;
   effectiveUntil?: string;
 }
