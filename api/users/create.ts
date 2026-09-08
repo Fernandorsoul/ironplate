@@ -35,10 +35,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const storedHash = await hashPassword(password);
 
       try {
-        await sql`
-          INSERT INTO users (id, name, email, password_hash)
-          VALUES (${id}, ${normalizedName}, ${normalizedEmail}, ${storedHash})
-        `;
+        await sql.transaction((txn: any) => [
+          txn`
+            INSERT INTO users (id, name, email, password_hash)
+            VALUES (${id}, ${normalizedName}, ${normalizedEmail}, ${storedHash})
+          `,
+          txn`
+            INSERT INTO user_roles (id, user_id, role, status)
+            VALUES (${randomUUID()}, ${id}, 'student', 'active')
+          `,
+        ]);
         const accessToken = await issueAccessToken({ userId: id, email: normalizedEmail });
         return res.status(201).json({ id, name: normalizedName, email: normalizedEmail, accessToken });
       } catch (error: any) {

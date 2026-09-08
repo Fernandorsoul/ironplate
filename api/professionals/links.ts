@@ -45,9 +45,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       const professional = await sql`
-        SELECT p.id FROM professional_profiles p
-        JOIN users u ON u.id = p.user_id
-        WHERE p.user_id = ${identity.userId} AND u.role = 'professional' AND p.status = 'approved'
+        SELECT c.id FROM professional_credentials c
+        JOIN user_roles r ON r.user_id = c.user_id AND r.role = c.professional_role
+        WHERE c.user_id = ${identity.userId} AND c.status = 'verified' AND r.status = 'active'
+        LIMIT 1
       `;
       if (professional.length === 0) {
         return res.status(403).json({ error: 'Approved professional profile required' });

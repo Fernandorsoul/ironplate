@@ -14,10 +14,12 @@ jest.mock('../api/middleware/auth', () => ({
   requireAuth: (...args: unknown[]) => mockRequireAuth(...args),
 }));
 jest.mock('../api/services/professionalAccess', () => ({
-  getApprovedProfessionalRegistration: (...args: unknown[]) => mockGetRegistration(...args),
+  getApprovedProfessionalRegistrations: (...args: unknown[]) => mockGetRegistration(...args),
   getScopedActiveLink: (...args: unknown[]) => mockGetScopedActiveLink(...args),
-  registrationAllowsAppointmentType: (registration: string, appointmentType: string) => (
-    registration === 'CREF' ? appointmentType.startsWith('fitness_') : appointmentType.startsWith('nutrition_')
+  registrationAllowsAppointmentType: (registrations: string[], appointmentType: string) => (
+    registrations.some(registration => (
+      registration === 'CREF' ? appointmentType.startsWith('fitness_') : appointmentType.startsWith('nutrition_')
+    ))
   ),
 }));
 jest.mock('../api/services/audit', () => ({ writeAuditLog: jest.fn().mockResolvedValue(undefined) }));
@@ -90,7 +92,7 @@ describe('professional appointment workflow', () => {
     mockSql.mockReset();
     mockSql.mockResolvedValue([]);
     mockRequireAuth.mockResolvedValue({ userId: studentId });
-    mockGetRegistration.mockResolvedValue('CREF');
+    mockGetRegistration.mockResolvedValue(['CREF']);
     mockGetScopedActiveLink.mockResolvedValue('link-1');
     mockTransactionQuery.mockResolvedValue([]);
     mockTransaction.mockImplementation(async (buildQueries: (txn: typeof mockTransactionQuery) => Promise<unknown>[]) => {

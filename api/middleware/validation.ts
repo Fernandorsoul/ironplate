@@ -42,20 +42,56 @@ export const registerSchema = z.object({
 
 export const userIdSchema = z.string().uuid('userId must be a valid UUID');
 
-const professionalRegistrationSchema = z.object({
-  displayName: z.string().trim().min(2).max(120),
-  registrationType: z.string().trim().min(2).max(40),
+const professionalCredentialSchema = z.object({
+  professionalRole: z.enum(['nutritionist', 'fitness_professional']),
+  registrationType: z.enum(['CRN', 'CREF']),
   registrationNumber: z.string().trim().min(2).max(40),
   registrationRegion: z.string().trim().min(2).max(40),
+}).strict().superRefine((value, context) => {
+  const expected = value.professionalRole === 'nutritionist' ? 'CRN' : 'CREF';
+  if (value.registrationType !== expected) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: `${value.professionalRole} requires ${expected}`,
+      path: ['registrationType'],
+    });
+  }
+});
+
+const professionalRegistrationSchema = z.object({
+  displayName: z.string().trim().min(2).max(120),
+  credentials: z.array(professionalCredentialSchema).min(1).max(2).optional(),
+  registrationType: z.enum(['CRN', 'CREF']).optional(),
+  registrationNumber: z.string().trim().min(2).max(40).optional(),
+  registrationRegion: z.string().trim().min(2).max(40).optional(),
   bio: z.string().trim().max(2_000).optional(),
-}).strict();
+}).strict().superRefine((value, context) => {
+  const hasLegacy = Boolean(value.registrationType && value.registrationNumber && value.registrationRegion);
+  if (!value.credentials && !hasLegacy) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'credentials or a complete legacy registration is required',
+      path: ['credentials'],
+    });
+  }
+  if (value.credentials && new Set(value.credentials.map((item) => item.professionalRole)).size !== value.credentials.length) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Only one credential per professional role is allowed',
+      path: ['credentials'],
+    });
+  }
+});
 
 export const professionalProfilePostSchema = professionalRegistrationSchema;
 
 export const professionalProfileDecisionSchema = z.object({
-  profileId: userIdSchema,
-  decision: z.enum(['approve', 'reject']),
-}).strict();
+  profileId: userIdSchema.optional(),
+  credentialId: z.string().trim().min(1).max(160).optional(),
+  decision: z.enum(['approve', 'reject', 'suspend']),
+}).strict().refine((value) => Boolean(value.profileId) !== Boolean(value.credentialId), {
+  message: 'Exactly one of profileId or credentialId is required',
+});
 
 export const professionalLinkPostSchema = z.object({
   studentId: userIdSchema,

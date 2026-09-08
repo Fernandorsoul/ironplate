@@ -11,7 +11,7 @@ import {
   validationError,
 } from '../middleware/validation';
 import {
-  getApprovedProfessionalRegistration,
+  getApprovedProfessionalRegistrations,
   getScopedActiveLink,
   registrationAllowsAppointmentType,
 } from '../services/professionalAccess';
@@ -220,7 +220,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   await generalRateLimit(req, res, async () => {
     try {
-      const registration = await getApprovedProfessionalRegistration(sql, identity.userId);
+      const registrations = await getApprovedProfessionalRegistrations(sql, identity.userId);
       if (req.method === 'GET' && req.query.mode === 'slots') {
         const parsed = professionalAvailabilitySlotsQuerySchema.safeParse({
           professionalId: req.query.professionalId,
@@ -229,7 +229,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           to: req.query.to,
         });
         if (!parsed.success) return validationError(res, parsed.error.issues);
-        const ownsSchedule = parsed.data.professionalId === identity.userId && Boolean(registration);
+        const ownsSchedule = parsed.data.professionalId === identity.userId && registrations.length > 0;
         if (!ownsSchedule && !await getScopedActiveLink(
           sql,
           parsed.data.professionalId,
@@ -276,7 +276,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(200).json(slots);
       }
 
-      if (!registration) return res.status(403).json({ error: 'Approved professional profile required' });
+      if (registrations.length === 0) return res.status(403).json({ error: 'Approved professional profile required' });
       if (req.method === 'GET') {
         const [rules, blockouts] = await Promise.all([
           sql`SELECT * FROM professional_availability_rules WHERE professional_id = ${identity.userId} ORDER BY weekday, start_time`,
@@ -293,7 +293,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!parsed.success) return validationError(res, parsed.error.issues);
         if (parsed.data.resource === 'rule') {
           const rule = parsed.data.rule;
-          if (!registrationAllowsAppointmentType(registration, rule.appointmentType)) {
+          if (!registrationAllowsAppointmentType(registrations, rule.appointmentType)) {
             return res.status(403).json({ error: 'Professional registration does not allow this appointment type' });
           }
           const id = randomUUID();
@@ -361,7 +361,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (rows.length === 0) return res.status(404).json({ error: 'Availability rule not found' });
         if (parsed.data.action === 'update') {
           const rule = parsed.data.rule!;
-          if (!registrationAllowsAppointmentType(registration, rule.appointmentType)) {
+          if (!registrationAllowsAppointmentType(registrations, rule.appointmentType)) {
             return res.status(403).json({ error: 'Professional registration does not allow this appointment type' });
           }
           await sql`

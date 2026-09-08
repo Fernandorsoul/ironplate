@@ -10,7 +10,7 @@ import {
   validationError,
 } from '../middleware/validation';
 import {
-  getApprovedProfessionalRegistration,
+  getApprovedProfessionalRegistrations,
   getScopedActiveLink,
   registrationAllowsAppointmentType,
 } from '../services/professionalAccess';
@@ -273,8 +273,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (req.method === 'POST') {
         const parsed = professionalAppointmentPostSchema.safeParse(req.body);
         if (!parsed.success) return validationError(res, parsed.error.issues);
-        const registration = await getApprovedProfessionalRegistration(sql, parsed.data.professionalId);
-        if (!registration || !registrationAllowsAppointmentType(registration, parsed.data.appointmentType)) {
+        const registrations = await getApprovedProfessionalRegistrations(sql, parsed.data.professionalId);
+        if (!registrationAllowsAppointmentType(registrations, parsed.data.appointmentType)) {
           return res.status(403).json({ error: 'Professional cannot offer this appointment type' });
         }
         const linkId = await getScopedActiveLink(
@@ -350,8 +350,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           : undefined;
       if (!actor) return res.status(404).json({ error: 'Appointment not found' });
       if (actor === 'professional') {
-        const registration = await getApprovedProfessionalRegistration(sql, identity.userId);
-        if (!registration || !registrationAllowsAppointmentType(registration, appointment.appointment_type)) {
+        const registrations = await getApprovedProfessionalRegistrations(sql, identity.userId);
+        if (!registrationAllowsAppointmentType(registrations, appointment.appointment_type)) {
           return res.status(403).json({ error: 'Approved compatible professional profile required' });
         }
       }
