@@ -4,8 +4,12 @@ import { applyCors } from '../middleware/cors';
 import { getSql } from '../middleware/db';
 import { userIdSchema, validationError } from '../middleware/validation';
 import { requireAuth, requireUserAccess } from '../middleware/auth';
+import { handleProfessionalRoutes } from '../services/professionalRouter';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (req.query.resource === 'professionals') {
+    return handleProfessionalRoutes(req, res);
+  }
   if (applyCors(req, res, ['GET'])) return;
 
   if (req.method !== 'GET') {
@@ -35,7 +39,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!await requireUserAccess(req, res, parsedUserId.data)) return;
 
       const users = await sql`
-        SELECT name, email, age, weight, height, gender, activity_level, goal, sport, photo_uri,
+        SELECT name, email, role, age, weight, height, gender, activity_level, goal, sport, photo_uri,
                target_weight_kg, hydration_goal_ml
         FROM users
         WHERE id = ${parsedUserId.data}
@@ -49,6 +53,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({
         name: user.name,
         email: user.email,
+        role: user.role || 'student',
         age: user.age || 0,
         weight: user.weight || 0,
         height: user.height || 0,

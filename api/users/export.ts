@@ -39,7 +39,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const [users, logRows, mealRows, foodRows, workoutRows, weightRows, measurementRows, customFoodRows, planRows] = await Promise.all([
         sql`
           SELECT id, name, email, created_at, updated_at, last_login,
-                 age, weight, height, gender, activity_level, goal, sport, photo_uri,
+                 role, age, weight, height, gender, activity_level, goal, sport, photo_uri,
                  target_weight_kg, hydration_goal_ml
           FROM users WHERE id = ${userId}
         `,
@@ -147,6 +147,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         },
         profile: {
           age: row.age || 0,
+          role: row.role || 'student',
           weight: row.weight || 0,
           height: row.height || 0,
           gender: row.gender || 'male',
