@@ -26,7 +26,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const rows = await sql`
         SELECT l.id, l.professional_id, l.student_id, l.status, l.purpose,
                l.consent_version, l.created_at, l.updated_at,
-               c.status AS consent_status, c.granted_at, c.revoked_at,
+               c.status AS consent_status, c.scopes_json, c.granted_at, c.revoked_at,
                u.name AS professional_name
         FROM professional_student_links l
         JOIN users u ON u.id = l.professional_id
@@ -55,10 +55,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const student = await sql`SELECT id FROM users WHERE id = ${parsed.data.studentId}`;
       if (student.length === 0) return res.status(404).json({ error: 'Student not found' });
       const duplicate = await sql`
-        SELECT id FROM professional_student_links
+        SELECT id, status FROM professional_student_links
         WHERE professional_id = ${identity.userId} AND student_id = ${parsed.data.studentId}
       `;
-      if (duplicate.length > 0) return res.status(409).json({ error: 'Link already exists' });
+      if (duplicate.length > 0) {
+        const existingLinkId = duplicate[0].id;
+        await sql`
+          UPDATE professional_student_links
+          SET status = 'pending', purpose = ${parsed.data.purpose},
+              consent_version = ${parsed.data.consentVersion}, requested_by = ${identity.userId},
+              updated_at = NOW()
+          WHERE id = ${existingLinkId} AND professional_id = ${identity.userId}
+        `;
+        await sql`
+          UPDATE consent_records
+          SET purpose = ${parsed.data.purpose}, scopes_json = ${JSON.stringify(parsed.data.scopes)},
+              version = ${parsed.data.consentVersion}, status = 'requested',
+              granted_at = NULL, revoked_at = NULL
+          WHERE link_id = ${existingLinkId} AND subject_user_id = ${parsed.data.studentId}
+        `;
+        await writeAuditLog(sql, {
+          actorUserId: identity.userId,
+          subjectUserId: parsed.data.studentId,
+          action: 'professional_student_link.scope_change_requested',
+          entityType: 'professional_student_link',
+          entityId: existingLinkId,
+          metadata: { scopes: parsed.data.scopes, consentVersion: parsed.data.consentVersion },
+        });
+        return res.status(200).json({ id: existingLinkId, status: 'pending' });
+      }
 
       const linkId = randomUUID();
       await sql`
@@ -70,8 +95,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         )
       `;
       await sql`
-        INSERT INTO consent_records (id, link_id, subject_user_id, purpose, version, status)
-        VALUES (${randomUUID()}, ${linkId}, ${parsed.data.studentId}, ${parsed.data.purpose}, ${parsed.data.consentVersion}, 'requested')
+        INSERT INTO consent_records (id, link_id, subject_user_id, purpose, scopes_json, version, status)
+        VALUES (
+          ${randomUUID()}, ${linkId}, ${parsed.data.studentId}, ${parsed.data.purpose},
+          ${JSON.stringify(parsed.data.scopes)}, ${parsed.data.consentVersion}, 'requested'
+        )
       `;
       await writeAuditLog(sql, {
         actorUserId: identity.userId,
@@ -79,7 +107,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         action: 'professional_student_link.requested',
         entityType: 'professional_student_link',
         entityId: linkId,
-        metadata: { purpose: parsed.data.purpose, consentVersion: parsed.data.consentVersion },
+        metadata: {
+          purpose: parsed.data.purpose,
+          scopes: parsed.data.scopes,
+          consentVersion: parsed.data.consentVersion,
+        },
       });
       return res.status(201).json({ id: linkId, status: 'pending' });
     }

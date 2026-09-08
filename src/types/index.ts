@@ -163,6 +163,92 @@ export interface Workout {
   muscleGroups?: MuscleGroup[];
 }
 
+export interface ProfessionalExercise {
+  id: string;
+  visibility: 'global' | 'private';
+  name: string;
+  description: string;
+  muscleGroups: MuscleGroup[];
+  equipment?: string;
+  modality: string;
+  instructions: string;
+  mediaUrl?: string;
+  sourceAttribution?: string;
+  safetyNotes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TrainingPrescriptionItem {
+  id: string;
+  exerciseId: string;
+  order: number;
+  sets?: number;
+  repetitions?: string;
+  durationSeconds?: number;
+  load?: number;
+  loadUnit?: 'kg' | 'lb' | 'bodyweight' | 'band' | 'other';
+  restSeconds?: number;
+  targetRpe?: number;
+  targetRir?: number;
+  tempo?: string;
+  notes?: string;
+  alternativeExerciseId?: string;
+  progressionCriteria?: string;
+}
+
+export interface TrainingPrescriptionSession {
+  id: string;
+  name: string;
+  order: number;
+  items: TrainingPrescriptionItem[];
+}
+
+export interface ProfessionalTrainingPlan {
+  id: string;
+  professionalId: string;
+  studentId: string;
+  title: string;
+  objective?: string;
+  startsOn?: string;
+  endsOn?: string;
+  status: 'draft' | 'published' | 'archived';
+  version: number;
+  versionId: string;
+  sessions: TrainingPrescriptionSession[];
+  changeSummary?: string;
+  createdAt: string;
+  updatedAt: string;
+  publishedAt?: string;
+}
+
+export interface ProfessionalTrainingExecution {
+  id: string;
+  planId: string;
+  version: number;
+  sessionId: string;
+  studentId: string;
+  workoutId?: string;
+  status: 'in_progress' | 'completed';
+  results: Array<{
+    itemId: string;
+    sets: Array<{
+      setNumber: number;
+      repetitions?: number;
+      durationSeconds?: number;
+      load?: number;
+      loadUnit?: TrainingPrescriptionItem['loadUnit'];
+      rpe?: number;
+      notes?: string;
+    }>;
+    notes?: string;
+  }>;
+  perceivedExertion?: number;
+  feedback?: string;
+  performedAt: string;
+  createdAt: string;
+}
+
 export interface DailyLog {
   date: string;
   meals: Meal[];

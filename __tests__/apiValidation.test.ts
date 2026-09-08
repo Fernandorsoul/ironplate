@@ -15,6 +15,10 @@ import {
   professionalProfilePostSchema,
   professionalNutritionPlanPostSchema,
   professionalNutritionPlanPutSchema,
+  professionalExercisePostSchema,
+  professionalTrainingExecutionPostSchema,
+  professionalTrainingPlanPostSchema,
+  professionalTrainingPlanPutSchema,
 } from '../api/middleware/validation';
 
 const userId = '550e8400-e29b-41d4-a716-446655440000';
@@ -51,6 +55,7 @@ describe('API input validation', () => {
     expect(professionalLinkPostSchema.safeParse({
       studentId: userId,
       purpose: 'Acompanhamento nutricional',
+      scopes: ['nutrition'],
       consentVersion: '2026-01',
     }).success).toBe(true);
     expect(professionalLinkDecisionSchema.safeParse({ linkId: userId, decision: 'approve' }).success).toBe(true);
@@ -141,6 +146,65 @@ describe('API input validation', () => {
     expect(professionalNutritionPlanPutSchema.safeParse({ planId: 'plan-1', action: 'publish' }).success).toBe(true);
     expect(professionalNutritionPlanPutSchema.safeParse({ planId: 'plan-1', action: 'update', title: 'Rascunho' }).success).toBe(false);
     expect(professionalNutritionPlanPutSchema.safeParse({ planId: 'plan-1', action: 'archive' }).success).toBe(true);
+  });
+
+  it('validates professional exercises, versioned prescriptions and executions', () => {
+    const exercise = {
+      name: 'Agachamento',
+      description: 'Movimento composto',
+      muscleGroups: ['quadriceps', 'glutes'],
+      equipment: 'Barra',
+      modality: 'strength',
+      instructions: 'Execute com controle.',
+    };
+    const sessions = [{
+      id: 'session-a',
+      name: 'Treino A',
+      order: 0,
+      items: [{
+        id: 'item-a',
+        exerciseId: 'global-barbell-squat',
+        order: 0,
+        sets: 3,
+        repetitions: '8-10',
+        restSeconds: 90,
+        targetRpe: 8,
+      }],
+    }];
+
+    expect(professionalExercisePostSchema.safeParse(exercise).success).toBe(true);
+    expect(professionalExercisePostSchema.safeParse({ ...exercise, muscleGroups: [] }).success).toBe(false);
+    expect(professionalExercisePostSchema.safeParse({
+      ...exercise,
+      mediaUrl: 'https://example.com/exercise.mp4',
+    }).success).toBe(false);
+    expect(professionalTrainingPlanPostSchema.safeParse({
+      studentId: userId,
+      title: 'Forca inicial',
+      startsOn: '2026-09-01',
+      endsOn: '2026-10-01',
+      sessions,
+    }).success).toBe(true);
+    expect(professionalTrainingPlanPostSchema.safeParse({
+      studentId: userId,
+      title: 'Periodo invalido',
+      startsOn: '2026-10-01',
+      endsOn: '2026-09-01',
+      sessions,
+    }).success).toBe(false);
+    expect(professionalTrainingPlanPutSchema.safeParse({
+      planId: 'plan-1',
+      action: 'update',
+      title: 'Sem sessoes',
+    }).success).toBe(false);
+    expect(professionalTrainingExecutionPostSchema.safeParse({
+      planId: 'plan-1',
+      version: 1,
+      sessionId: 'session-a',
+      results: [{ itemId: 'item-a', sets: [{ setNumber: 1, repetitions: 10, rpe: 8 }] }],
+      perceivedExertion: 8,
+      performedAt: '2026-09-08T12:00:00.000Z',
+    }).success).toBe(true);
   });
 
   it('accepts only strict, finite food portions with supported units', () => {

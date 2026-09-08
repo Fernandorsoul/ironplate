@@ -19,6 +19,10 @@ export function buildExportPayload(parts: {
   bodyMeasurements: any[];
   customFoods: any[];
   mealPlans: any[];
+  professionalNutritionPlans?: any[];
+  professionalExercises?: any[];
+  professionalTrainingPlans?: any[];
+  professionalTrainingExecutions?: any[];
   exportedAt?: string;
 }): Record<string, unknown> {
   return {
@@ -31,5 +35,9 @@ export function buildExportPayload(parts: {
     bodyMeasurements: parts.bodyMeasurements,
     customFoods: parts.customFoods,
     mealPlans: parts.mealPlans,
+    professionalNutritionPlans: parts.professionalNutritionPlans ?? [],
+    professionalExercises: parts.professionalExercises ?? [],
+    professionalTrainingPlans: parts.professionalTrainingPlans ?? [],
+    professionalTrainingExecutions: parts.professionalTrainingExecutions ?? [],
   };
 }

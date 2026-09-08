@@ -72,6 +72,10 @@ describe('LGPD data export helpers', () => {
       expect(payload.bodyMeasurements).toEqual(parts.bodyMeasurements);
       expect(payload.customFoods).toEqual(parts.customFoods);
       expect(payload.mealPlans).toEqual(parts.mealPlans);
+      expect(payload.professionalNutritionPlans).toEqual([]);
+      expect(payload.professionalExercises).toEqual([]);
+      expect(payload.professionalTrainingPlans).toEqual([]);
+      expect(payload.professionalTrainingExecutions).toEqual([]);
     });
 
     it('defaults exportedAt to the current time', () => {

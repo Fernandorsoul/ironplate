@@ -60,6 +60,7 @@ export const professionalProfileDecisionSchema = z.object({
 export const professionalLinkPostSchema = z.object({
   studentId: userIdSchema,
   purpose: z.string().trim().min(3).max(160),
+  scopes: z.array(z.enum(['nutrition', 'training', 'scheduling'])).min(1).max(3),
   consentVersion: z.string().trim().min(1).max(40),
 }).strict();
 
@@ -246,6 +247,133 @@ export const professionalNutritionPlanPutSchema = z.object({
     });
   }
 });
+
+const professionalExerciseContentSchema = z.object({
+  name: z.string().trim().min(2).max(160),
+  description: z.string().trim().min(3).max(2_000),
+  muscleGroups: z.array(muscleGroupSchema).min(1).max(12),
+  equipment: z.string().trim().max(120).optional(),
+  modality: z.string().trim().min(2).max(80),
+  instructions: z.string().trim().min(3).max(5_000),
+  mediaUrl: z.url().max(2_000).optional(),
+  sourceAttribution: z.string().trim().max(500).optional(),
+  safetyNotes: z.string().trim().max(1_000).optional(),
+});
+
+export const professionalExercisePostSchema = professionalExerciseContentSchema.strict().superRefine((value, context) => {
+  if (value.mediaUrl && !value.sourceAttribution) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'sourceAttribution is required when mediaUrl is provided',
+      path: ['sourceAttribution'],
+    });
+  }
+});
+
+export const professionalExercisePutSchema = z.object({
+  exerciseId: idSchema,
+  ...professionalExerciseContentSchema.shape,
+}).strict().superRefine((value, context) => {
+  if (value.mediaUrl && !value.sourceAttribution) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'sourceAttribution is required when mediaUrl is provided',
+      path: ['sourceAttribution'],
+    });
+  }
+});
+
+const trainingPrescriptionItemSchema = z.object({
+  id: idSchema,
+  exerciseId: idSchema,
+  order: z.number().int().min(0).max(500),
+  sets: z.number().int().min(1).max(30).optional(),
+  repetitions: z.string().trim().max(40).optional(),
+  durationSeconds: z.number().int().min(1).max(86_400).optional(),
+  load: z.number().finite().min(0).max(10_000).optional(),
+  loadUnit: z.enum(['kg', 'lb', 'bodyweight', 'band', 'other']).optional(),
+  restSeconds: z.number().int().min(0).max(3_600).optional(),
+  targetRpe: z.number().finite().min(0).max(10).optional(),
+  targetRir: z.number().int().min(0).max(10).optional(),
+  tempo: z.string().trim().max(40).optional(),
+  notes: z.string().trim().max(1_000).optional(),
+  alternativeExerciseId: idSchema.optional(),
+  progressionCriteria: z.string().trim().max(1_000).optional(),
+}).strict().refine(
+  (item) => Boolean(item.repetitions || item.durationSeconds),
+  { message: 'repetitions or durationSeconds is required' },
+);
+
+const trainingSessionSchema = z.object({
+  id: idSchema,
+  name: z.string().trim().min(1).max(160),
+  order: z.number().int().min(0).max(100),
+  items: z.array(trainingPrescriptionItemSchema).min(1).max(100),
+}).strict();
+
+const professionalTrainingPlanContentSchema = z.object({
+  title: z.string().trim().min(1).max(160),
+  objective: z.string().trim().max(500).optional(),
+  startsOn: dateSchema.optional(),
+  endsOn: dateSchema.optional(),
+  sessions: z.array(trainingSessionSchema).min(1).max(30),
+  changeSummary: z.string().trim().max(500).optional(),
+});
+
+export const professionalTrainingPlanPostSchema = z.object({
+  studentId: userIdSchema,
+  ...professionalTrainingPlanContentSchema.shape,
+}).strict().refine(
+  (value) => !value.startsOn || !value.endsOn || value.endsOn >= value.startsOn,
+  { message: 'endsOn must be on or after startsOn', path: ['endsOn'] },
+);
+
+export const professionalTrainingPlanPutSchema = z.object({
+  planId: idSchema,
+  action: z.enum(['update', 'publish', 'archive']),
+  ...professionalTrainingPlanContentSchema.partial().shape,
+}).strict().superRefine((value, context) => {
+  if (value.action === 'update' && (!value.title || !value.sessions)) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'title and sessions are required when updating a training plan',
+      path: ['action'],
+    });
+  }
+  if (value.startsOn && value.endsOn && value.endsOn < value.startsOn) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'endsOn must be on or after startsOn',
+      path: ['endsOn'],
+    });
+  }
+});
+
+const trainingSetExecutionSchema = z.object({
+  setNumber: z.number().int().min(1).max(100),
+  repetitions: z.number().int().min(0).max(10_000).optional(),
+  durationSeconds: z.number().int().min(0).max(86_400).optional(),
+  load: z.number().finite().min(0).max(10_000).optional(),
+  loadUnit: z.enum(['kg', 'lb', 'bodyweight', 'band', 'other']).optional(),
+  rpe: z.number().finite().min(0).max(10).optional(),
+  notes: z.string().trim().max(1_000).optional(),
+}).strict();
+
+export const professionalTrainingExecutionPostSchema = z.object({
+  planId: idSchema,
+  version: z.number().int().min(1).max(10_000),
+  sessionId: idSchema,
+  workoutId: idSchema.optional(),
+  status: z.enum(['in_progress', 'completed']).default('completed'),
+  results: z.array(z.object({
+    itemId: idSchema,
+    sets: z.array(trainingSetExecutionSchema).max(100),
+    notes: z.string().trim().max(1_000).optional(),
+  }).strict()).max(100),
+  perceivedExertion: z.number().finite().min(0).max(10).optional(),
+  feedback: z.string().trim().max(2_000).optional(),
+  performedAt: z.string().datetime({ offset: true }),
+}).strict();
 
 export const deleteMealPlanSchema = z.object({
   userId: userIdSchema,
