@@ -11,6 +11,10 @@ jest.mock('../api/middleware/auth', () => ({
   requireAuth: jest.fn().mockResolvedValue({ userId: '550e8400-e29b-41d4-a716-446655440000' }),
 }));
 jest.mock('../api/services/audit', () => ({ writeAuditLog: jest.fn().mockResolvedValue(undefined) }));
+const mockGetScopedActiveLink = jest.fn();
+jest.mock('../api/services/professionalAccess', () => ({
+  getScopedActiveLink: (...args: unknown[]) => mockGetScopedActiveLink(...args),
+}));
 
 import nutritionPlansHandler from '../api/professionals/nutrition-plans';
 
@@ -42,6 +46,7 @@ describe('professional nutrition plans', () => {
       return Promise.all(queries);
     });
     mockTransactionQuery.mockResolvedValue([]);
+    mockGetScopedActiveLink.mockResolvedValue('link-1');
   });
 
   it('creates only a draft for an active, consented student link', async () => {

@@ -7,7 +7,7 @@ export default function PrivacyPolicyScreen({ navigation }: any) {
     <ScrollView style={styles.container}>
       <View style={styles.content}>
         <Text style={styles.title}>Política de Privacidade</Text>
-        <Text style={styles.lastUpdate}>Última atualização: 28/08/2026</Text>
+        <Text style={styles.lastUpdate}>Última atualização: 08/09/2026</Text>
 
         <Text style={styles.sectionTitle}>1. Dados Coletados</Text>
         <Text style={styles.text}>
@@ -43,8 +43,8 @@ export default function PrivacyPolicyScreen({ navigation }: any) {
           Dados de saúde (composição corporal, bioimpedância, medidas) são considerados dados sensíveis conforme Art. 5º II da LGPD e recebem proteção especial:
         </Text>
         <Text style={styles.bullet}>• Armazenamento criptografado</Text>
-        <Text style={styles.bullet}>• Acesso restrito ao próprio usuário</Text>
-        <Text style={styles.bullet}>• Não compartilhamento com terceiros</Text>
+        <Text style={styles.bullet}>• Acesso do titular e, quando autorizado, de profissional verificado</Text>
+        <Text style={styles.bullet}>• Compartilhamento granular, reversível e registrado em auditoria</Text>
         <Text style={styles.bullet}>• Exclusão junto com a conta</Text>
 
         <Text style={styles.sectionTitle}>5. Retenção de Dados</Text>
@@ -68,11 +68,15 @@ export default function PrivacyPolicyScreen({ navigation }: any) {
 
         <Text style={styles.sectionTitle}>7. Compartilhamento</Text>
         <Text style={styles.text}>
-          Não compartilhamos seus dados com terceiros, exceto:
+          Profissionais verificados só recebem acesso após convite aceito pelo aluno. Antes do
+          aceite, mostramos a identidade e o registro do profissional, a finalidade, duração e
+          todas as categorias solicitadas.
         </Text>
         <Text style={styles.bullet}>• Quando exigido por lei</Text>
         <Text style={styles.bullet}>• Para proteger direitos e segurança</Text>
-        <Text style={styles.bullet}>• Com seu consentimento explícito</Text>
+        <Text style={styles.bullet}>• Com consentimento explícito e granular do aluno</Text>
+        <Text style={styles.bullet}>• A revogação bloqueia imediatamente novos acessos aos dados originais</Text>
+        <Text style={styles.bullet}>• Documentos produzidos pelo profissional podem seguir retenção legal específica</Text>
 
         <Text style={styles.sectionTitle}>8. Segurança</Text>
         <Text style={styles.text}>

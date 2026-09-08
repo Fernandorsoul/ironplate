@@ -1,9 +1,40 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  Share,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import QRCode from 'react-native-qrcode-svg';
 import { BORDER_RADIUS, COLORS, FONT_SIZE, SPACING } from '../constants/theme';
 import { useApp } from '../context/AppContext';
-import { getProfessionalProfile } from '../services/database';
-import type { ProfessionalCredential, ProfessionalProfile } from '../types';
+import { createProfessionalInvitation, getProfessionalProfile } from '../services/database';
+import type {
+  ProfessionalConsentScope,
+  ProfessionalCredential,
+  ProfessionalProfile,
+} from '../types';
+
+type ProfessionalRole = ProfessionalCredential['professionalRole'];
+
+const SCOPE_OPTIONS: Array<{
+  key: ProfessionalConsentScope;
+  label: string;
+  roles: ProfessionalRole[];
+}> = [
+  { key: 'basic_profile', label: 'Perfil basico', roles: ['nutritionist', 'fitness_professional'] },
+  { key: 'nutrition_data', label: 'Dados nutricionais', roles: ['nutritionist'] },
+  { key: 'meals_adherence', label: 'Refeicoes e aderencia', roles: ['nutritionist'] },
+  { key: 'meal_plans', label: 'Planos alimentares', roles: ['nutritionist'] },
+  { key: 'weight', label: 'Peso', roles: ['nutritionist', 'fitness_professional'] },
+  { key: 'body_measurements', label: 'Medidas e composicao', roles: ['nutritionist', 'fitness_professional'] },
+  { key: 'prescribed_training', label: 'Treinos prescritos', roles: ['fitness_professional'] },
+  { key: 'training_execution', label: 'Execucao de treinos', roles: ['fitness_professional'] },
+];
 
 const ROLE_CONTENT = {
   nutritionist: {
@@ -26,6 +57,11 @@ export default function ProfessionalAreaScreen() {
   const { profile: userProfile } = useApp();
   const [professionalProfile, setProfessionalProfile] = useState<ProfessionalProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [purpose, setPurpose] = useState('Acompanhamento profissional individual');
+  const [selectedScopes, setSelectedScopes] = useState<ProfessionalConsentScope[]>(['basic_profile']);
+  const [isCreatingInvite, setIsCreatingInvite] = useState(false);
+  const [inviteError, setInviteError] = useState('');
+  const [invitation, setInvitation] = useState<Awaited<ReturnType<typeof createProfessionalInvitation>> | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -50,6 +86,51 @@ export default function ProfessionalAreaScreen() {
   const verifiedCredentials = professionalProfile?.credentials.filter(
     credential => credential.status === 'verified' && activeRoles.includes(credential.professionalRole),
   ) ?? [];
+  const verifiedRoles = [...new Set(verifiedCredentials.map(credential => credential.professionalRole))];
+  const availableScopes = SCOPE_OPTIONS.filter(option => (
+    option.roles.some(role => verifiedRoles.includes(role))
+  ));
+
+  const toggleScope = (scope: ProfessionalConsentScope) => {
+    setInvitation(null);
+    setSelectedScopes(current => (
+      current.includes(scope) ? current.filter(item => item !== scope) : [...current, scope]
+    ));
+  };
+
+  const createInvitation = async () => {
+    if (purpose.trim().length < 10 || selectedScopes.length === 0 || verifiedRoles.length === 0) {
+      setInviteError('Informe a finalidade e selecione ao menos uma categoria.');
+      return;
+    }
+    setInviteError('');
+    setIsCreatingInvite(true);
+    try {
+      const created = await createProfessionalInvitation({
+        purpose: purpose.trim(),
+        scopes: selectedScopes,
+        professionalRoles: verifiedRoles,
+        consentVersion: '2026-09',
+        expiresInHours: 72,
+        durationDays: 365,
+      });
+      setInvitation(created);
+    } catch (error) {
+      console.error('Professional invitation creation error:', error);
+      setInviteError('Nao foi possivel gerar o convite agora.');
+    } finally {
+      setIsCreatingInvite(false);
+    }
+  };
+
+  const shareInvitation = async () => {
+    if (!invitation) return;
+    await Share.share({
+      title: 'Convite IronPlate',
+      message: `Convite para acompanhamento no IronPlate: ${invitation.invitationUrl}`,
+      url: invitation.invitationUrl,
+    });
+  };
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -90,6 +171,83 @@ export default function ProfessionalAreaScreen() {
               </View>
             );
           })}
+        </View>
+      )}
+
+      {!isLoading && verifiedCredentials.length > 0 && (
+        <View style={styles.inviteCard}>
+          <Text style={styles.inviteEyebrow}>CONSENTIMENTO GRANULAR</Text>
+          <Text style={styles.inviteTitle}>Criar convite seguro</Text>
+          <Text style={styles.inviteText}>
+            Escolha somente os dados necessarios. O aluno podera reduzir as categorias antes do aceite
+            e revogar o acesso a qualquer momento.
+          </Text>
+          <Text style={styles.fieldLabel}>Finalidade</Text>
+          <TextInput
+            accessibilityLabel="Finalidade do acompanhamento"
+            multiline
+            onChangeText={value => {
+              setPurpose(value);
+              setInvitation(null);
+            }}
+            placeholder="Descreva por que estes dados sao necessarios"
+            placeholderTextColor={COLORS.textMuted}
+            style={styles.purposeInput}
+            value={purpose}
+          />
+          <Text style={styles.fieldLabel}>Categorias solicitadas</Text>
+          <View style={styles.scopeGrid}>
+            {availableScopes.map(option => {
+              const selected = selectedScopes.includes(option.key);
+              return (
+                <Pressable
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: selected }}
+                  key={option.key}
+                  onPress={() => toggleScope(option.key)}
+                  style={[styles.scopeChip, selected && styles.scopeChipSelected]}
+                >
+                  <Text style={[styles.scopeChipText, selected && styles.scopeChipTextSelected]}>
+                    {option.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          <Text style={styles.inviteMeta}>Link valido por 72 horas. Vinculo valido por 365 dias.</Text>
+          {!!inviteError && <Text style={styles.errorText}>{inviteError}</Text>}
+          <Pressable
+            accessibilityRole="button"
+            disabled={isCreatingInvite}
+            onPress={createInvitation}
+            style={({ pressed }) => [styles.primaryButton, pressed && styles.buttonPressed]}
+          >
+            {isCreatingInvite
+              ? <ActivityIndicator color={COLORS.background} />
+              : <Text style={styles.primaryButtonText}>Gerar link e QR</Text>}
+          </Pressable>
+
+          {invitation && (
+            <View style={styles.invitationResult}>
+              <View style={styles.qrFrame}>
+                <QRCode
+                  backgroundColor="#FFFFFF"
+                  color="#111827"
+                  size={180}
+                  value={invitation.qrPayload}
+                />
+              </View>
+              <Text selectable style={styles.invitationLink}>{invitation.invitationUrl}</Text>
+              <Text style={styles.inviteMeta}>Uso unico. Nao publique este convite em canais abertos.</Text>
+              <Pressable
+                accessibilityRole="button"
+                onPress={shareInvitation}
+                style={({ pressed }) => [styles.secondaryButton, pressed && styles.buttonPressed]}
+              >
+                <Text style={styles.secondaryButtonText}>Compartilhar convite</Text>
+              </Pressable>
+            </View>
+          )}
         </View>
       )}
 
@@ -148,6 +306,67 @@ const styles = StyleSheet.create({
   credentialLine: { borderTopColor: COLORS.borderLight, borderTopWidth: 1, marginTop: SPACING.lg, paddingTop: SPACING.md },
   credentialLabel: { color: COLORS.textSecondary, fontSize: FONT_SIZE.xs },
   credentialValue: { color: COLORS.text, fontSize: FONT_SIZE.md, fontWeight: '700', marginTop: SPACING.xs },
+  inviteCard: {
+    backgroundColor: COLORS.surface,
+    borderColor: COLORS.primary,
+    borderRadius: BORDER_RADIUS.lg,
+    borderWidth: 1,
+    padding: SPACING.lg,
+  },
+  inviteEyebrow: { color: COLORS.primary, fontSize: FONT_SIZE.xs, fontWeight: '800', letterSpacing: 1.5 },
+  inviteTitle: { color: COLORS.text, fontSize: FONT_SIZE.xl, fontWeight: '800', marginTop: SPACING.sm },
+  inviteText: { color: COLORS.textSecondary, fontSize: FONT_SIZE.sm, lineHeight: 21, marginTop: SPACING.sm },
+  fieldLabel: { color: COLORS.text, fontSize: FONT_SIZE.sm, fontWeight: '700', marginTop: SPACING.lg },
+  purposeInput: {
+    backgroundColor: COLORS.background,
+    borderColor: COLORS.borderLight,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+    color: COLORS.text,
+    fontSize: FONT_SIZE.md,
+    marginTop: SPACING.sm,
+    minHeight: 76,
+    padding: SPACING.md,
+    textAlignVertical: 'top',
+  },
+  scopeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm, marginTop: SPACING.sm },
+  scopeChip: {
+    borderColor: COLORS.borderLight,
+    borderRadius: BORDER_RADIUS.full,
+    borderWidth: 1,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+  },
+  scopeChipSelected: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+  scopeChipText: { color: COLORS.textSecondary, fontSize: FONT_SIZE.sm, fontWeight: '600' },
+  scopeChipTextSelected: { color: COLORS.background },
+  inviteMeta: { color: COLORS.textMuted, fontSize: FONT_SIZE.xs, lineHeight: 18, marginTop: SPACING.md },
+  errorText: { color: COLORS.error, fontSize: FONT_SIZE.sm, marginTop: SPACING.md },
+  primaryButton: {
+    alignItems: 'center',
+    backgroundColor: COLORS.primary,
+    borderRadius: BORDER_RADIUS.md,
+    marginTop: SPACING.lg,
+    minHeight: 48,
+    justifyContent: 'center',
+    paddingHorizontal: SPACING.lg,
+  },
+  primaryButtonText: { color: COLORS.background, fontSize: FONT_SIZE.md, fontWeight: '800' },
+  buttonPressed: { opacity: 0.75 },
+  invitationResult: { alignItems: 'center', borderTopColor: COLORS.borderLight, borderTopWidth: 1, marginTop: SPACING.lg, paddingTop: SPACING.lg },
+  qrFrame: { backgroundColor: '#FFFFFF', borderRadius: BORDER_RADIUS.md, padding: SPACING.md },
+  invitationLink: { color: COLORS.calories, fontSize: FONT_SIZE.xs, lineHeight: 18, marginTop: SPACING.md, textAlign: 'center' },
+  secondaryButton: {
+    alignItems: 'center',
+    borderColor: COLORS.primary,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+    marginTop: SPACING.md,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.md,
+    width: '100%',
+  },
+  secondaryButtonText: { color: COLORS.primary, fontSize: FONT_SIZE.md, fontWeight: '700' },
   personalCard: {
     backgroundColor: COLORS.surface,
     borderRadius: BORDER_RADIUS.lg,

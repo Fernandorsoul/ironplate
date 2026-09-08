@@ -10,6 +10,7 @@ import {
   validationError,
 } from '../middleware/validation';
 import { writeAuditLog } from '../services/audit';
+import { getScopedActiveLink } from '../services/professionalAccess';
 
 function parseMeals(value: unknown): unknown[] {
   if (typeof value !== 'string') return [];
@@ -55,20 +56,6 @@ async function getApprovedProfessional(sql: any, userId: string) {
   return rows.length > 0;
 }
 
-async function getActiveLink(sql: any, professionalId: string, studentId: string) {
-  const rows = await sql`
-    SELECT l.id
-    FROM professional_student_links l
-    JOIN consent_records c ON c.link_id = l.id
-    WHERE l.professional_id = ${professionalId}
-      AND l.student_id = ${studentId}
-      AND l.status = 'active'
-      AND c.status = 'granted'
-      AND c.scopes_json::jsonb ? 'nutrition'
-  `;
-  return rows[0]?.id as string | undefined;
-}
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (applyCors(req, res, ['GET', 'POST', 'PUT'])) return;
   if (!['GET', 'POST', 'PUT'].includes(req.method || '')) {
@@ -106,11 +93,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 ON v.plan_id = p.id AND v.version = p.published_version AND v.status = 'published'
               JOIN professional_student_links l
                 ON l.id = p.link_id AND l.status = 'active'
-              JOIN consent_records c
-                ON c.link_id = l.id AND c.status = 'granted'
+              JOIN LATERAL (
+                SELECT status, scopes_json, expires_at
+                FROM consent_records
+                WHERE link_id = l.id
+                ORDER BY created_at DESC, id DESC
+                LIMIT 1
+              ) c ON c.status = 'granted' AND c.scopes_json::jsonb ? 'meal_plans'
               WHERE p.student_id = ${identity.userId} AND p.status = 'published'
+                AND (l.expires_at IS NULL OR l.expires_at > NOW())
+                AND (c.expires_at IS NULL OR c.expires_at > NOW())
               ORDER BY p.published_at DESC
             `;
+        if (professional) {
+          await Promise.all((rows as Record<string, any>[]).map(row => writeAuditLog(sql, {
+            actorUserId: identity.userId,
+            subjectUserId: row.student_id,
+            action: 'professional_content.read',
+            entityType: 'professional_nutrition_plan',
+            entityId: row.id,
+            metadata: { version: row.version },
+          })));
+        }
         return res.status(200).json((rows as Record<string, any>[]).map(mapPlan));
       }
 
@@ -120,7 +124,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (req.method === 'POST') {
         const parsed = professionalNutritionPlanPostSchema.safeParse(req.body);
         if (!parsed.success) return validationError(res, parsed.error.issues);
-        const linkId = await getActiveLink(sql, identity.userId, parsed.data.studentId);
+        const linkId = await getScopedActiveLink(sql, identity.userId, parsed.data.studentId, 'meal_plans');
         if (!linkId) return res.status(403).json({ error: 'Active consent link required' });
 
         const planId = randomUUID();
@@ -166,7 +170,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       `;
       if (plans.length === 0) return res.status(404).json({ error: 'Nutrition plan not found' });
       const plan = plans[0];
-      if (!await getActiveLink(sql, identity.userId, plan.student_id)) {
+      if (!await getScopedActiveLink(sql, identity.userId, plan.student_id, 'meal_plans')) {
         return res.status(403).json({ error: 'Active consent link required' });
       }
 

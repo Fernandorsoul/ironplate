@@ -235,6 +235,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           parsed.data.professionalId,
           identity.userId,
           'scheduling',
+          { action: 'read', recordAccess: false },
         )) return res.status(403).json({ error: 'Active scheduling consent required' });
 
         const [ruleRows, blockoutRows, appointmentRows] = await Promise.all([

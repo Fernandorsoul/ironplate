@@ -3,7 +3,7 @@
 **Aplicativo:** IronPlate
 **Controlador:** RSoul Fábrica de Software
 **Base legal do documento:** Art. 37 da Lei nº 13.709/2018 (LGPD)
-**Última atualização:** 28/08/2026
+**Última atualização:** 08/09/2026
 
 Este documento registra as operações de tratamento de dados pessoais realizadas pelo aplicativo IronPlate, conforme previsto no Art. 37 da LGPD, e deve ser atualizado sempre que uma nova operação de tratamento for criada ou modificada.
 
@@ -49,7 +49,7 @@ Os operadores Vercel e Neon possuem infraestrutura fora do Brasil. Eventuais tra
 | Finalidade | Cálculo das necessidades calóricas e de macronutrientes; personalização de planos alimentares e de treino; geração de relatórios de progresso |
 | Base legal | Execução de contrato — Art. 7º, inciso V, da LGPD |
 | Retenção | Enquanto a conta estiver ativa; remoção imediata na exclusão da conta; backups eliminados em até 90 dias |
-| Medidas de segurança | HTTPS obrigatório; consultas SQL parametrizadas; rate limiting geral (30 requisições por minuto); acesso restrito ao próprio titular (consultas sempre filtradas pelo identificador do usuário) |
+| Medidas de segurança | HTTPS obrigatório; consultas SQL parametrizadas; rate limiting geral (30 requisições por minuto); acesso do titular e, somente quando autorizado por consentimento granular ativo, de profissional verificado |
 
 ### 2.3 Saúde (dados sensíveis)
 
@@ -58,8 +58,8 @@ Os operadores Vercel e Neon possuem infraestrutura fora do Brasil. Eventuais tra
 | Dados tratados | Composição corporal e bioimpedância: percentual de gordura corporal e método de aferição; resistência, reatância e ângulo de fase (obtidos por balança de bioimpedância via Bluetooth); massa muscular; músculo esquelético; água corporal (percentual e kg); massa óssea; proteína (percentual e massa); metabolismo basal; gordura visceral; dobras cutâneas (tricipital, bicipital, subescapular, suprailíaca, abdominal, peitoral, axilar média, coxa e panturrilha); perímetros corporais (braços, antebraços, punhos, tórax, cintura, abdômen, quadril, coxas, panturrilhas e tornozelos); métricas derivadas (massa magra, massa gorda, IMC e relação cintura-quadril); notas livres; peso e altura na data da medição |
 | Finalidade | Acompanhamento da composição corporal e da evolução de bioimpedância; ajuste de planos nutricionais e de treino; relatórios de progresso do titular |
 | Base legal | Consentimento do titular — Art. 11, inciso I, da LGPD (dados sensíveis) |
-| Retenção | Enquanto a conta estiver ativa e o consentimento for válido; remoção imediata na exclusão da conta ou na revogação do consentimento; backups eliminados em até 90 dias |
-| Medidas de segurança | Controles das demais categorias e proteção reforçada para dados sensíveis: acesso exclusivo do próprio titular; não compartilhamento com terceiros; criptografia em trânsito (HTTPS) e em repouso no banco de dados; exclusão junto com a conta |
+| Retenção | Enquanto a conta estiver ativa. A revogação encerra imediatamente o acesso profissional aos dados originais, sem apagar o histórico de consentimento e os documentos cuja retenção seja exigida; exclusão da conta e backups seguem os prazos aplicáveis |
+| Medidas de segurança | Controles das demais categorias e proteção reforçada para dados sensíveis: acesso do titular e de profissional verificado apenas nas categorias consentidas; criptografia em trânsito (HTTPS) e em repouso; auditoria de acesso e revogação imediata |
 
 ### 2.4 Uso
 
@@ -69,7 +69,7 @@ Os operadores Vercel e Neon possuem infraestrutura fora do Brasil. Eventuais tra
 | Finalidade | Registro diário de alimentação e exercícios; análise de adesão e resumos semanais; geração e manutenção de planos alimentares; acompanhamento da evolução de peso |
 | Base legal | Execução de contrato — Art. 7º, inciso V, da LGPD. Observação: registros do histórico de peso que contenham percentual de gordura recebem o mesmo nível de proteção da categoria Saúde |
 | Retenção | Enquanto a conta estiver ativa; remoção imediata na exclusão da conta; backups eliminados em até 90 dias |
-| Medidas de segurança | HTTPS obrigatório; consultas SQL parametrizadas; rate limiting; acesso restrito ao próprio titular |
+| Medidas de segurança | HTTPS obrigatório; consultas SQL parametrizadas; rate limiting; acesso do titular e acesso profissional condicionado a credencial verificada, vínculo ativo e categoria consentida |
 
 ### 2.5 Dados de dispositivo (conforme política de privacidade do app)
 
@@ -80,6 +80,16 @@ Os operadores Vercel e Neon possuem infraestrutura fora do Brasil. Eventuais tra
 | Base legal | Legítimo interesse — Art. 7º, inciso IX, da LGPD (uso limitado ao mínimo necessário) |
 | Retenção | Pelo período necessário ao diagnóstico; não associados à conta |
 | Medidas de segurança | Coleta mínima e sem associação a dados sensíveis |
+
+### 2.6 Compartilhamento com profissionais
+
+| Item | Descrição |
+| --- | --- |
+| Dados tratados | Identidade e registro verificado do profissional; finalidade e duração do vínculo; categorias solicitadas e concedidas; histórico de aceite, limitação e revogação; documentos produzidos no atendimento |
+| Finalidade | Permitir acompanhamento por nutricionista e/ou profissional de educação física escolhido pelo aluno |
+| Base legal | Consentimento específico, destacado e granular do titular, inclusive para dados sensíveis — Arts. 7º, I, e 11, I, da LGPD |
+| Retenção | O acesso aos dados originais termina imediatamente na revogação ou expiração. Documentos produzidos pelo profissional são mantidos somente pelo prazo definido em obrigação legal ou contrato aplicável, com acesso do aluno |
+| Medidas de segurança | Convite com token de uso único e prazo; token armazenado somente como hash; verificação profissional; vínculo ativo; autorização por categoria no servidor; consentimentos append-only; auditoria de convite, acesso, conteúdo e revogação |
 
 ## 3. Direitos do titular (Art. 18 da LGPD)
 
@@ -103,4 +113,5 @@ Este ROPA deve ser revisado pelo Encarregado sempre que houver mudança relevant
 
 | Data | Alteração |
 | --- | --- |
+| 08/09/2026 | Inclusão de vínculos profissionais e consentimento granular |
 | 28/08/2026 | Versão inicial do ROPA |

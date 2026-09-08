@@ -57,9 +57,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               JOIN professional_training_plan_versions v ON v.id = e.plan_version_id
               JOIN professional_training_plans p ON p.id = v.plan_id
               JOIN professional_student_links l ON l.id = p.link_id AND l.status = 'active'
-              JOIN consent_records c
-                ON c.link_id = l.id AND c.status = 'granted' AND c.scopes_json::jsonb ? 'training'
+              JOIN LATERAL (
+                SELECT status, scopes_json, expires_at
+                FROM consent_records
+                WHERE link_id = l.id
+                ORDER BY created_at DESC, id DESC
+                LIMIT 1
+              ) c ON c.status = 'granted' AND c.scopes_json::jsonb ? 'training_execution'
               WHERE p.professional_id = ${identity.userId}
+                AND (l.expires_at IS NULL OR l.expires_at > NOW())
+                AND (c.expires_at IS NULL OR c.expires_at > NOW())
               ORDER BY e.performed_at DESC
             `
           : await sql`
@@ -68,11 +75,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               JOIN professional_training_plan_versions v ON v.id = e.plan_version_id
               JOIN professional_training_plans p ON p.id = v.plan_id
               JOIN professional_student_links l ON l.id = p.link_id AND l.status = 'active'
-              JOIN consent_records c
-                ON c.link_id = l.id AND c.status = 'granted' AND c.scopes_json::jsonb ? 'training'
+              JOIN LATERAL (
+                SELECT status, scopes_json, expires_at
+                FROM consent_records
+                WHERE link_id = l.id
+                ORDER BY created_at DESC, id DESC
+                LIMIT 1
+              ) c ON c.status = 'granted' AND c.scopes_json::jsonb ? 'training_execution'
               WHERE e.student_id = ${identity.userId}
+                AND (l.expires_at IS NULL OR l.expires_at > NOW())
+                AND (c.expires_at IS NULL OR c.expires_at > NOW())
               ORDER BY e.performed_at DESC
             `;
+        if (educator) {
+          await Promise.all((rows as Record<string, any>[]).map(row => writeAuditLog(sql, {
+            actorUserId: identity.userId,
+            subjectUserId: row.student_id,
+            action: 'professional_data.read',
+            entityType: 'professional_training_execution',
+            entityId: row.id,
+            metadata: { scope: 'training_execution' },
+          })));
+        }
         return res.status(200).json((rows as Record<string, any>[]).map(mapExecution));
       }
 
@@ -90,7 +114,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       `;
       if (versions.length === 0) return res.status(404).json({ error: 'Published training plan version not found' });
       const planVersion = versions[0];
-      if (!await getScopedActiveLink(sql, planVersion.professional_id, identity.userId, 'training')) {
+      if (!await getScopedActiveLink(
+        sql,
+        planVersion.professional_id,
+        identity.userId,
+        'training_execution',
+        { action: 'write', recordAccess: false },
+      )) {
         return res.status(403).json({ error: 'Active training consent required' });
       }
 

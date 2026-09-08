@@ -46,4 +46,15 @@ describe('password reset links', () => {
     expect(isValidResetToken('a'.repeat(63))).toBe(false);
     expect(isValidResetToken(`${'a'.repeat(63)}z`)).toBe(false);
   });
+
+  it('maps a one-time professional invitation without an account identifier', () => {
+    const state = getStateFromPath(`/professional-invite/${token}`, passwordResetLinking.config);
+
+    expect(state?.routes).toEqual([
+      expect.objectContaining({
+        name: 'ProfessionalConsent',
+        params: expect.objectContaining({ token }),
+      }),
+    ]);
+  });
 });

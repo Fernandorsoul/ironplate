@@ -53,12 +53,12 @@ describe('API input validation', () => {
       registrationRegion: 'SP',
     }).success).toBe(true);
     expect(professionalLinkPostSchema.safeParse({
-      studentId: userId,
       purpose: 'Acompanhamento nutricional',
-      scopes: ['nutrition'],
+      scopes: ['meal_plans', 'weight'],
+      professionalRoles: ['nutritionist'],
       consentVersion: '2026-01',
     }).success).toBe(true);
-    expect(professionalLinkDecisionSchema.safeParse({ linkId: userId, decision: 'approve' }).success).toBe(true);
+    expect(professionalLinkDecisionSchema.safeParse({ linkId: userId, decision: 'revoke' }).success).toBe(true);
     expect(professionalProfileDecisionSchema.safeParse({ profileId: userId, decision: 'approve' }).success).toBe(true);
     expect(professionalProfileDecisionSchema.safeParse({
       credentialId: 'credential-existing-record',

@@ -71,13 +71,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                      ON v.plan_id = p.id AND v.version = p.published_version AND v.status = 'published'
                    JOIN professional_student_links l
                      ON l.id = p.link_id AND l.status = 'active'
-                   JOIN consent_records c
-                     ON c.link_id = l.id AND c.status = 'granted'
-                       AND c.scopes_json::jsonb ? 'training'
+                   JOIN LATERAL (
+                     SELECT status, scopes_json, expires_at
+                     FROM consent_records
+                     WHERE link_id = l.id
+                     ORDER BY created_at DESC, id DESC
+                     LIMIT 1
+                   ) c ON c.status = 'granted'
+                     AND c.scopes_json::jsonb ? 'prescribed_training'
                    CROSS JOIN LATERAL jsonb_array_elements(v.sessions_json::jsonb) session
                    CROSS JOIN LATERAL jsonb_array_elements(session->'items') item
                    WHERE p.student_id = ${identity.userId}
                      AND p.status = 'published'
+                     AND (l.expires_at IS NULL OR l.expires_at > NOW())
+                     AND (c.expires_at IS NULL OR c.expires_at > NOW())
                      AND (
                        item->>'exerciseId' = professional_exercises.id
                        OR item->>'alternativeExerciseId' = professional_exercises.id

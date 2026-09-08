@@ -1,4 +1,4 @@
-import { authorizeUserDataAccess } from './authorization';
+import { authorizeUserDataAccess, type AccessAction, type DataScope } from './authorization';
 
 export async function isApprovedEducator(sql: any, userId: string): Promise<boolean> {
   const rows = await sql`
@@ -40,13 +40,15 @@ export async function getScopedActiveLink(
   sql: any,
   professionalId: string,
   studentId: string,
-  scope: 'nutrition' | 'training' | 'scheduling',
+  scope: DataScope,
+  options: { action?: AccessAction; recordAccess?: boolean } = {},
 ): Promise<string | undefined> {
   const decision = await authorizeUserDataAccess(sql, {
     actorUserId: professionalId,
     subjectUserId: studentId,
     scope,
-    action: 'manage',
+    action: options.action ?? 'manage',
+    recordAccess: options.recordAccess,
   });
   return decision.allowed ? decision.linkId : undefined;
 }

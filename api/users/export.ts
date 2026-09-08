@@ -57,6 +57,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         notificationRows,
         roleRows,
         credentialRows,
+        professionalLinkRows,
+        invitationRows,
+        consentRows,
+        auditRows,
       ] = await Promise.all([
         sql`
           SELECT id, name, email, created_at, updated_at, last_login,
@@ -140,6 +144,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         `,
         sql`SELECT * FROM user_roles WHERE user_id = ${userId} ORDER BY created_at`,
         sql`SELECT * FROM professional_credentials WHERE user_id = ${userId} ORDER BY created_at`,
+        sql`
+          SELECT * FROM professional_student_links
+          WHERE professional_id = ${userId} OR student_id = ${userId}
+          ORDER BY created_at
+        `,
+        sql`
+          SELECT id, professional_id, professional_roles_json, purpose, scopes_json,
+                 consent_version, duration_days, status, expires_at, accepted_by, used_at, created_at
+          FROM professional_link_invitations
+          WHERE professional_id = ${userId} OR accepted_by = ${userId}
+          ORDER BY created_at
+        `,
+        sql`
+          SELECT c.* FROM consent_records c
+          JOIN professional_student_links l ON l.id = c.link_id
+          WHERE c.subject_user_id = ${userId} OR l.professional_id = ${userId}
+          ORDER BY c.created_at
+        `,
+        sql`
+          SELECT * FROM audit_logs
+          WHERE actor_user_id = ${userId} OR subject_user_id = ${userId}
+          ORDER BY created_at
+        `,
       ]);
 
       if (users.length === 0) return res.status(404).json({ error: 'User not found' });
@@ -277,6 +304,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           metadata_json: undefined,
         })),
         professionalNotifications: notificationRows as any[],
+        professionalLinks: professionalLinkRows as any[],
+        professionalLinkInvitations: invitationRows as any[],
+        consentHistory: consentRows as any[],
+        auditHistory: auditRows as any[],
       }));
     } catch (error) {
       console.error('Export user data error:', error);

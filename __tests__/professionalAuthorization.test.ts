@@ -18,7 +18,7 @@ describe('cumulative professional authorization', () => {
     await expect(authorizeUserDataAccess(sql, {
       actorUserId: studentId,
       subjectUserId: studentId,
-      scope: 'nutrition',
+      scope: 'meal_plans',
       action: 'read',
     })).resolves.toEqual({ allowed: true, reason: 'self' });
     expect(sql).not.toHaveBeenCalled();
@@ -30,7 +30,7 @@ describe('cumulative professional authorization', () => {
     await expect(authorizeUserDataAccess(sql, {
       actorUserId: professionalId,
       subjectUserId: studentId,
-      scope: 'nutrition',
+      scope: 'meal_plans',
       action: 'write',
     })).resolves.toEqual({ allowed: false, reason: 'missing_role' });
     expect(sql).toHaveBeenCalledTimes(1);
@@ -42,7 +42,7 @@ describe('cumulative professional authorization', () => {
     await expect(authorizeUserDataAccess(sql, {
       actorUserId: professionalId,
       subjectUserId: studentId,
-      scope: 'nutrition',
+      scope: 'nutrition_data',
       action: 'read',
     })).resolves.toEqual({ allowed: false, reason: 'missing_role' });
     expect((sql.mock.calls[0][0] as TemplateStringsArray).join(' ')).toContain('professional_credentials');
@@ -57,7 +57,7 @@ describe('cumulative professional authorization', () => {
     await expect(authorizeUserDataAccess(sql, {
       actorUserId: professionalId,
       subjectUserId: studentId,
-      scope: 'training',
+      scope: 'prescribed_training',
       action: 'manage',
     })).resolves.toEqual({ allowed: false, reason: 'missing_consent' });
   });
@@ -73,6 +73,25 @@ describe('cumulative professional authorization', () => {
       studentId,
       'scheduling',
     )).resolves.toBe('link-1');
+    expect(sql).toHaveBeenCalledTimes(3);
+    expect((sql.mock.calls[2][0] as TemplateStringsArray).join(' ')).toContain('INSERT INTO audit_logs');
+    expect(sql.mock.calls[2]).toContain('professional_data.manage');
+    expect(sql.mock.calls[2]).toContain(JSON.stringify({ scope: 'scheduling' }));
+  });
+
+  it('can validate student-initiated operations without attributing a read to the professional', async () => {
+    const sql = jest.fn()
+      .mockResolvedValueOnce([{ exists: 1 }])
+      .mockResolvedValueOnce([{ id: 'link-1' }]);
+
+    await expect(getScopedActiveLink(
+      sql,
+      professionalId,
+      studentId,
+      'scheduling',
+      { action: 'read', recordAccess: false },
+    )).resolves.toBe('link-1');
+    expect(sql).toHaveBeenCalledTimes(2);
   });
 
   it('requires both an active role and its verified credential', async () => {

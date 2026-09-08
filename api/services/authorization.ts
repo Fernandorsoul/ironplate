@@ -1,5 +1,16 @@
+import { writeAuditLog } from './audit';
+
 export type UserRole = 'student' | 'nutritionist' | 'fitness_professional' | 'admin_verifier';
-export type DataScope = 'nutrition' | 'training' | 'scheduling';
+export type DataScope =
+  | 'basic_profile'
+  | 'nutrition_data'
+  | 'meals_adherence'
+  | 'meal_plans'
+  | 'weight'
+  | 'body_measurements'
+  | 'prescribed_training'
+  | 'training_execution'
+  | 'scheduling';
 export type AccessAction = 'read' | 'write' | 'manage';
 
 export interface AuthorizationDecision {
@@ -12,12 +23,42 @@ const ROLE_POLICY: Record<
   DataScope,
   Record<AccessAction, Array<'nutritionist' | 'fitness_professional'>>
 > = {
-  nutrition: {
+  basic_profile: {
+    read: ['nutritionist', 'fitness_professional'],
+    write: ['nutritionist', 'fitness_professional'],
+    manage: ['nutritionist', 'fitness_professional'],
+  },
+  nutrition_data: {
     read: ['nutritionist'],
     write: ['nutritionist'],
     manage: ['nutritionist'],
   },
-  training: {
+  meals_adherence: {
+    read: ['nutritionist'],
+    write: ['nutritionist'],
+    manage: ['nutritionist'],
+  },
+  meal_plans: {
+    read: ['nutritionist'],
+    write: ['nutritionist'],
+    manage: ['nutritionist'],
+  },
+  weight: {
+    read: ['nutritionist', 'fitness_professional'],
+    write: ['nutritionist', 'fitness_professional'],
+    manage: ['nutritionist', 'fitness_professional'],
+  },
+  body_measurements: {
+    read: ['nutritionist', 'fitness_professional'],
+    write: ['nutritionist', 'fitness_professional'],
+    manage: ['nutritionist', 'fitness_professional'],
+  },
+  prescribed_training: {
+    read: ['fitness_professional'],
+    write: ['fitness_professional'],
+    manage: ['fitness_professional'],
+  },
+  training_execution: {
     read: ['fitness_professional'],
     write: ['fitness_professional'],
     manage: ['fitness_professional'],
@@ -63,6 +104,7 @@ export async function authorizeUserDataAccess(
     subjectUserId: string;
     scope: DataScope;
     action: AccessAction;
+    recordAccess?: boolean;
   },
 ): Promise<AuthorizationDecision> {
   if (input.actorUserId === input.subjectUserId) return { allowed: true, reason: 'self' };
@@ -78,13 +120,31 @@ export async function authorizeUserDataAccess(
   const links = await sql`
     SELECT l.id
     FROM professional_student_links l
-    JOIN consent_records c ON c.link_id = l.id
+    JOIN LATERAL (
+      SELECT status, scopes_json, expires_at
+      FROM consent_records
+      WHERE link_id = l.id
+      ORDER BY created_at DESC, id DESC
+      LIMIT 1
+    ) c ON TRUE
     WHERE l.professional_id = ${input.actorUserId}
       AND l.student_id = ${input.subjectUserId}
       AND l.status = 'active' AND c.status = 'granted'
+      AND (l.expires_at IS NULL OR l.expires_at > NOW())
+      AND (c.expires_at IS NULL OR c.expires_at > NOW())
       AND c.scopes_json::jsonb ? ${input.scope}
     LIMIT 1
   `;
   if (links.length === 0) return { allowed: false, reason: 'missing_consent' };
+  if (input.recordAccess !== false) {
+    await writeAuditLog(sql, {
+      actorUserId: input.actorUserId,
+      subjectUserId: input.subjectUserId,
+      action: `professional_data.${input.action}`,
+      entityType: 'professional_student_link',
+      entityId: links[0].id,
+      metadata: { scope: input.scope },
+    });
+  }
   return { allowed: true, reason: 'active_consent', linkId: links[0].id };
 }

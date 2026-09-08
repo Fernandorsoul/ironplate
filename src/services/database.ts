@@ -11,6 +11,9 @@ import {
   ProfessionalScheduleBlockout,
   ProfessionalScheduleImpact,
   ProfessionalNotification,
+  ProfessionalConsentScope,
+  ProfessionalInvitationPreview,
+  ProfessionalLink,
   ProfessionalProfile,
   ProfessionalTrainingExecution,
   ProfessionalTrainingPlan,
@@ -225,6 +228,79 @@ export async function submitProfessionalProfile(input: {
   });
   await expectOk(response);
   return await response.json() as { id: string; status: 'pending' };
+}
+
+export async function getProfessionalLinks(): Promise<ProfessionalLink[]> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=links');
+  await expectOk(response);
+  return await response.json() as ProfessionalLink[];
+}
+
+export async function getProfessionalInvitation(token: string): Promise<ProfessionalInvitationPreview> {
+  const response = await apiFetch(
+    `/users/get?resource=professionals&operation=links&token=${encodeURIComponent(token)}`,
+  );
+  await expectOk(response);
+  return await response.json() as ProfessionalInvitationPreview;
+}
+
+export async function createProfessionalInvitation(input: {
+  purpose: string;
+  scopes: ProfessionalConsentScope[];
+  professionalRoles: Array<'nutritionist' | 'fitness_professional'>;
+  consentVersion: string;
+  expiresInHours?: number;
+  durationDays?: number;
+}): Promise<{ id: string; token: string; invitationUrl: string; qrPayload: string; expiresAt: string }> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=links', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+  await expectOk(response);
+  return await response.json() as {
+    id: string;
+    token: string;
+    invitationUrl: string;
+    qrPayload: string;
+    expiresAt: string;
+  };
+}
+
+export async function decideProfessionalInvitation(
+  token: string,
+  decision: 'accept' | 'decline',
+  scopes?: ProfessionalConsentScope[],
+): Promise<void> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=links', {
+    method: 'PUT',
+    body: JSON.stringify({ token, decision, ...(scopes ? { scopes } : {}) }),
+  });
+  await expectOk(response);
+}
+
+export async function updateProfessionalConsent(
+  linkId: string,
+  decision: 'limit' | 'revoke',
+  scopes?: ProfessionalConsentScope[],
+): Promise<void> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=links', {
+    method: 'PUT',
+    body: JSON.stringify({ linkId, decision, ...(scopes ? { scopes } : {}) }),
+  });
+  await expectOk(response);
+}
+
+export async function getConsentedStudentData(
+  studentId: string,
+  scope: ProfessionalConsentScope,
+): Promise<unknown[]> {
+  const query = new URLSearchParams({ studentId, scope });
+  const response = await apiFetch(
+    `/users/get?resource=professionals&operation=shared-data&${query.toString()}`,
+  );
+  await expectOk(response);
+  const payload = await response.json() as { data: unknown[] };
+  return payload.data;
 }
 
 export async function createProfessionalNutritionPlan(input: {

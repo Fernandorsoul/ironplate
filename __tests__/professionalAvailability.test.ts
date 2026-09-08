@@ -168,7 +168,13 @@ describe('professional availability API', () => {
       },
     } as any, response);
 
-    expect(mockGetScopedActiveLink).toHaveBeenCalledWith(mockSql, professionalId, professionalId, 'scheduling');
+    expect(mockGetScopedActiveLink).toHaveBeenCalledWith(
+      mockSql,
+      professionalId,
+      professionalId,
+      'scheduling',
+      { action: 'read', recordAccess: false },
+    );
     const payload = response.json.mock.calls[0][0];
     expect(JSON.stringify(payload)).not.toContain('private');
     expect(JSON.stringify(payload)).not.toContain('Nao pode vazar');

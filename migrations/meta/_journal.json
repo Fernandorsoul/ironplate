@@ -64,6 +64,13 @@
       "when": 1788893417739,
       "tag": "0008_early_emma_frost",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1788895748829,
+      "tag": "0009_aspiring_calypso",
+      "breakpoints": true
     }
   ]
 }

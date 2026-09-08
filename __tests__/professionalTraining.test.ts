@@ -100,7 +100,8 @@ describe('professional workout prescriptions', () => {
     const statement = sqlStatement(mockSql);
     expect(statement).toContain("visibility = 'global'");
     expect(statement).toContain('p.student_id =');
-    expect(statement).toContain("c.scopes_json::jsonb ? 'training'");
+    expect(statement).toContain("c.scopes_json::jsonb ? 'prescribed_training'");
+    expect(statement).toContain('ORDER BY created_at DESC, id DESC');
     expect(response.status).toHaveBeenCalledWith(200);
   });
 
@@ -172,7 +173,7 @@ describe('professional workout prescriptions', () => {
       body: { studentId, title: 'Base de forca', sessions },
     } as any, response);
 
-    expect(mockGetScopedActiveLink).toHaveBeenCalledWith(mockSql, professionalId, studentId, 'training');
+    expect(mockGetScopedActiveLink).toHaveBeenCalledWith(mockSql, professionalId, studentId, 'prescribed_training');
     expect(mockTransaction).toHaveBeenCalledTimes(1);
     expect(sqlStatement(mockTransactionQuery, 0)).toContain('professional_training_plans');
     expect(sqlStatement(mockTransactionQuery, 1)).toContain('professional_training_plan_versions');

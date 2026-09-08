@@ -13,6 +13,7 @@ import availabilityHandler from '../professionals/availability';
 import appointmentsHandler from '../professionals/appointments';
 import notificationsHandler from '../professionals/notifications';
 import { handleAdministrativeIdentifier } from './administrativeIdentifier';
+import sharedDataHandler from '../professionals/shared-data';
 
 export async function handleProfessionalRoutes(req: VercelRequest, res: VercelResponse) {
   const operation = typeof req.query.operation === 'string' ? req.query.operation : 'profile';
@@ -26,6 +27,7 @@ export async function handleProfessionalRoutes(req: VercelRequest, res: VercelRe
   if (operation === 'availability') return availabilityHandler(req, res);
   if (operation === 'appointments') return appointmentsHandler(req, res);
   if (operation === 'notifications') return notificationsHandler(req, res);
+  if (operation === 'shared-data') return sharedDataHandler(req, res);
   if (operation !== 'identifier') return res.status(404).json({ error: 'Unknown professional operation' });
 
   if (applyCors(req, res, ['GET', 'PUT'])) return;

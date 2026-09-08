@@ -93,17 +93,62 @@ export const professionalProfileDecisionSchema = z.object({
   message: 'Exactly one of profileId or credentialId is required',
 });
 
-export const professionalLinkPostSchema = z.object({
-  studentId: userIdSchema,
-  purpose: z.string().trim().min(3).max(160),
-  scopes: z.array(z.enum(['nutrition', 'training', 'scheduling'])).min(1).max(3),
-  consentVersion: z.string().trim().min(1).max(40),
-}).strict();
+export const professionalConsentScopeSchema = z.enum([
+  'basic_profile',
+  'nutrition_data',
+  'meals_adherence',
+  'meal_plans',
+  'weight',
+  'body_measurements',
+  'prescribed_training',
+  'training_execution',
+  'scheduling',
+]);
 
-export const professionalLinkDecisionSchema = z.object({
-  linkId: userIdSchema,
-  decision: z.enum(['approve', 'revoke']),
-}).strict();
+export const professionalLinkPostSchema = z.object({
+  purpose: z.string().trim().min(3).max(160),
+  scopes: z.array(professionalConsentScopeSchema).min(1).max(9),
+  professionalRoles: z.array(z.enum(['nutritionist', 'fitness_professional'])).min(1).max(2),
+  consentVersion: z.string().trim().min(1).max(40),
+  expiresInHours: z.number().int().min(1).max(168).default(72),
+  durationDays: z.number().int().min(1).max(3650).default(365),
+}).strict().superRefine((value, context) => {
+  if (new Set(value.scopes).size !== value.scopes.length) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: 'Duplicate consent scope', path: ['scopes'] });
+  }
+  if (new Set(value.professionalRoles).size !== value.professionalRoles.length) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: 'Duplicate professional role', path: ['professionalRoles'] });
+  }
+});
+
+export const professionalLinkDecisionSchema = z.discriminatedUnion('decision', [
+    z.object({
+      decision: z.literal('accept'),
+      token: z.string().regex(/^[a-f0-9]{64}$/i, 'Invalid invitation token'),
+      scopes: z.array(professionalConsentScopeSchema).min(1).max(9).optional(),
+  }).strict().superRefine((value, context) => {
+    if (value.scopes && new Set(value.scopes).size !== value.scopes.length) {
+        context.addIssue({ code: z.ZodIssueCode.custom, message: 'Duplicate consent scope', path: ['scopes'] });
+      }
+    }),
+    z.object({
+      decision: z.literal('decline'),
+      token: z.string().regex(/^[a-f0-9]{64}$/i, 'Invalid invitation token'),
+    }).strict(),
+  z.object({
+    decision: z.literal('limit'),
+    linkId: userIdSchema,
+    scopes: z.array(professionalConsentScopeSchema).min(1).max(9),
+  }).strict().superRefine((value, context) => {
+    if (new Set(value.scopes).size !== value.scopes.length) {
+      context.addIssue({ code: z.ZodIssueCode.custom, message: 'Duplicate consent scope', path: ['scopes'] });
+    }
+  }),
+  z.object({
+    decision: z.literal('revoke'),
+    linkId: userIdSchema,
+  }).strict(),
+]);
 
 export const administrativeIdentifierPostSchema = z.object({
   identifierType: z.literal('cpf'),

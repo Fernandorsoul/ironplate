@@ -121,6 +121,10 @@ export default function ProfileScreen({ navigation }: any) {
             <Text style={styles.menuText}>Medidas Corporais</Text>
           </TouchableOpacity>
 
+          <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('ProfessionalConsent')}>
+            <Text style={styles.menuText}>Profissionais e consentimentos</Text>
+          </TouchableOpacity>
+
           <View style={styles.cardsContainer}>
             <View style={styles.card}>
               <Text style={[styles.cardTitle, { color: COLORS.calories }]}>Calorias</Text>

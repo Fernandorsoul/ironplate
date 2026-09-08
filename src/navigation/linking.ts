@@ -21,6 +21,12 @@ export const passwordResetLinking: LinkingOptions<RootStackParamList> = {
           token: (value: string) => value.trim(),
         },
       },
+      ProfessionalConsent: {
+        path: 'professional-invite/:token?',
+        parse: {
+          token: (value: string) => value.trim(),
+        },
+      },
     },
   },
 };
