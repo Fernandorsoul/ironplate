@@ -60,8 +60,58 @@ describe('API input validation', () => {
     }).success).toBe(true);
     expect(professionalLinkDecisionSchema.safeParse({ linkId: userId, decision: 'approve' }).success).toBe(true);
     expect(professionalProfileDecisionSchema.safeParse({ profileId: userId, decision: 'approve' }).success).toBe(true);
+    expect(professionalProfileDecisionSchema.safeParse({
+      credentialId: 'credential-existing-record',
+      decision: 'suspend',
+    }).success).toBe(true);
     expect(administrativeIdentifierPostSchema.safeParse({ identifierType: 'cpf', value: '12345678901' }).success).toBe(true);
     expect(administrativeIdentifierPostSchema.safeParse({ identifierType: 'cpf', value: '123' }).success).toBe(false);
+  });
+
+  it('accepts cumulative credentials while enforcing role and council compatibility', () => {
+    expect(professionalProfilePostSchema.safeParse({
+      displayName: 'Dra. Ana',
+      credentials: [
+        {
+          professionalRole: 'nutritionist',
+          registrationType: 'CRN',
+          registrationNumber: '12345',
+          registrationRegion: 'SP',
+        },
+        {
+          professionalRole: 'fitness_professional',
+          registrationType: 'CREF',
+          registrationNumber: '67890-G',
+          registrationRegion: 'SP',
+        },
+      ],
+    }).success).toBe(true);
+    expect(professionalProfilePostSchema.safeParse({
+      displayName: 'Credencial incompatível',
+      credentials: [{
+        professionalRole: 'nutritionist',
+        registrationType: 'CREF',
+        registrationNumber: '12345-G',
+        registrationRegion: 'SP',
+      }],
+    }).success).toBe(false);
+    expect(professionalProfilePostSchema.safeParse({
+      displayName: 'Papel duplicado',
+      credentials: [
+        {
+          professionalRole: 'nutritionist',
+          registrationType: 'CRN',
+          registrationNumber: '12345',
+          registrationRegion: 'SP',
+        },
+        {
+          professionalRole: 'nutritionist',
+          registrationType: 'CRN',
+          registrationNumber: '67890',
+          registrationRegion: 'RJ',
+        },
+      ],
+    }).success).toBe(false);
   });
 
   it('allows only explicitly supported update fields and bounded values', () => {

@@ -1,35 +1,39 @@
+import { authorizeUserDataAccess } from './authorization';
+
 export async function isApprovedEducator(sql: any, userId: string): Promise<boolean> {
   const rows = await sql`
-    SELECT p.id
-    FROM professional_profiles p
-    JOIN users u ON u.id = p.user_id
-    WHERE p.user_id = ${userId}
-      AND p.status = 'approved'
-      AND u.role = 'professional'
-      AND UPPER(p.registration_type) = 'CREF'
+    SELECT c.id
+    FROM professional_credentials c
+    JOIN user_roles r ON r.user_id = c.user_id AND r.role = c.professional_role
+    WHERE c.user_id = ${userId} AND c.professional_role = 'fitness_professional'
+      AND c.status = 'verified' AND r.status = 'active'
   `;
   return rows.length > 0;
 }
 
-export async function getApprovedProfessionalRegistration(
+export async function getApprovedProfessionalRegistrations(
   sql: any,
   userId: string,
-): Promise<string | undefined> {
+): Promise<string[]> {
   const rows = await sql`
-    SELECT UPPER(p.registration_type) AS registration_type
-    FROM professional_profiles p
-    JOIN users u ON u.id = p.user_id
-    WHERE p.user_id = ${userId}
-      AND p.status = 'approved'
-      AND u.role = 'professional'
+    SELECT UPPER(c.registration_type) AS registration_type
+    FROM professional_credentials c
+    JOIN user_roles r ON r.user_id = c.user_id AND r.role = c.professional_role
+    WHERE c.user_id = ${userId} AND c.status = 'verified' AND r.status = 'active'
+    ORDER BY c.professional_role
   `;
-  return rows[0]?.registration_type as string | undefined;
+  return rows.map((row: Record<string, unknown>) => row.registration_type as string);
 }
 
-export function registrationAllowsAppointmentType(registrationType: string, appointmentType: string): boolean {
-  if (registrationType === 'CREF') return appointmentType.startsWith('fitness_');
-  if (registrationType === 'CRN') return appointmentType.startsWith('nutrition_');
-  return false;
+export function registrationAllowsAppointmentType(
+  registrationTypes: string | readonly string[],
+  appointmentType: string,
+): boolean {
+  const registrations = typeof registrationTypes === 'string' ? [registrationTypes] : registrationTypes;
+  return registrations.some((registrationType) => (
+    (registrationType === 'CREF' && appointmentType.startsWith('fitness_'))
+    || (registrationType === 'CRN' && appointmentType.startsWith('nutrition_'))
+  ));
 }
 
 export async function getScopedActiveLink(
@@ -38,15 +42,11 @@ export async function getScopedActiveLink(
   studentId: string,
   scope: 'nutrition' | 'training' | 'scheduling',
 ): Promise<string | undefined> {
-  const rows = await sql`
-    SELECT l.id
-    FROM professional_student_links l
-    JOIN consent_records c ON c.link_id = l.id
-    WHERE l.professional_id = ${professionalId}
-      AND l.student_id = ${studentId}
-      AND l.status = 'active'
-      AND c.status = 'granted'
-      AND c.scopes_json::jsonb ? ${scope}
-  `;
-  return rows[0]?.id as string | undefined;
+  const decision = await authorizeUserDataAccess(sql, {
+    actorUserId: professionalId,
+    subjectUserId: studentId,
+    scope,
+    action: 'manage',
+  });
+  return decision.allowed ? decision.linkId : undefined;
 }

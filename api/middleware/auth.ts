@@ -63,8 +63,15 @@ export async function requireRole(
 ): Promise<SessionIdentity | null> {
   const identity = req.auth || await requireAuth(req, res);
   if (!identity) return null;
-  const rows = await sql`SELECT role FROM users WHERE id = ${identity.userId}`;
-  if (rows.length === 0 || !roles.includes(rows[0].role)) {
+  const rows = await sql`
+    SELECT role FROM user_roles
+    WHERE user_id = ${identity.userId} AND role = ANY(${roles}) AND status = 'active'
+    UNION ALL
+    SELECT 'admin_verifier' AS role FROM users
+    WHERE id = ${identity.userId} AND role = 'admin' AND 'admin_verifier' = ANY(${roles})
+    LIMIT 1
+  `;
+  if (rows.length === 0) {
     res.status(403).json({ error: 'Insufficient role' });
     return null;
   }

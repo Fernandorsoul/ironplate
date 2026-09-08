@@ -57,6 +57,13 @@
       "when": 1788888981002,
       "tag": "0007_clear_typhoid_mary",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1788893417739,
+      "tag": "0008_early_emma_frost",
+      "breakpoints": true
     }
   ]
 }

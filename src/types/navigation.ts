@@ -8,6 +8,7 @@ export type TabParamList = {
   Weight: undefined;
   Workout: undefined;
   MealPlan: undefined;
+  Professional: undefined;
 };
 
 // Stack Navigator

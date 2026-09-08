@@ -13,10 +13,12 @@ jest.mock('../api/middleware/auth', () => ({
   requireAuth: jest.fn().mockResolvedValue({ userId: '550e8400-e29b-41d4-a716-446655440000' }),
 }));
 jest.mock('../api/services/professionalAccess', () => ({
-  getApprovedProfessionalRegistration: (...args: unknown[]) => mockGetRegistration(...args),
+  getApprovedProfessionalRegistrations: (...args: unknown[]) => mockGetRegistration(...args),
   getScopedActiveLink: (...args: unknown[]) => mockGetScopedActiveLink(...args),
-  registrationAllowsAppointmentType: (registration: string, appointmentType: string) => (
-    registration === 'CREF' ? appointmentType.startsWith('fitness_') : appointmentType.startsWith('nutrition_')
+  registrationAllowsAppointmentType: (registrations: string[], appointmentType: string) => (
+    registrations.some(registration => (
+      registration === 'CREF' ? appointmentType.startsWith('fitness_') : appointmentType.startsWith('nutrition_')
+    ))
   ),
 }));
 jest.mock('../api/services/audit', () => ({ writeAuditLog: jest.fn().mockResolvedValue(undefined) }));
@@ -71,7 +73,7 @@ describe('professional availability API', () => {
     jest.clearAllMocks();
     mockSql.mockReset();
     mockSql.mockResolvedValue([]);
-    mockGetRegistration.mockResolvedValue('CREF');
+    mockGetRegistration.mockResolvedValue(['CREF']);
     mockGetScopedActiveLink.mockResolvedValue('link-1');
     mockTransactionQuery.mockResolvedValue([]);
     mockTransaction.mockImplementation(async (buildQueries: (txn: typeof mockTransactionQuery) => Promise<unknown>[]) => {
@@ -104,7 +106,7 @@ describe('professional availability API', () => {
   });
 
   it('requires scheduling consent before exposing student slots', async () => {
-    mockGetRegistration.mockResolvedValue(undefined);
+    mockGetRegistration.mockResolvedValue([]);
     mockGetScopedActiveLink.mockResolvedValue(undefined);
     const response = responseMock();
 
@@ -125,7 +127,7 @@ describe('professional availability API', () => {
   });
 
   it('returns only reservable slot fields to a linked student', async () => {
-    mockGetRegistration.mockResolvedValue(undefined);
+    mockGetRegistration.mockResolvedValue([]);
     mockSql
       .mockResolvedValueOnce([{
         id: 'rule-1',

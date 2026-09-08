@@ -11,6 +11,7 @@ import {
   ProfessionalScheduleBlockout,
   ProfessionalScheduleImpact,
   ProfessionalNotification,
+  ProfessionalProfile,
   ProfessionalTrainingExecution,
   ProfessionalTrainingPlan,
   TrainingPrescriptionSession,
@@ -199,6 +200,31 @@ export async function getProfessionalNutritionPlans(): Promise<ProfessionalNutri
   const response = await apiFetch('/users/get?resource=professionals&operation=nutrition-plans');
   await expectOk(response);
   return await response.json() as ProfessionalNutritionPlan[];
+}
+
+export async function getProfessionalProfile(): Promise<ProfessionalProfile | null> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=profile');
+  if (response.status === 404) return null;
+  await expectOk(response);
+  return await response.json() as ProfessionalProfile;
+}
+
+export async function submitProfessionalProfile(input: {
+  displayName: string;
+  bio?: string;
+  credentials: Array<{
+    professionalRole: 'nutritionist' | 'fitness_professional';
+    registrationType: 'CRN' | 'CREF';
+    registrationNumber: string;
+    registrationRegion: string;
+  }>;
+}): Promise<{ id: string; status: 'pending' }> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=profile', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+  await expectOk(response);
+  return await response.json() as { id: string; status: 'pending' };
 }
 
 export async function createProfessionalNutritionPlan(input: {

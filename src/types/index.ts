@@ -1,7 +1,8 @@
 // IronPlate Types
 
 export type ActivityLevel = 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active';
-export type UserRole = 'student' | 'professional' | 'admin';
+export type UserRole = 'student' | 'nutritionist' | 'fitness_professional' | 'admin_verifier';
+export type LegacyUserRole = 'student' | 'professional' | 'admin';
 export type Goal =
   | 'bulking'
   | 'weight_loss'
@@ -68,7 +69,8 @@ export interface UserProfile {
   photoUri?: string;
   targetWeightKg?: number;
   hydrationGoalMl?: number;
-  role?: UserRole;
+  role?: LegacyUserRole;
+  roles?: UserRole[];
   age: number;
   weight: number; // kg
   height: number; // cm
@@ -141,6 +143,29 @@ export interface ProfessionalNutritionPlan {
   createdAt: string;
   updatedAt: string;
   publishedAt?: string;
+}
+
+export interface ProfessionalCredential {
+  id: string;
+  professionalRole: 'nutritionist' | 'fitness_professional';
+  registrationType: 'CRN' | 'CREF';
+  registrationNumber: string;
+  registrationRegion: string;
+  status: 'pending' | 'verified' | 'rejected' | 'suspended';
+  verifiedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProfessionalProfile {
+  id: string;
+  displayName: string;
+  bio?: string;
+  status: 'pending' | 'approved' | 'rejected';
+  credentials: ProfessionalCredential[];
+  roles: Array<{ role: UserRole; status: string }>;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface SupplementRecommendation {

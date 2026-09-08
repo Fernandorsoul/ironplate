@@ -50,10 +50,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       const user = users[0];
+      const roleRows = await sql`
+        SELECT role FROM user_roles
+        WHERE user_id = ${parsedUserId.data} AND status = 'active'
+        ORDER BY role
+      `;
       return res.status(200).json({
         name: user.name,
         email: user.email,
         role: user.role || 'student',
+        roles: (roleRows as Array<{ role: string }>).map((row) => row.role),
         age: user.age || 0,
         weight: user.weight || 0,
         height: user.height || 0,

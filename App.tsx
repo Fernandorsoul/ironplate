@@ -36,13 +36,18 @@ import EvolutionScreen from './src/screens/EvolutionScreen';
 import EditProfileScreen from './src/screens/EditProfileScreen';
 import PrivacyPolicyScreen from './src/screens/PrivacyPolicyScreen';
 import PublicHomeScreen from './src/screens/PublicHomeScreen';
+import ProfessionalAreaScreen from './src/screens/ProfessionalAreaScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<TabParamList>();
 
 function HomeTabs() {
   const { width } = useWindowDimensions();
+  const { profile } = useApp();
   const isPhone = isPhoneLayout(width);
+  const hasProfessionalRole = profile?.roles?.some(
+    role => role === 'nutritionist' || role === 'fitness_professional',
+  ) ?? false;
 
   return (
     <Tab.Navigator
@@ -95,6 +100,16 @@ function HomeTabs() {
           tabBarLabel: 'Treino',
         }}
       />
+      {hasProfessionalRole && (
+        <Tab.Screen
+          name="Professional"
+          component={ProfessionalAreaScreen}
+          options={{
+            tabBarIcon: ({ color, size }) => <Ionicons name="briefcase-outline" size={size} color={color} />,
+            tabBarLabel: 'Profissional',
+          }}
+        />
+      )}
     </Tab.Navigator>
   );
 }

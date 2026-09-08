@@ -214,6 +214,41 @@ export const professionalProfiles = pgTable('professional_profiles', {
   ),
 ]);
 
+export const userRoles = pgTable('user_roles', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  role: text('role').notNull(),
+  status: text('status').default('active').notNull(),
+  grantedBy: text('granted_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex('user_roles_user_role_unique').on(table.userId, table.role),
+  index('user_roles_user_idx').on(table.userId),
+]);
+
+export const professionalCredentials = pgTable('professional_credentials', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  professionalRole: text('professional_role').notNull(),
+  registrationType: text('registration_type').notNull(),
+  registrationNumber: text('registration_number').notNull(),
+  registrationRegion: text('registration_region').notNull(),
+  status: text('status').default('pending').notNull(),
+  verifiedAt: timestamp('verified_at', { withTimezone: true }),
+  verifiedBy: text('verified_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex('professional_credentials_user_role_unique').on(table.userId, table.professionalRole),
+  uniqueIndex('professional_credentials_registration_unique').on(
+    table.registrationType,
+    table.registrationNumber,
+    table.registrationRegion,
+  ),
+  index('professional_credentials_user_idx').on(table.userId),
+]);
+
 export const professionalStudentLinks = pgTable('professional_student_links', {
   id: text('id').primaryKey(),
   professionalId: text('professional_id').notNull().references(() => users.id, { onDelete: 'cascade' }),

@@ -55,6 +55,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         appointmentRows,
         appointmentEventRows,
         notificationRows,
+        roleRows,
+        credentialRows,
       ] = await Promise.all([
         sql`
           SELECT id, name, email, created_at, updated_at, last_login,
@@ -136,6 +138,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           WHERE recipient_user_id = ${userId} OR actor_user_id = ${userId}
           ORDER BY created_at
         `,
+        sql`SELECT * FROM user_roles WHERE user_id = ${userId} ORDER BY created_at`,
+        sql`SELECT * FROM professional_credentials WHERE user_id = ${userId} ORDER BY created_at`,
       ]);
 
       if (users.length === 0) return res.status(404).json({ error: 'User not found' });
@@ -232,6 +236,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           photoUri: row.photo_uri || undefined,
           targetWeightKg: row.target_weight_kg || undefined,
           hydrationGoalMl: row.hydration_goal_ml || undefined,
+          roles: roleRows as any[],
+          professionalCredentials: credentialRows as any[],
         },
         dailyLogs,
         weightHistory: weightRows as any[],
