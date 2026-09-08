@@ -14,6 +14,7 @@ export const users = pgTable('users', {
   name: text('name').notNull(),
   email: text('email').notNull(),
   passwordHash: text('password_hash').notNull(),
+  role: text('role').default('student').notNull(),
   age: integer('age'),
   weight: doublePrecision('weight'),
   height: doublePrecision('height'),
@@ -22,6 +23,8 @@ export const users = pgTable('users', {
   goal: text('goal').default('maintenance'),
   sport: text('sport').default('bodybuilding'),
   photoUri: text('photo_uri'),
+  targetWeightKg: doublePrecision('target_weight_kg'),
+  hydrationGoalMl: doublePrecision('hydration_goal_ml'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   lastLogin: timestamp('last_login', { withTimezone: true }),
@@ -32,6 +35,7 @@ export const dailyLogs = pgTable('daily_logs', {
   userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   date: text('date').notNull(),
   weight: doublePrecision('weight'),
+  waterMl: doublePrecision('water_ml'),
   notes: text('notes'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
@@ -188,4 +192,83 @@ export const passwordResetTokens = pgTable('password_reset_tokens', {
 }, (table) => [
   uniqueIndex('password_reset_tokens_hash_unique').on(table.tokenHash),
   index('password_reset_tokens_user_id_idx').on(table.userId),
+]);
+
+export const professionalProfiles = pgTable('professional_profiles', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  displayName: text('display_name').notNull(),
+  registrationType: text('registration_type').notNull(),
+  registrationNumber: text('registration_number').notNull(),
+  registrationRegion: text('registration_region').notNull(),
+  bio: text('bio'),
+  status: text('status').default('pending').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex('professional_profiles_user_unique').on(table.userId),
+  uniqueIndex('professional_profiles_registration_unique').on(
+    table.registrationType,
+    table.registrationNumber,
+    table.registrationRegion,
+  ),
+]);
+
+export const professionalStudentLinks = pgTable('professional_student_links', {
+  id: text('id').primaryKey(),
+  professionalId: text('professional_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  studentId: text('student_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  requestedBy: text('requested_by').notNull().references(() => users.id),
+  status: text('status').default('pending').notNull(),
+  purpose: text('purpose').notNull(),
+  consentVersion: text('consent_version').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex('professional_student_links_pair_unique').on(table.professionalId, table.studentId),
+  index('professional_student_links_professional_idx').on(table.professionalId),
+  index('professional_student_links_student_idx').on(table.studentId),
+]);
+
+export const consentRecords = pgTable('consent_records', {
+  id: text('id').primaryKey(),
+  linkId: text('link_id').notNull().references(() => professionalStudentLinks.id, { onDelete: 'cascade' }),
+  subjectUserId: text('subject_user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  purpose: text('purpose').notNull(),
+  version: text('version').notNull(),
+  status: text('status').default('requested').notNull(),
+  grantedAt: timestamp('granted_at', { withTimezone: true }),
+  revokedAt: timestamp('revoked_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex('consent_records_link_unique').on(table.linkId),
+  index('consent_records_subject_idx').on(table.subjectUserId),
+]);
+
+export const administrativeIdentifiers = pgTable('administrative_identifiers', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  identifierType: text('identifier_type').notNull(),
+  valueHash: text('value_hash').notNull(),
+  lastFour: text('last_four').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex('administrative_identifiers_user_type_unique').on(table.userId, table.identifierType),
+  index('administrative_identifiers_hash_idx').on(table.valueHash),
+]);
+
+export const auditLogs = pgTable('audit_logs', {
+  id: text('id').primaryKey(),
+  actorUserId: text('actor_user_id').references(() => users.id, { onDelete: 'set null' }),
+  subjectUserId: text('subject_user_id').references(() => users.id, { onDelete: 'set null' }),
+  action: text('action').notNull(),
+  entityType: text('entity_type').notNull(),
+  entityId: text('entity_id').notNull(),
+  metadataJson: text('metadata_json'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  index('audit_logs_actor_idx').on(table.actorUserId),
+  index('audit_logs_subject_idx').on(table.subjectUserId),
+  index('audit_logs_entity_idx').on(table.entityType, table.entityId),
 ]);

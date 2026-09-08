@@ -14,6 +14,7 @@ import { getMatchedMacroLabel, getPlanSubstitutions } from './dietSubstitutions'
 const getGoalLabel = (goal: string) => {
   switch (goal) {
     case 'bulking': return 'Bulking (+15% superávit calórico)';
+    case 'weight_loss': return 'Emagrecimento (-15% déficit)';
     case 'cutting_conservative': return 'Cutting Conservador (-15% déficit)';
     case 'cutting_preparation': return 'Preparação (-20% déficit)';
     case 'cutting_precontest': return 'Pré-Competição (-25% déficit)';

@@ -38,7 +38,7 @@ export function calculateHydration(profile: UserProfile): HydrationRecommendatio
     : 0;
   const estimatedMl = safeWeight * ML_PER_KG;
   const dailyTargetMl = roundTo(
-    clamp(estimatedMl || MIN_DAILY_TARGET_ML, MIN_DAILY_TARGET_ML, MAX_DAILY_TARGET_ML),
+    clamp(profile.hydrationGoalMl || estimatedMl || MIN_DAILY_TARGET_ML, MIN_DAILY_TARGET_ML, MAX_DAILY_TARGET_ML),
     50,
   );
 

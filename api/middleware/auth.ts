@@ -54,3 +54,19 @@ export async function requireUserAccess(
   }
   return identity;
 }
+
+export async function requireRole(
+  req: AuthenticatedRequest,
+  res: VercelResponse,
+  sql: any,
+  roles: readonly string[],
+): Promise<SessionIdentity | null> {
+  const identity = req.auth || await requireAuth(req, res);
+  if (!identity) return null;
+  const rows = await sql`SELECT role FROM users WHERE id = ${identity.userId}`;
+  if (rows.length === 0 || !roles.includes(rows[0].role)) {
+    res.status(403).json({ error: 'Insufficient role' });
+    return null;
+  }
+  return identity;
+}

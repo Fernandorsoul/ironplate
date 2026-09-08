@@ -39,10 +39,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const [users, logRows, mealRows, foodRows, workoutRows, weightRows, measurementRows, customFoodRows, planRows] = await Promise.all([
         sql`
           SELECT id, name, email, created_at, updated_at, last_login,
-                 age, weight, height, gender, activity_level, goal, sport, photo_uri
+                 role, age, weight, height, gender, activity_level, goal, sport, photo_uri,
+                 target_weight_kg, hydration_goal_ml
           FROM users WHERE id = ${userId}
         `,
-        sql`SELECT id, date, weight, notes FROM daily_logs WHERE user_id = ${userId} ORDER BY date ASC`,
+        sql`SELECT id, date, weight, water_ml, notes FROM daily_logs WHERE user_id = ${userId} ORDER BY date ASC`,
         sql`SELECT * FROM meals WHERE user_id = ${userId} ORDER BY daily_log_id, id`,
         sql`
           SELECT mf.* FROM meal_foods mf
@@ -122,6 +123,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return {
           date: log.date,
           weight: log.weight || undefined,
+          waterMl: log.water_ml || undefined,
           notes: log.notes || undefined,
           meals,
           workouts: workoutsByLog.get(log.id) || [],
@@ -145,6 +147,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         },
         profile: {
           age: row.age || 0,
+          role: row.role || 'student',
           weight: row.weight || 0,
           height: row.height || 0,
           gender: row.gender || 'male',
@@ -152,6 +155,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           goal: row.goal || 'maintenance',
           sport: row.sport || 'bodybuilding',
           photoUri: row.photo_uri || undefined,
+          targetWeightKg: row.target_weight_kg || undefined,
+          hydrationGoalMl: row.hydration_goal_ml || undefined,
         },
         dailyLogs,
         weightHistory: weightRows as any[],

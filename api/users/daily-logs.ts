@@ -54,10 +54,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         await sql.transaction(txn => [
           txn`
-            INSERT INTO daily_logs (id, user_id, date, weight, notes, updated_at)
-            VALUES (${logId}, ${userId}, ${log.date}, ${log.weight ?? null}, ${log.notes ?? null}, NOW())
+            INSERT INTO daily_logs (id, user_id, date, weight, water_ml, notes, updated_at)
+            VALUES (${logId}, ${userId}, ${log.date}, ${log.weight ?? null}, ${log.waterMl ?? null}, ${log.notes ?? null}, NOW())
             ON CONFLICT (id) DO UPDATE SET
               weight = EXCLUDED.weight,
+              water_ml = EXCLUDED.water_ml,
               notes = EXCLUDED.notes,
               updated_at = NOW()
             WHERE daily_logs.user_id = EXCLUDED.user_id
@@ -136,7 +137,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           LIMIT ${parsedLimit.data}
         )
         SELECT
-          dl.id as log_id, dl.date, dl.weight as log_weight, dl.notes,
+          dl.id as log_id, dl.date, dl.weight as log_weight, dl.water_ml, dl.notes,
           m.id as meal_id, m.name as meal_name, m.timing, m.time as meal_time,
           m.total_calories, m.total_protein, m.total_carbs, m.total_fat,
           mf.id as food_id, mf.food_id as food_ref_id, mf.food_name, mf.food_category,
@@ -162,6 +163,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             meals: [],
             workouts: [],
             weight: row.log_weight ?? undefined,
+            waterMl: row.water_ml ?? undefined,
             totalMacros: { calories: 0, protein: 0, carbs: 0, fat: 0 },
             notes: row.notes ?? undefined,
           };

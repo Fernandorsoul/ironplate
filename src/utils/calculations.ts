@@ -78,6 +78,8 @@ export function calculateDailyEnergyExpenditure(profile: UserProfile, workouts: 
 export function calculateTargetCalories(profile: UserProfile): number {
   const tdee = calculateTDEE(profile);
   switch (profile.goal) {
+    case 'weight_loss':
+      return Math.round(tdee * 0.85); // Moderate deficit for general users
     case 'bulking':
       return Math.round(tdee * 1.15); // +15% surplus → ~0.3-0.5% BW gain/week
     case 'cutting_conservative':
@@ -105,6 +107,9 @@ export function calculateMacros(profile: UserProfile): Macros {
   let proteinMultiplier: number;
   
   switch (goal) {
+    case 'weight_loss':
+      proteinMultiplier = isStrengthFocusedSport(sport) ? 1.8 : 1.6;
+      break;
     case 'cutting_conservative':
       proteinMultiplier = isStrengthFocusedSport(sport) ? 2.0 : 1.8;
       break;
@@ -128,6 +133,9 @@ export function calculateMacros(profile: UserProfile): Macros {
   // Bulking: moderate fat for hormonal support
   let fatPct: number;
   switch (goal) {
+    case 'weight_loss':
+      fatPct = 0.25;
+      break;
     case 'cutting_conservative':
       fatPct = 0.25;
       break;
