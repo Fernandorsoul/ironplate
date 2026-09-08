@@ -28,6 +28,10 @@ function statementAt(index: number): string {
   return (mockTransactionQuery.mock.calls[index][0] as TemplateStringsArray).join(' ');
 }
 
+function sqlCallStatement(index: number): string {
+  return (mockSql.mock.calls[index][0] as TemplateStringsArray).join(' ');
+}
+
 describe('professional nutrition plans', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -95,5 +99,48 @@ describe('professional nutrition plans', () => {
 
     expect(response.status).toHaveBeenCalledWith(400);
     expect(mockSql).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the published version visible while a new nutrition draft is prepared', async () => {
+    mockSql
+      .mockResolvedValueOnce([{ id: 'professional-profile' }])
+      .mockResolvedValueOnce([{
+        id: 'plan-1',
+        student_id: studentId,
+        current_version: 1,
+        published_version: 1,
+      }])
+      .mockResolvedValueOnce([{ id: 'link-1' }]);
+    const response = responseMock();
+
+    await nutritionPlansHandler({
+      method: 'PUT',
+      headers: {},
+      body: {
+        planId: 'plan-1',
+        action: 'update',
+        title: 'Plano revisado',
+        meals: [],
+        totalMacros: { calories: 1900, protein: 145, carbs: 200, fat: 58 },
+      },
+    } as any, response);
+
+    expect(statementAt(1)).toContain("CASE WHEN published_version IS NULL THEN 'draft' ELSE 'published' END");
+    expect(response.json).toHaveBeenCalledWith({
+      id: 'plan-1',
+      version: 2,
+      status: 'published',
+      versionStatus: 'draft',
+    });
+  });
+
+  it('serves students from publishedVersion rather than an unpublished current draft', async () => {
+    mockSql.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+    const response = responseMock();
+
+    await nutritionPlansHandler({ method: 'GET', headers: {}, query: {} } as any, response);
+
+    expect(sqlCallStatement(1)).toContain('v.version = p.published_version');
+    expect(response.status).toHaveBeenCalledWith(200);
   });
 });

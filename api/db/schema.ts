@@ -239,6 +239,7 @@ export const professionalNutritionPlans = pgTable('professional_nutrition_plans'
   objective: text('objective'),
   status: text('status').default('draft').notNull(),
   currentVersion: integer('current_version').default(1).notNull(),
+  publishedVersion: integer('published_version'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   publishedAt: timestamp('published_at', { withTimezone: true }),
@@ -267,11 +268,86 @@ export const professionalNutritionPlanVersions = pgTable('professional_nutrition
   index('professional_nutrition_plan_versions_plan_idx').on(table.planId),
 ]);
 
+export const professionalExercises = pgTable('professional_exercises', {
+  id: text('id').primaryKey(),
+  ownerProfessionalId: text('owner_professional_id').references(() => users.id, { onDelete: 'cascade' }),
+  visibility: text('visibility').default('private').notNull(),
+  name: text('name').notNull(),
+  description: text('description').notNull(),
+  muscleGroupsJson: text('muscle_groups_json').notNull(),
+  equipment: text('equipment'),
+  modality: text('modality').notNull(),
+  instructions: text('instructions').notNull(),
+  mediaUrl: text('media_url'),
+  sourceAttribution: text('source_attribution'),
+  safetyNotes: text('safety_notes'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  index('professional_exercises_owner_idx').on(table.ownerProfessionalId),
+  index('professional_exercises_visibility_idx').on(table.visibility),
+]);
+
+export const professionalTrainingPlans = pgTable('professional_training_plans', {
+  id: text('id').primaryKey(),
+  professionalId: text('professional_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  studentId: text('student_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  linkId: text('link_id').notNull().references(() => professionalStudentLinks.id, { onDelete: 'cascade' }),
+  title: text('title').notNull(),
+  objective: text('objective'),
+  startsOn: text('starts_on'),
+  endsOn: text('ends_on'),
+  status: text('status').default('draft').notNull(),
+  currentVersion: integer('current_version').default(1).notNull(),
+  publishedVersion: integer('published_version'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  publishedAt: timestamp('published_at', { withTimezone: true }),
+}, (table) => [
+  index('professional_training_plans_professional_idx').on(table.professionalId),
+  index('professional_training_plans_student_idx').on(table.studentId),
+  index('professional_training_plans_link_idx').on(table.linkId),
+]);
+
+export const professionalTrainingPlanVersions = pgTable('professional_training_plan_versions', {
+  id: text('id').primaryKey(),
+  planId: text('plan_id').notNull().references(() => professionalTrainingPlans.id, { onDelete: 'cascade' }),
+  version: integer('version').notNull(),
+  sessionsJson: text('sessions_json').notNull(),
+  changeSummary: text('change_summary'),
+  status: text('status').default('draft').notNull(),
+  createdBy: text('created_by').notNull().references(() => users.id),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  publishedAt: timestamp('published_at', { withTimezone: true }),
+}, (table) => [
+  uniqueIndex('professional_training_plan_versions_unique').on(table.planId, table.version),
+  index('professional_training_plan_versions_plan_idx').on(table.planId),
+]);
+
+export const professionalTrainingExecutions = pgTable('professional_training_executions', {
+  id: text('id').primaryKey(),
+  planVersionId: text('plan_version_id').notNull().references(() => professionalTrainingPlanVersions.id),
+  studentId: text('student_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  workoutId: text('workout_id').references(() => workouts.id, { onDelete: 'set null' }),
+  sessionId: text('session_id').notNull(),
+  status: text('status').default('completed').notNull(),
+  resultsJson: text('results_json').notNull(),
+  perceivedExertion: doublePrecision('perceived_exertion'),
+  feedback: text('feedback'),
+  performedAt: timestamp('performed_at', { withTimezone: true }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  index('professional_training_executions_student_idx').on(table.studentId),
+  index('professional_training_executions_version_idx').on(table.planVersionId),
+  index('professional_training_executions_workout_idx').on(table.workoutId),
+]);
+
 export const consentRecords = pgTable('consent_records', {
   id: text('id').primaryKey(),
   linkId: text('link_id').notNull().references(() => professionalStudentLinks.id, { onDelete: 'cascade' }),
   subjectUserId: text('subject_user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   purpose: text('purpose').notNull(),
+  scopesJson: text('scopes_json').default('[]').notNull(),
   version: text('version').notNull(),
   status: text('status').default('requested').notNull(),
   grantedAt: timestamp('granted_at', { withTimezone: true }),

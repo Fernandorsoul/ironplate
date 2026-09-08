@@ -58,9 +58,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     await sql`DELETE FROM meal_plans WHERE user_id = ${id}`;
 
     // 6. Deletar logs diários
+    await sql`
+      DELETE FROM professional_training_executions
+      WHERE student_id = ${id}
+         OR plan_version_id IN (
+           SELECT v.id
+           FROM professional_training_plan_versions v
+           JOIN professional_training_plans p ON p.id = v.plan_id
+           WHERE p.professional_id = ${id}
+         )
+    `;
+    await sql`DELETE FROM professional_training_plans WHERE professional_id = ${id} OR student_id = ${id}`;
+    await sql`DELETE FROM professional_nutrition_plans WHERE professional_id = ${id} OR student_id = ${id}`;
+    await sql`DELETE FROM professional_exercises WHERE owner_professional_id = ${id}`;
+
+    // 7. Deletar logs diários
     await sql`DELETE FROM daily_logs WHERE user_id = ${id}`;
 
-    // 7. Deletar o usuário
+    // 8. Deletar o usuário
     await sql`DELETE FROM users WHERE id = ${id}`;
 
     return res.status(200).json({

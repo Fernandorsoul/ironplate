@@ -1,4 +1,14 @@
-import { DailyLog, Food, MealPlan, ProfessionalNutritionPlan, UserProfile } from '../types';
+import {
+  DailyLog,
+  Food,
+  MealPlan,
+  ProfessionalExercise,
+  ProfessionalNutritionPlan,
+  ProfessionalTrainingExecution,
+  ProfessionalTrainingPlan,
+  TrainingPrescriptionSession,
+  UserProfile,
+} from '../types';
 import type { BodyMeasurement } from './measurementTypes';
 import { clearSession, getAccessToken } from './session';
 
@@ -215,6 +225,100 @@ export async function updateProfessionalNutritionPlan(input: {
   });
   await expectOk(response);
   return await response.json() as { id: string; version?: number; status: ProfessionalNutritionPlan['status'] };
+}
+
+export async function getProfessionalExercises(): Promise<ProfessionalExercise[]> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=exercises');
+  await expectOk(response);
+  return await response.json() as ProfessionalExercise[];
+}
+
+export async function createProfessionalExercise(
+  input: Omit<ProfessionalExercise, 'id' | 'visibility' | 'createdAt' | 'updatedAt'>,
+): Promise<{ id: string; visibility: 'private' }> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=exercises', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+  await expectOk(response);
+  return await response.json() as { id: string; visibility: 'private' };
+}
+
+export async function updateProfessionalExercise(
+  input: Omit<ProfessionalExercise, 'id' | 'visibility' | 'createdAt' | 'updatedAt'> & { exerciseId: string },
+): Promise<{ id: string; visibility: 'private' }> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=exercises', {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  });
+  await expectOk(response);
+  return await response.json() as { id: string; visibility: 'private' };
+}
+
+export async function getProfessionalTrainingPlans(): Promise<ProfessionalTrainingPlan[]> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=training-plans');
+  await expectOk(response);
+  return await response.json() as ProfessionalTrainingPlan[];
+}
+
+export async function createProfessionalTrainingPlan(input: {
+  studentId: string;
+  title: string;
+  objective?: string;
+  startsOn?: string;
+  endsOn?: string;
+  sessions: TrainingPrescriptionSession[];
+  changeSummary?: string;
+}): Promise<{ id: string; version: number; status: 'draft' }> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=training-plans', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+  await expectOk(response);
+  return await response.json() as { id: string; version: number; status: 'draft' };
+}
+
+export async function updateProfessionalTrainingPlan(input: {
+  planId: string;
+  action: 'update' | 'publish' | 'archive';
+  title?: string;
+  objective?: string;
+  startsOn?: string;
+  endsOn?: string;
+  sessions?: TrainingPrescriptionSession[];
+  changeSummary?: string;
+}): Promise<{ id: string; version?: number; status: ProfessionalTrainingPlan['status'] }> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=training-plans', {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  });
+  await expectOk(response);
+  return await response.json() as { id: string; version?: number; status: ProfessionalTrainingPlan['status'] };
+}
+
+export async function getProfessionalTrainingExecutions(): Promise<ProfessionalTrainingExecution[]> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=training-executions');
+  await expectOk(response);
+  return await response.json() as ProfessionalTrainingExecution[];
+}
+
+export async function recordProfessionalTrainingExecution(input: {
+  planId: string;
+  version: number;
+  sessionId: string;
+  workoutId?: string;
+  status?: ProfessionalTrainingExecution['status'];
+  results: ProfessionalTrainingExecution['results'];
+  perceivedExertion?: number;
+  feedback?: string;
+  performedAt: string;
+}): Promise<{ id: string; status: ProfessionalTrainingExecution['status'] }> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=training-executions', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+  await expectOk(response);
+  return await response.json() as { id: string; status: ProfessionalTrainingExecution['status'] };
 }
 
 export async function saveCustomFood(userId: string, food: Food): Promise<void> {

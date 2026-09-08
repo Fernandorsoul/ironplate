@@ -36,7 +36,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   await exportRateLimit(req, res, async () => {
     try {
       const userId = identity.userId;
-      const [users, logRows, mealRows, foodRows, workoutRows, weightRows, measurementRows, customFoodRows, planRows] = await Promise.all([
+      const [
+        users,
+        logRows,
+        mealRows,
+        foodRows,
+        workoutRows,
+        weightRows,
+        measurementRows,
+        customFoodRows,
+        planRows,
+        professionalNutritionRows,
+        professionalExerciseRows,
+        professionalTrainingRows,
+        professionalExecutionRows,
+      ] = await Promise.all([
         sql`
           SELECT id, name, email, created_at, updated_at, last_login,
                  role, age, weight, height, gender, activity_level, goal, sport, photo_uri,
@@ -61,6 +75,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         sql`SELECT * FROM body_measurements WHERE user_id = ${userId} ORDER BY date ASC`,
         sql`SELECT * FROM custom_foods WHERE user_id = ${userId} ORDER BY name ASC`,
         sql`SELECT * FROM meal_plans WHERE user_id = ${userId} ORDER BY created_at DESC`,
+        sql`
+          SELECT p.*, v.version, v.meals_json, v.change_summary, v.status AS version_status,
+                 v.created_at AS version_created_at, v.published_at AS version_published_at
+          FROM professional_nutrition_plans p
+          JOIN professional_nutrition_plan_versions v ON v.plan_id = p.id
+          WHERE p.professional_id = ${userId} OR p.student_id = ${userId}
+          ORDER BY p.created_at, v.version
+        `,
+        sql`
+          SELECT * FROM professional_exercises
+          WHERE owner_professional_id = ${userId}
+          ORDER BY created_at
+        `,
+        sql`
+          SELECT p.*, v.id AS version_id, v.version, v.sessions_json, v.change_summary,
+                 v.status AS version_status, v.created_at AS version_created_at,
+                 v.published_at AS version_published_at
+          FROM professional_training_plans p
+          JOIN professional_training_plan_versions v ON v.plan_id = p.id
+          WHERE p.professional_id = ${userId} OR p.student_id = ${userId}
+          ORDER BY p.created_at, v.version
+        `,
+        sql`
+          SELECT e.*, p.id AS plan_id, p.professional_id, v.version
+          FROM professional_training_executions e
+          JOIN professional_training_plan_versions v ON v.id = e.plan_version_id
+          JOIN professional_training_plans p ON p.id = v.plan_id
+          WHERE e.student_id = ${userId} OR p.professional_id = ${userId}
+          ORDER BY e.performed_at
+        `,
       ]);
 
       if (users.length === 0) return res.status(404).json({ error: 'User not found' });
@@ -166,6 +210,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           ...plan,
           meals: parseMealsJson(plan.meals_json),
           meals_json: undefined,
+        })),
+        professionalNutritionPlans: (professionalNutritionRows as any[]).map(plan => ({
+          ...plan,
+          meals: parseMealsJson(plan.meals_json),
+          meals_json: undefined,
+        })),
+        professionalExercises: professionalExerciseRows as any[],
+        professionalTrainingPlans: (professionalTrainingRows as any[]).map(plan => ({
+          ...plan,
+          sessions: parseMealsJson(plan.sessions_json),
+          sessions_json: undefined,
+        })),
+        professionalTrainingExecutions: (professionalExecutionRows as any[]).map(execution => ({
+          ...execution,
+          results: parseMealsJson(execution.results_json),
+          results_json: undefined,
         })),
       }));
     } catch (error) {
