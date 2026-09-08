@@ -661,6 +661,7 @@ export function getSupplementRecommendations(profile: UserProfile) {
 function getGoalLabel(goal: Goal): string {
   switch (goal) {
     case 'bulking': return 'Bulking';
+    case 'weight_loss': return 'Emagrecimento';
     case 'cutting_conservative': return 'Cutting Conservador';
     case 'cutting_preparation': return 'Preparação';
     case 'cutting_precontest': return 'Pré-Competição';

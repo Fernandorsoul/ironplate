@@ -21,6 +21,7 @@ export default function EditProfileScreen({ navigation }: any) {
   const [birthDate, setBirthDate] = useState(profile?.birthDate || '');
   const [age, setAge] = useState(profile?.age?.toString() || '');
   const [weight, setWeight] = useState(profile?.weight?.toString() || '');
+  const [targetWeight, setTargetWeight] = useState(profile?.targetWeightKg?.toString() || '');
   const [height, setHeight] = useState(profile?.height?.toString() || '');
   const [gender, setGender] = useState<'male' | 'female'>(profile?.gender || 'male');
   const [activityLevel, setActivityLevel] = useState<ActivityLevel>(profile?.activityLevel || 'moderate');
@@ -98,6 +99,7 @@ export default function EditProfileScreen({ navigation }: any) {
         birthDate: birthDate || undefined,
         age: parseInt(age),
         weight: parseFloat(weight),
+        targetWeightKg: targetWeight ? parseFloat(targetWeight) : undefined,
         height: parseFloat(height),
         gender,
         activityLevel,
@@ -131,6 +133,7 @@ export default function EditProfileScreen({ navigation }: any) {
   const getGoalLabel = (g: Goal) => {
     switch (g) {
       case 'bulking': return 'Bulking (+15%)';
+      case 'weight_loss': return 'Emagrecimento (-15%)';
       case 'cutting_conservative': return 'Cutting Conservador (-15%)';
       case 'cutting_preparation': return 'Preparação (-20%)';
       case 'cutting_precontest': return 'Pré-Competição (-25%)';
@@ -196,12 +199,15 @@ export default function EditProfileScreen({ navigation }: any) {
         </View>
         <View style={styles.halfField}>
           <Text style={styles.label}>Peso (kg) *</Text>
-          <TextInput style={styles.input} value={weight} onChangeText={setWeight} placeholder="75" placeholderTextColor={COLORS.textMuted} keyboardType="numeric" />
+      <TextInput style={styles.input} value={weight} onChangeText={setWeight} placeholder="75" placeholderTextColor={COLORS.textMuted} keyboardType="numeric" />
         </View>
       </View>
 
       <Text style={styles.label}>Altura (cm) *</Text>
       <TextInput style={styles.input} value={height} onChangeText={setHeight} placeholder="175" placeholderTextColor={COLORS.textMuted} keyboardType="numeric" />
+
+      <Text style={styles.label}>Meta de peso (kg)</Text>
+      <TextInput style={styles.input} value={targetWeight} onChangeText={setTargetWeight} placeholder="Opcional" placeholderTextColor={COLORS.textMuted} keyboardType="numeric" />
 
       <Text style={styles.label}>Gênero</Text>
       <View style={styles.row}>
@@ -223,7 +229,7 @@ export default function EditProfileScreen({ navigation }: any) {
 
       {/* Goal */}
       <Text style={styles.sectionTitle}>Objetivo</Text>
-      {(['maintenance', 'bulking', 'cutting_conservative', 'cutting_preparation', 'cutting_precontest'] as Goal[]).map(g => (
+      {(['maintenance', 'bulking', 'weight_loss', 'cutting_conservative', 'cutting_preparation', 'cutting_precontest'] as Goal[]).map(g => (
         <TouchableOpacity key={g} style={[styles.optionButton, goal === g && styles.optionButtonActive]} onPress={() => setGoal(g)}>
           <Text style={[styles.optionText, goal === g && styles.optionTextActive]}>{getGoalLabel(g)}</Text>
         </TouchableOpacity>

@@ -63,6 +63,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           case 'photoUri':
             await sql`UPDATE users SET photo_uri = ${value}, updated_at = NOW() WHERE id = ${userId}`;
             break;
+          case 'targetWeightKg':
+            await sql`UPDATE users SET target_weight_kg = ${value}, updated_at = NOW() WHERE id = ${userId}`;
+            break;
+          case 'hydrationGoalMl':
+            await sql`UPDATE users SET hydration_goal_ml = ${value}, updated_at = NOW() WHERE id = ${userId}`;
+            break;
         }
       }
 

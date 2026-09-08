@@ -142,6 +142,13 @@ export default function OnboardingScreen() {
 
             <Text style={styles.subsectionTitle}>Perda de Gordura</Text>
             <TouchableOpacity
+              style={[styles.optionButton, goal === 'weight_loss' && styles.optionButtonActive]}
+              onPress={() => setGoal('weight_loss')}
+            >
+              <Text style={[styles.optionText, goal === 'weight_loss' && styles.optionTextActive]}>Emagrecimento (-15%)</Text>
+              <Text style={styles.optionDesc}>Perda gradual com foco em massa magra</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
               style={[styles.optionButton, goal === 'cutting_conservative' && styles.optionButtonActive]}
               onPress={() => setGoal('cutting_conservative')}
             >

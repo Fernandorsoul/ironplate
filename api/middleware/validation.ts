@@ -82,6 +82,7 @@ export const updateSchema = z.object({
       activityLevel: z.enum(['sedentary', 'light', 'moderate', 'active', 'very_active']).optional(),
       goal: z.enum([
         'bulking',
+        'weight_loss',
         'cutting_conservative',
         'cutting_preparation',
         'cutting_precontest',
@@ -89,6 +90,8 @@ export const updateSchema = z.object({
       ]).optional(),
       sport: sportSchema.optional(),
       photoUri: profilePhotoSchema.optional(),
+      targetWeightKg: z.number().finite().min(0).max(500).optional(),
+      hydrationGoalMl: z.number().finite().min(0).max(20_000).optional(),
     })
     .strict()
     .refine((fields) => Object.keys(fields).length > 0, 'At least one field is required'),
@@ -160,6 +163,7 @@ export const dailyLogPostSchema = z.object({
     meals: z.array(mealSchema).max(100),
     workouts: z.array(workoutSchema).max(100),
     weight: z.number().finite().min(0).max(500).optional(),
+    waterMl: z.number().finite().min(0).max(20_000).optional(),
     totalMacros: macrosSchema,
     notes: z.string().max(5_000).optional(),
   }).strict(),
@@ -172,6 +176,7 @@ export const mealPlanPostSchema = z.object({
     name: z.string().trim().min(1).max(160),
     goal: z.enum([
       'bulking',
+      'weight_loss',
       'cutting_conservative',
       'cutting_preparation',
       'cutting_precontest',

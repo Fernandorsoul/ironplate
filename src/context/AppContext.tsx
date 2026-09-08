@@ -30,6 +30,7 @@ interface AppContextType {
   removeWorkoutFromToday: (workoutId: string) => Promise<void>;
   updateWorkoutInToday: (workoutId: string, updatedWorkout: Workout) => Promise<void>;
   setTodayWeight: (weight: number) => Promise<void>;
+  setTodayWater: (waterMl: number) => Promise<void>;
 
   // Meal plans
   mealPlans: MealPlan[];
@@ -235,9 +236,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const setProfile = useCallback(async (newProfile: UserProfile) => {
     if (!userId) throw new Error('Authentication required');
-    const { name, age, weight, height, gender, activityLevel, goal, sport, photoUri } = newProfile;
+    const { name, age, weight, height, gender, activityLevel, goal, sport, photoUri, targetWeightKg, hydrationGoalMl } = newProfile;
     await Database.updateUser(userId, {
-      name, age, weight, height, gender, activityLevel, goal, sport, photoUri,
+      name, age, weight, height, gender, activityLevel, goal, sport, photoUri, targetWeightKg, hydrationGoalMl,
     });
     setProfileState(newProfile);
     setTargetMacros(calculateMacros(newProfile));
@@ -315,6 +316,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const setTodayWeight = useCallback(async (weight: number) => {
     await persistWeightEntry({ date: getTodayDate(), weight });
   }, [getTodayDate, persistWeightEntry]);
+
+  const setTodayWater = useCallback(async (waterMl: number) => {
+    await updateTodayLog(log => ({ ...log, waterMl: Math.max(0, Math.round(waterMl)) }));
+  }, [updateTodayLog]);
 
   const saveMealPlan = useCallback(async (plan: MealPlan) => {
     if (!userId) throw new Error('Authentication required');
@@ -400,6 +405,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         removeWorkoutFromToday,
         updateWorkoutInToday,
         setTodayWeight,
+        setTodayWater,
         mealPlans,
         saveMealPlan,
         deleteMealPlan,

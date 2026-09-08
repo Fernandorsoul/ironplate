@@ -8,6 +8,7 @@ import { useWeightTrend } from '../hooks';
 import { ScreenHeader } from '../components';
 import { connectToWeightScale, type ScaleReadout, readoutToMetrics } from '../services/bluetoothScale';
 import { saveBodyMeasurement } from '../services/database';
+import { getWeightProgress } from '../utils/weightProgress';
 
 // Metric definition cards with icon + label
 interface MetricCardDef {
@@ -55,6 +56,7 @@ export default function WeightScreen({ navigation }: any) {
 
   // Trend data
   const { last30Days, trend } = useWeightTrend(weightHistory);
+  const progress = profile ? getWeightProgress(profile, weightHistory) : null;
 
   // Cleanup on unmount
   useEffect(() => () => stopRef.current?.(), []);
@@ -175,6 +177,16 @@ export default function WeightScreen({ navigation }: any) {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
+        {progress?.targetWeightKg != null ? (
+          <View style={styles.targetCard}>
+            <Text style={styles.cardTitle}>Meta de peso</Text>
+            <Text style={styles.targetValue}>{progress.currentWeight.toFixed(1)} / {progress.targetWeightKg?.toFixed(1)} kg</Text>
+            <View style={styles.targetTrack}><View style={[styles.targetFill, { width: `${progress.progressPercent ?? 0}%` }]} /></View>
+            <Text style={styles.targetText}>
+              {progress.reachedTarget ? 'Meta atingida' : `${Math.abs(progress.differenceToTargetKg ?? 0).toFixed(1)} kg ${progress.direction === 'lose' ? 'para perder' : 'para ganhar'}`}
+            </Text>
+          </View>
+        ) : null}
         {/* ── Bluetooth Scan Card ─────────────────────────────── */}
         <View style={styles.scanCard}>
           <Text style={styles.cardTitle}>📡 Scanner Bluetooth</Text>
@@ -312,6 +324,11 @@ export default function WeightScreen({ navigation }: any) {
 /* ───────────────────────── Styles ────────────────────────── */
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background, padding: SPACING.md },
+  targetCard: { backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg, padding: SPACING.lg, marginBottom: SPACING.md, borderWidth: 1, borderColor: COLORS.primary },
+  targetValue: { color: COLORS.text, fontSize: FONT_SIZE.xl, fontWeight: 'bold', marginBottom: SPACING.sm },
+  targetTrack: { backgroundColor: COLORS.surfaceLight, borderRadius: BORDER_RADIUS.sm, height: 8, overflow: 'hidden' },
+  targetFill: { backgroundColor: COLORS.primary, height: '100%' },
+  targetText: { color: COLORS.textSecondary, fontSize: FONT_SIZE.sm, marginTop: SPACING.sm },
 
   scanCard: {
     backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg,

@@ -35,7 +35,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!await requireUserAccess(req, res, parsedUserId.data)) return;
 
       const users = await sql`
-        SELECT name, email, age, weight, height, gender, activity_level, goal, sport, photo_uri
+        SELECT name, email, age, weight, height, gender, activity_level, goal, sport, photo_uri,
+               target_weight_kg, hydration_goal_ml
         FROM users
         WHERE id = ${parsedUserId.data}
       `;
@@ -56,6 +57,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         goal: user.goal || 'maintenance',
         sport: user.sport || 'bodybuilding',
         photoUri: user.photo_uri || undefined,
+        targetWeightKg: user.target_weight_kg || undefined,
+        hydrationGoalMl: user.hydration_goal_ml || undefined,
       });
     } catch (error) {
       console.error('Get user error:', error);

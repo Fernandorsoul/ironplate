@@ -1,7 +1,13 @@
 // IronPlate Types
 
 export type ActivityLevel = 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active';
-export type Goal = 'bulking' | 'cutting_conservative' | 'cutting_preparation' | 'cutting_precontest' | 'maintenance';
+export type Goal =
+  | 'bulking'
+  | 'weight_loss'
+  | 'cutting_conservative'
+  | 'cutting_preparation'
+  | 'cutting_precontest'
+  | 'maintenance';
 export type Sport =
   | 'bodybuilding'
   | 'bjj'
@@ -59,6 +65,8 @@ export interface UserProfile {
   phone?: string;
   birthDate?: string; // YYYY-MM-DD
   photoUri?: string;
+  targetWeightKg?: number;
+  hydrationGoalMl?: number;
   age: number;
   weight: number; // kg
   height: number; // cm
@@ -142,6 +150,7 @@ export interface DailyLog {
   meals: Meal[];
   workouts: Workout[];
   weight?: number;
+  waterMl?: number;
   totalMacros: Macros;
   notes?: string;
 }

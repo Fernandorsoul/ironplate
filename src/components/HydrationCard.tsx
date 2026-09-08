@@ -1,24 +1,35 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { BORDER_RADIUS, COLORS, FONT_SIZE, SPACING } from '../constants/theme';
 import { UserProfile } from '../types';
 import { calculateHydration } from '../utils/hydration';
 
 interface HydrationCardProps {
   profile: UserProfile;
+  currentMl?: number;
+  onChange?: (waterMl: number) => void;
 }
 
 function formatLiters(milliliters: number): string {
   return (milliliters / 1000).toFixed(1).replace('.', ',');
 }
 
-export function HydrationCard({ profile }: HydrationCardProps) {
+export function HydrationCard({ profile, currentMl = 0, onChange }: HydrationCardProps) {
   const hydration = calculateHydration(profile);
+  const progress = Math.min(currentMl / hydration.dailyTargetMl, 1);
 
   return (
     <View style={styles.card} testID="hydration-card">
       <Text style={styles.eyebrow}>HIDRATAÇÃO</Text>
-      <Text style={styles.title}>Meta inicial de líquidos: {formatLiters(hydration.dailyTargetMl)} L por dia</Text>
+      <Text style={styles.title}>Meta: {formatLiters(hydration.dailyTargetMl)} L por dia</Text>
+      <Text style={styles.progress}>{formatLiters(currentMl)} L registrados ({Math.round(progress * 100)}%)</Text>
+      <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${progress * 100}%` }]} /></View>
+      {onChange ? (
+        <View style={styles.actions}>
+          <TouchableOpacity style={styles.actionButton} onPress={() => onChange(currentMl - 250)}><Text style={styles.actionText}>- 250 ml</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.actionButton} onPress={() => onChange(currentMl + 250)}><Text style={styles.actionText}>+ 250 ml</Text></TouchableOpacity>
+        </View>
+      ) : null}
       <Text style={styles.equivalent}>
         Se usar água como referência: {hydration.bottles500Ml} garrafas de 500 ml ou {hydration.glasses250Ml} copos de 250 ml
       </Text>
@@ -73,6 +84,12 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZE.sm,
     marginTop: SPACING.xs,
   },
+  progress: { color: COLORS.textSecondary, fontSize: FONT_SIZE.sm, marginTop: SPACING.sm },
+  progressTrack: { backgroundColor: COLORS.surfaceLight, borderRadius: BORDER_RADIUS.sm, height: 8, marginTop: SPACING.sm, overflow: 'hidden' },
+  progressFill: { backgroundColor: COLORS.calories, height: '100%' },
+  actions: { flexDirection: 'row', gap: SPACING.sm, marginTop: SPACING.md },
+  actionButton: { backgroundColor: COLORS.surfaceLight, borderRadius: BORDER_RADIUS.md, flex: 1, padding: SPACING.sm, alignItems: 'center' },
+  actionText: { color: COLORS.calories, fontWeight: '700', fontSize: FONT_SIZE.sm },
   trainingBox: {
     backgroundColor: COLORS.surfaceLight,
     borderRadius: BORDER_RADIUS.md,
