@@ -303,6 +303,44 @@ export async function getConsentedStudentData(
   return payload.data;
 }
 
+export async function getAdministrativeIdentifiers(): Promise<Array<{
+  identifierType: 'cpf'; maskedValue: string; purpose: string; authorizedAt: string;
+}>> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=identifier');
+  await expectOk(response);
+  return await response.json();
+}
+
+export async function updateAdministrativeCpf(value: string, purpose: string): Promise<{ maskedValue: string }> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=identifier', {
+    method: 'PUT',
+    body: JSON.stringify({ identifierType: 'cpf', value, purpose, confirmed: true }),
+  });
+  await expectOk(response);
+  return await response.json();
+}
+
+export async function removeAdministrativeCpf(): Promise<void> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=identifier', { method: 'DELETE' });
+  await expectOk(response);
+}
+
+export async function searchAdministrativeCpf(value: string): Promise<{
+  studentId: string; displayName: string; maskedValue: string;
+} | null> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=identifier-search', {
+    method: 'POST',
+    body: JSON.stringify({
+      identifierType: 'cpf',
+      value,
+      purpose: 'Conferencia administrativa da carteira profissional',
+    }),
+  });
+  await expectOk(response);
+  const payload = await response.json() as { match: { studentId: string; displayName: string; maskedValue: string } | null };
+  return payload.match;
+}
+
 export async function createProfessionalNutritionPlan(input: {
   studentId: string;
   title: string;

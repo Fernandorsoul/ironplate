@@ -71,6 +71,20 @@
       "when": 1788895748829,
       "tag": "0009_aspiring_calypso",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1788898863563,
+      "tag": "0010_glamorous_sabretooth",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1788898894815,
+      "tag": "0011_gorgeous_monster_badoon",
+      "breakpoints": true
     }
   ]
 }

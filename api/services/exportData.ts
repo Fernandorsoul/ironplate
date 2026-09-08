@@ -32,6 +32,7 @@ export function buildExportPayload(parts: {
   professionalLinkInvitations?: any[];
   consentHistory?: any[];
   auditHistory?: any[];
+  administrativeIdentifiers?: any[];
   exportedAt?: string;
 }): Record<string, unknown> {
   return {
@@ -57,5 +58,6 @@ export function buildExportPayload(parts: {
     professionalLinkInvitations: parts.professionalLinkInvitations ?? [],
     consentHistory: parts.consentHistory ?? [],
     auditHistory: parts.auditHistory ?? [],
+    administrativeIdentifiers: parts.administrativeIdentifiers ?? [],
   };
 }

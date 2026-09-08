@@ -12,8 +12,19 @@ import trainingExecutionsHandler from '../professionals/training-executions';
 import availabilityHandler from '../professionals/availability';
 import appointmentsHandler from '../professionals/appointments';
 import notificationsHandler from '../professionals/notifications';
-import { handleAdministrativeIdentifier } from './administrativeIdentifier';
+import {
+  handleAdministrativeIdentifier,
+  handleAdministrativeIdentifierSearch,
+} from './administrativeIdentifier';
 import sharedDataHandler from '../professionals/shared-data';
+import { rateLimit } from '../middleware/rateLimit';
+
+const identifierSearchRateLimit = rateLimit({
+  maxRequests: 5,
+  windowMs: 60 * 60 * 1000,
+  message: 'Too many administrative searches. Try again later.',
+  identity: req => typeof (req as any).auth?.userId === 'string' ? (req as any).auth.userId : null,
+});
 
 export async function handleProfessionalRoutes(req: VercelRequest, res: VercelResponse) {
   const operation = typeof req.query.operation === 'string' ? req.query.operation : 'profile';
@@ -28,10 +39,26 @@ export async function handleProfessionalRoutes(req: VercelRequest, res: VercelRe
   if (operation === 'appointments') return appointmentsHandler(req, res);
   if (operation === 'notifications') return notificationsHandler(req, res);
   if (operation === 'shared-data') return sharedDataHandler(req, res);
+  if (operation === 'identifier-search') {
+    if (applyCors(req, res, ['POST'])) return;
+    if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+    const identity = await requireAuth(req, res);
+    if (!identity) return;
+    const sql = getSql();
+    if (!sql) return res.status(500).json({ error: 'Database not configured' });
+    try {
+      return await identifierSearchRateLimit(req, res, () => (
+        handleAdministrativeIdentifierSearch(req, res, sql, identity.userId)
+      ));
+    } catch (error) {
+      console.error('Administrative identifier search error:', error);
+      return res.status(500).json({ error: 'Administrative identifier service unavailable' });
+    }
+  }
   if (operation !== 'identifier') return res.status(404).json({ error: 'Unknown professional operation' });
 
-  if (applyCors(req, res, ['GET', 'PUT'])) return;
-  if (req.method !== 'GET' && req.method !== 'PUT') {
+  if (applyCors(req, res, ['GET', 'PUT', 'DELETE'])) return;
+  if (!['GET', 'PUT', 'DELETE'].includes(req.method || '')) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
   const identity = await requireAuth(req, res);
@@ -42,7 +69,7 @@ export async function handleProfessionalRoutes(req: VercelRequest, res: VercelRe
     await handleAdministrativeIdentifier(req, res, sql, identity.userId);
   } catch (error) {
     console.error('Administrative identifier error:', error);
-    if (error instanceof Error && error.message.includes('ADMIN_IDENTIFIER_PEPPER')) {
+    if (error instanceof Error && error.message.includes('ADMIN_IDENTIFIER_')) {
       return res.status(500).json({ error: 'Administrative identifier service not configured' });
     }
     return res.status(500).json({ error: 'Internal server error' });

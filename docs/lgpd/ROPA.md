@@ -91,6 +91,16 @@ Os operadores Vercel e Neon possuem infraestrutura fora do Brasil. Eventuais tra
 | Retenção | O acesso aos dados originais termina imediatamente na revogação ou expiração. Documentos produzidos pelo profissional são mantidos somente pelo prazo definido em obrigação legal ou contrato aplicável, com acesso do aluno |
 | Medidas de segurança | Convite com token de uso único e prazo; token armazenado somente como hash; verificação profissional; vínculo ativo; autorização por categoria no servidor; consentimentos append-only; auditoria de convite, acesso, conteúdo e revogação |
 
+### 2.7 CPF administrativo opcional
+
+| Item | Descrição |
+| --- | --- |
+| Dados tratados | CPF informado e confirmado pelo aluno; finalidade operacional; data de autorização; últimos dígitos para exibição mascarada |
+| Finalidade | Organização administrativa e localização exata de aluno que já pertence à carteira ativa do profissional |
+| Base legal | Consentimento específico do titular e princípio da necessidade — Arts. 7º, I, e 6º, III, da LGPD |
+| Retenção | Enquanto necessário e autorizado. O aluno pode corrigir ou remover o CPF; exclusão da conta remove o dado e seu índice. A revogação do vínculo encerra imediatamente a pesquisa pelo profissional |
+| Medidas de segurança | AES-256-GCM em nível de aplicação; índice HMAC-SHA-256 com chave distinta; segredos apenas no servidor; respostas e exportações mascaradas; pesquisa somente por CPF completo dentro da carteira ativa; rate limit e auditoria sem CPF ou hash |
+
 ## 3. Direitos do titular (Art. 18 da LGPD)
 
 O titular pode solicitar ao Encarregado, a qualquer momento:
