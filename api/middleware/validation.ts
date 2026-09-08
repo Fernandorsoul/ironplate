@@ -140,6 +140,15 @@ export const resetPasswordSchema = z.object({
 
 const idSchema = z.string().trim().min(1).max(160);
 const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must use YYYY-MM-DD');
+const timeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Time must use HH:mm');
+const timeZoneSchema = z.string().trim().min(1).max(100).refine((value) => {
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: value }).format();
+    return true;
+  } catch {
+    return false;
+  }
+}, 'Invalid IANA time zone');
 const nonNegativeNumber = z.number().finite().min(0).max(1_000_000);
 const macrosSchema = z.object({
   calories: nonNegativeNumber,
@@ -374,6 +383,150 @@ export const professionalTrainingExecutionPostSchema = z.object({
   feedback: z.string().trim().max(2_000).optional(),
   performedAt: z.string().datetime({ offset: true }),
 }).strict();
+
+export const appointmentTypeSchema = z.enum([
+  'nutrition_consultation',
+  'nutrition_assessment',
+  'fitness_session',
+  'fitness_assessment',
+]);
+
+const availabilityRuleContentSchema = z.object({
+  appointmentType: appointmentTypeSchema,
+  weekday: z.number().int().min(0).max(6),
+  startTime: timeSchema,
+  endTime: timeSchema,
+  timeZone: timeZoneSchema,
+  durationMinutes: z.number().int().min(15).max(8 * 60),
+  slotIntervalMinutes: z.number().int().min(5).max(8 * 60),
+  bufferBeforeMinutes: z.number().int().min(0).max(4 * 60).default(0),
+  bufferAfterMinutes: z.number().int().min(0).max(4 * 60).default(0),
+  minimumNoticeMinutes: z.number().int().min(0).max(365 * 24 * 60).default(12 * 60),
+  maximumBookingDays: z.number().int().min(1).max(365).default(90),
+  effectiveFrom: dateSchema,
+  effectiveUntil: dateSchema.optional(),
+}).strict().superRefine((value, context) => {
+  if (value.endTime <= value.startTime) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: 'endTime must be after startTime', path: ['endTime'] });
+  }
+  if (value.effectiveUntil && value.effectiveUntil < value.effectiveFrom) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'effectiveUntil must be on or after effectiveFrom',
+      path: ['effectiveUntil'],
+    });
+  }
+});
+
+const blockoutDecisionSchema = z.object({
+  appointmentId: idSchema,
+  action: z.enum(['keep', 'decline', 'cancel', 'reschedule']),
+  proposedSlots: z.array(z.string().datetime({ offset: true })).min(1).max(5).optional(),
+}).strict().superRefine((value, context) => {
+  if (value.action === 'reschedule' && !value.proposedSlots?.length) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'proposedSlots is required for reschedule',
+      path: ['proposedSlots'],
+    });
+  }
+});
+
+const singleBlockoutSchema = z.object({
+  recurrence: z.literal('single'),
+  startsAt: z.string().datetime({ offset: true }),
+  endsAt: z.string().datetime({ offset: true }),
+  timeZone: timeZoneSchema,
+  reasonCategory: z.enum(['vacation', 'holiday', 'conference', 'personal', 'other']).default('other'),
+  privateReason: z.string().trim().max(1_000).optional(),
+}).strict().refine((value) => value.endsAt > value.startsAt, {
+  message: 'endsAt must be after startsAt',
+  path: ['endsAt'],
+});
+
+const recurringBlockoutSchema = z.object({
+  recurrence: z.literal('weekly'),
+  weekday: z.number().int().min(0).max(6),
+  startTime: timeSchema,
+  endTime: timeSchema,
+  timeZone: timeZoneSchema,
+  effectiveFrom: dateSchema,
+  effectiveUntil: dateSchema.optional(),
+  reasonCategory: z.enum(['vacation', 'holiday', 'conference', 'personal', 'other']).default('other'),
+  privateReason: z.string().trim().max(1_000).optional(),
+}).strict().superRefine((value, context) => {
+  if (value.endTime <= value.startTime) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: 'endTime must be after startTime', path: ['endTime'] });
+  }
+  if (value.effectiveUntil && value.effectiveUntil < value.effectiveFrom) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'effectiveUntil must be on or after effectiveFrom',
+      path: ['effectiveUntil'],
+    });
+  }
+});
+
+const blockoutContentSchema = z.discriminatedUnion('recurrence', [singleBlockoutSchema, recurringBlockoutSchema]);
+
+export const professionalAvailabilityPostSchema = z.discriminatedUnion('resource', [
+  z.object({ resource: z.literal('rule'), rule: availabilityRuleContentSchema }).strict(),
+  z.object({
+    resource: z.literal('blockout'),
+    blockout: blockoutContentSchema,
+    preview: z.boolean().default(false),
+    impactDecisions: z.array(blockoutDecisionSchema).max(100).default([]),
+  }).strict(),
+]);
+
+export const professionalAvailabilityPutSchema = z.discriminatedUnion('resource', [
+  z.object({
+    resource: z.literal('rule'),
+    ruleId: idSchema,
+    action: z.enum(['update', 'deactivate', 'reactivate']),
+    rule: availabilityRuleContentSchema.optional(),
+  }).strict().superRefine((value, context) => {
+    if (value.action === 'update' && !value.rule) {
+      context.addIssue({ code: z.ZodIssueCode.custom, message: 'rule is required for update', path: ['rule'] });
+    }
+  }),
+  z.object({
+    resource: z.literal('blockout'),
+    blockoutId: idSchema,
+    action: z.enum(['update', 'cancel', 'cancel_future']),
+    blockout: blockoutContentSchema.optional(),
+    effectiveUntil: dateSchema.optional(),
+    preview: z.boolean().default(false),
+    impactDecisions: z.array(blockoutDecisionSchema).max(100).default([]),
+  }).strict().superRefine((value, context) => {
+    if (value.action === 'update' && !value.blockout) {
+      context.addIssue({ code: z.ZodIssueCode.custom, message: 'blockout is required for update', path: ['blockout'] });
+    }
+    if (value.action === 'cancel_future' && !value.effectiveUntil) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'effectiveUntil is required to cancel future occurrences',
+        path: ['effectiveUntil'],
+      });
+    }
+  }),
+]);
+
+export const professionalAvailabilitySlotsQuerySchema = z.object({
+  professionalId: userIdSchema,
+  appointmentType: appointmentTypeSchema,
+  from: z.string().datetime({ offset: true }),
+  to: z.string().datetime({ offset: true }),
+}).strict().superRefine((value, context) => {
+  const from = Date.parse(value.from);
+  const to = Date.parse(value.to);
+  if (to <= from) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: 'to must be after from', path: ['to'] });
+  }
+  if (to - from > 31 * 24 * 60 * 60 * 1_000) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: 'Range cannot exceed 31 days', path: ['to'] });
+  }
+});
 
 export const deleteMealPlanSchema = z.object({
   userId: userIdSchema,

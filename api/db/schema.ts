@@ -342,6 +342,103 @@ export const professionalTrainingExecutions = pgTable('professional_training_exe
   index('professional_training_executions_workout_idx').on(table.workoutId),
 ]);
 
+export const professionalAvailabilityRules = pgTable('professional_availability_rules', {
+  id: text('id').primaryKey(),
+  professionalId: text('professional_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  appointmentType: text('appointment_type').notNull(),
+  weekday: integer('weekday').notNull(),
+  startTime: text('start_time').notNull(),
+  endTime: text('end_time').notNull(),
+  timeZone: text('time_zone').notNull(),
+  durationMinutes: integer('duration_minutes').notNull(),
+  slotIntervalMinutes: integer('slot_interval_minutes').notNull(),
+  bufferBeforeMinutes: integer('buffer_before_minutes').default(0).notNull(),
+  bufferAfterMinutes: integer('buffer_after_minutes').default(0).notNull(),
+  minimumNoticeMinutes: integer('minimum_notice_minutes').default(720).notNull(),
+  maximumBookingDays: integer('maximum_booking_days').default(90).notNull(),
+  effectiveFrom: text('effective_from').notNull(),
+  effectiveUntil: text('effective_until'),
+  active: boolean('active').default(true).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  index('professional_availability_rules_professional_idx').on(table.professionalId),
+  index('professional_availability_rules_lookup_idx').on(
+    table.professionalId,
+    table.appointmentType,
+    table.weekday,
+  ),
+]);
+
+export const professionalScheduleBlockouts = pgTable('professional_schedule_blockouts', {
+  id: text('id').primaryKey(),
+  professionalId: text('professional_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  recurrence: text('recurrence').default('single').notNull(),
+  startsAt: timestamp('starts_at', { withTimezone: true }),
+  endsAt: timestamp('ends_at', { withTimezone: true }),
+  weekday: integer('weekday'),
+  startTime: text('start_time'),
+  endTime: text('end_time'),
+  timeZone: text('time_zone').notNull(),
+  effectiveFrom: text('effective_from'),
+  effectiveUntil: text('effective_until'),
+  reasonCategory: text('reason_category').default('other').notNull(),
+  privateReason: text('private_reason'),
+  status: text('status').default('active').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  index('professional_schedule_blockouts_professional_idx').on(table.professionalId),
+  index('professional_schedule_blockouts_single_idx').on(table.professionalId, table.startsAt, table.endsAt),
+]);
+
+export const professionalAppointments = pgTable('professional_appointments', {
+  id: text('id').primaryKey(),
+  professionalId: text('professional_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  studentId: text('student_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  linkId: text('link_id').notNull().references(() => professionalStudentLinks.id, { onDelete: 'cascade' }),
+  appointmentType: text('appointment_type').notNull(),
+  startsAt: timestamp('starts_at', { withTimezone: true }).notNull(),
+  endsAt: timestamp('ends_at', { withTimezone: true }).notNull(),
+  timeZone: text('time_zone').notNull(),
+  durationMinutes: integer('duration_minutes').notNull(),
+  bufferBeforeMinutes: integer('buffer_before_minutes').default(0).notNull(),
+  bufferAfterMinutes: integer('buffer_after_minutes').default(0).notNull(),
+  status: text('status').default('requested').notNull(),
+  holdExpiresAt: timestamp('hold_expires_at', { withTimezone: true }),
+  proposedSlotsJson: text('proposed_slots_json'),
+  neutralTitle: text('neutral_title').default('Atendimento').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  index('professional_appointments_professional_idx').on(table.professionalId, table.startsAt),
+  index('professional_appointments_student_idx').on(table.studentId, table.startsAt),
+  index('professional_appointments_link_idx').on(table.linkId),
+]);
+
+export const professionalAppointmentEvents = pgTable('professional_appointment_events', {
+  id: text('id').primaryKey(),
+  appointmentId: text('appointment_id').notNull().references(() => professionalAppointments.id, { onDelete: 'cascade' }),
+  actorUserId: text('actor_user_id').references(() => users.id, { onDelete: 'set null' }),
+  eventType: text('event_type').notNull(),
+  fromStatus: text('from_status'),
+  toStatus: text('to_status'),
+  metadataJson: text('metadata_json'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [index('professional_appointment_events_appointment_idx').on(table.appointmentId)]);
+
+export const professionalNotifications = pgTable('professional_notifications', {
+  id: text('id').primaryKey(),
+  recipientUserId: text('recipient_user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  actorUserId: text('actor_user_id').references(() => users.id, { onDelete: 'set null' }),
+  appointmentId: text('appointment_id').references(() => professionalAppointments.id, { onDelete: 'cascade' }),
+  notificationType: text('notification_type').notNull(),
+  title: text('title').notNull(),
+  body: text('body').notNull(),
+  readAt: timestamp('read_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [index('professional_notifications_recipient_idx').on(table.recipientUserId, table.createdAt)]);
+
 export const consentRecords = pgTable('consent_records', {
   id: text('id').primaryKey(),
   linkId: text('link_id').notNull().references(() => professionalStudentLinks.id, { onDelete: 'cascade' }),

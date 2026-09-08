@@ -249,6 +249,67 @@ export interface ProfessionalTrainingExecution {
   createdAt: string;
 }
 
+export type ProfessionalAppointmentType =
+  | 'nutrition_consultation'
+  | 'nutrition_assessment'
+  | 'fitness_session'
+  | 'fitness_assessment';
+
+export interface ProfessionalAvailabilityRule {
+  id: string;
+  appointmentType: ProfessionalAppointmentType;
+  weekday: number;
+  startTime: string;
+  endTime: string;
+  timeZone: string;
+  durationMinutes: number;
+  slotIntervalMinutes: number;
+  bufferBeforeMinutes: number;
+  bufferAfterMinutes: number;
+  minimumNoticeMinutes: number;
+  maximumBookingDays: number;
+  effectiveFrom: string;
+  effectiveUntil?: string;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProfessionalScheduleBlockout {
+  id: string;
+  recurrence: 'single' | 'weekly';
+  startsAt?: string;
+  endsAt?: string;
+  weekday?: number;
+  startTime?: string;
+  endTime?: string;
+  timeZone: string;
+  effectiveFrom?: string;
+  effectiveUntil?: string;
+  reasonCategory: 'vacation' | 'holiday' | 'conference' | 'personal' | 'other';
+  privateReason?: string;
+  status: 'active' | 'cancelled';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProfessionalBookableSlot {
+  ruleId: string;
+  appointmentType: ProfessionalAppointmentType;
+  startsAt: string;
+  endsAt: string;
+  timeZone: string;
+  durationMinutes: number;
+}
+
+export interface ProfessionalScheduleImpact {
+  appointmentId: string;
+  status: 'requested' | 'confirmed';
+  startsAt: string;
+  endsAt: string;
+  allowedActions: Array<'keep' | 'decline' | 'cancel' | 'reschedule'>;
+}
+
 export interface DailyLog {
   date: string;
   meals: Meal[];

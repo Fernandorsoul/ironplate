@@ -11,6 +11,27 @@ export async function isApprovedEducator(sql: any, userId: string): Promise<bool
   return rows.length > 0;
 }
 
+export async function getApprovedProfessionalRegistration(
+  sql: any,
+  userId: string,
+): Promise<string | undefined> {
+  const rows = await sql`
+    SELECT UPPER(p.registration_type) AS registration_type
+    FROM professional_profiles p
+    JOIN users u ON u.id = p.user_id
+    WHERE p.user_id = ${userId}
+      AND p.status = 'approved'
+      AND u.role = 'professional'
+  `;
+  return rows[0]?.registration_type as string | undefined;
+}
+
+export function registrationAllowsAppointmentType(registrationType: string, appointmentType: string): boolean {
+  if (registrationType === 'CREF') return appointmentType.startsWith('fitness_');
+  if (registrationType === 'CRN') return appointmentType.startsWith('nutrition_');
+  return false;
+}
+
 export async function getScopedActiveLink(
   sql: any,
   professionalId: string,

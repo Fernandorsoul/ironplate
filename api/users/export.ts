@@ -50,6 +50,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         professionalExerciseRows,
         professionalTrainingRows,
         professionalExecutionRows,
+        availabilityRuleRows,
+        scheduleBlockoutRows,
+        appointmentRows,
+        appointmentEventRows,
+        notificationRows,
       ] = await Promise.all([
         sql`
           SELECT id, name, email, created_at, updated_at, last_login,
@@ -104,6 +109,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           JOIN professional_training_plans p ON p.id = v.plan_id
           WHERE e.student_id = ${userId} OR p.professional_id = ${userId}
           ORDER BY e.performed_at
+        `,
+        sql`
+          SELECT * FROM professional_availability_rules
+          WHERE professional_id = ${userId}
+          ORDER BY created_at
+        `,
+        sql`
+          SELECT * FROM professional_schedule_blockouts
+          WHERE professional_id = ${userId}
+          ORDER BY created_at
+        `,
+        sql`
+          SELECT * FROM professional_appointments
+          WHERE professional_id = ${userId} OR student_id = ${userId}
+          ORDER BY starts_at
+        `,
+        sql`
+          SELECT e.* FROM professional_appointment_events e
+          JOIN professional_appointments a ON a.id = e.appointment_id
+          WHERE a.professional_id = ${userId} OR a.student_id = ${userId}
+          ORDER BY e.created_at
+        `,
+        sql`
+          SELECT * FROM professional_notifications
+          WHERE recipient_user_id = ${userId} OR actor_user_id = ${userId}
+          ORDER BY created_at
         `,
       ]);
 
@@ -227,6 +258,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           results: parseMealsJson(execution.results_json),
           results_json: undefined,
         })),
+        professionalAvailabilityRules: availabilityRuleRows as any[],
+        professionalScheduleBlockouts: scheduleBlockoutRows as any[],
+        professionalAppointments: (appointmentRows as any[]).map(appointment => ({
+          ...appointment,
+          proposedSlots: parseMealsJson(appointment.proposed_slots_json),
+          proposed_slots_json: undefined,
+        })),
+        professionalAppointmentEvents: (appointmentEventRows as any[]).map(event => ({
+          ...event,
+          metadata: event.metadata_json ? JSON.parse(event.metadata_json) : undefined,
+          metadata_json: undefined,
+        })),
+        professionalNotifications: notificationRows as any[],
       }));
     } catch (error) {
       console.error('Export user data error:', error);

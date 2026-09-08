@@ -23,6 +23,11 @@ export function buildExportPayload(parts: {
   professionalExercises?: any[];
   professionalTrainingPlans?: any[];
   professionalTrainingExecutions?: any[];
+  professionalAvailabilityRules?: any[];
+  professionalScheduleBlockouts?: any[];
+  professionalAppointments?: any[];
+  professionalAppointmentEvents?: any[];
+  professionalNotifications?: any[];
   exportedAt?: string;
 }): Record<string, unknown> {
   return {
@@ -39,5 +44,10 @@ export function buildExportPayload(parts: {
     professionalExercises: parts.professionalExercises ?? [],
     professionalTrainingPlans: parts.professionalTrainingPlans ?? [],
     professionalTrainingExecutions: parts.professionalTrainingExecutions ?? [],
+    professionalAvailabilityRules: parts.professionalAvailabilityRules ?? [],
+    professionalScheduleBlockouts: parts.professionalScheduleBlockouts ?? [],
+    professionalAppointments: parts.professionalAppointments ?? [],
+    professionalAppointmentEvents: parts.professionalAppointmentEvents ?? [],
+    professionalNotifications: parts.professionalNotifications ?? [],
   };
 }
