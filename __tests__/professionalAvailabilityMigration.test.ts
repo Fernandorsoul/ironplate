@@ -23,4 +23,15 @@ describe('professional availability migration', () => {
     expect(migration).toContain('professional_appointments_type_check');
     expect(migration).toContain('professional_appointments_status_check');
   });
+
+  it('adds configurable holds and reschedule provenance incrementally', () => {
+    const appointmentMigration = fs.readFileSync(
+      path.join(process.cwd(), 'migrations', '0007_clear_typhoid_mary.sql'),
+      'utf8',
+    );
+    expect(appointmentMigration).toContain('request_hold_minutes');
+    expect(appointmentMigration).toContain('professional_availability_rules_hold_check');
+    expect(appointmentMigration).toContain('previous_status');
+    expect(appointmentMigration).toContain('professional_appointments_origin_check');
+  });
 });

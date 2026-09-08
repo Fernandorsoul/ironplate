@@ -4,11 +4,13 @@ import {
   MealPlan,
   ProfessionalExercise,
   ProfessionalAppointmentType,
+  ProfessionalAppointment,
   ProfessionalAvailabilityRule,
   ProfessionalBookableSlot,
   ProfessionalNutritionPlan,
   ProfessionalScheduleBlockout,
   ProfessionalScheduleImpact,
+  ProfessionalNotification,
   ProfessionalTrainingExecution,
   ProfessionalTrainingPlan,
   TrainingPrescriptionSession,
@@ -429,6 +431,60 @@ export async function updateProfessionalBlockout(input: {
   });
   await expectOk(response);
   return await response.json() as { impacts?: ProfessionalScheduleImpact[] };
+}
+
+export async function getProfessionalAppointments(): Promise<ProfessionalAppointment[]> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=appointments');
+  await expectOk(response);
+  return await response.json() as ProfessionalAppointment[];
+}
+
+export async function requestProfessionalAppointment(input: {
+  professionalId: string;
+  appointmentType: ProfessionalAppointmentType;
+  startsAt: string;
+  timeZone: string;
+}): Promise<Pick<ProfessionalAppointment, 'id' | 'status' | 'startsAt' | 'endsAt' | 'holdExpiresAt'>> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=appointments', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+  await expectOk(response);
+  return await response.json() as Pick<
+    ProfessionalAppointment,
+    'id' | 'status' | 'startsAt' | 'endsAt' | 'holdExpiresAt'
+  >;
+}
+
+export async function updateProfessionalAppointment(input: {
+  appointmentId: string;
+  action: 'confirm' | 'decline' | 'propose_reschedule' | 'accept_reschedule'
+    | 'decline_reschedule' | 'cancel' | 'complete' | 'no_show';
+  message?: string;
+  proposedSlots?: string[];
+  acceptedStartsAt?: string;
+  timeZone?: string;
+}): Promise<Pick<ProfessionalAppointment, 'id' | 'status'>> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=appointments', {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  });
+  await expectOk(response);
+  return await response.json() as Pick<ProfessionalAppointment, 'id' | 'status'>;
+}
+
+export async function getProfessionalNotifications(): Promise<ProfessionalNotification[]> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=notifications');
+  await expectOk(response);
+  return await response.json() as ProfessionalNotification[];
+}
+
+export async function markProfessionalNotificationRead(notificationId: string): Promise<void> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=notifications', {
+    method: 'PUT',
+    body: JSON.stringify({ notificationId, action: 'read' }),
+  });
+  await expectOk(response);
 }
 
 export async function saveCustomFood(userId: string, food: Food): Promise<void> {

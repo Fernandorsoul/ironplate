@@ -403,6 +403,7 @@ const availabilityRuleContentSchema = z.object({
   bufferAfterMinutes: z.number().int().min(0).max(4 * 60).default(0),
   minimumNoticeMinutes: z.number().int().min(0).max(365 * 24 * 60).default(12 * 60),
   maximumBookingDays: z.number().int().min(1).max(365).default(90),
+  requestHoldMinutes: z.number().int().min(5).max(14 * 24 * 60).default(24 * 60),
   effectiveFrom: dateSchema,
   effectiveUntil: dateSchema.optional(),
 }).strict().superRefine((value, context) => {
@@ -527,6 +528,45 @@ export const professionalAvailabilitySlotsQuerySchema = z.object({
     context.addIssue({ code: z.ZodIssueCode.custom, message: 'Range cannot exceed 31 days', path: ['to'] });
   }
 });
+
+export const professionalAppointmentPostSchema = z.object({
+  professionalId: userIdSchema,
+  appointmentType: appointmentTypeSchema,
+  startsAt: z.string().datetime({ offset: true }),
+  timeZone: timeZoneSchema,
+}).strict();
+
+export const professionalAppointmentPutSchema = z.object({
+  appointmentId: idSchema,
+  action: z.enum([
+    'confirm', 'decline', 'propose_reschedule', 'accept_reschedule',
+    'decline_reschedule', 'cancel', 'complete', 'no_show',
+  ]),
+  message: z.string().trim().max(1_000).optional(),
+  proposedSlots: z.array(z.string().datetime({ offset: true })).min(1).max(5).optional(),
+  acceptedStartsAt: z.string().datetime({ offset: true }).optional(),
+  timeZone: timeZoneSchema.optional(),
+}).strict().superRefine((value, context) => {
+  if (value.action === 'propose_reschedule' && !value.proposedSlots?.length) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'proposedSlots is required to propose a reschedule',
+      path: ['proposedSlots'],
+    });
+  }
+  if (value.action === 'accept_reschedule' && !value.acceptedStartsAt) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'acceptedStartsAt is required to accept a reschedule',
+      path: ['acceptedStartsAt'],
+    });
+  }
+});
+
+export const professionalNotificationPutSchema = z.object({
+  notificationId: idSchema,
+  action: z.literal('read'),
+}).strict();
 
 export const deleteMealPlanSchema = z.object({
   userId: userIdSchema,
