@@ -2,11 +2,13 @@ import { createHmac, randomUUID, timingSafeEqual } from 'crypto';
 
 const ISSUER = 'ironplate-api';
 const AUDIENCE = 'ironplate-app';
-const ACCESS_TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60;
+/** Short-lived access token; password reset bumps session_version to revoke. */
+const ACCESS_TOKEN_TTL_SECONDS = 24 * 60 * 60;
 
 export interface SessionIdentity {
   userId: string;
   email: string;
+  sessionVersion: number;
 }
 interface TokenPayload {
   sub: string;
@@ -14,6 +16,7 @@ interface TokenPayload {
   iss: string;
   aud: string;
   jti: string;
+  sv: number;
   iat: number;
   exp: number;
 }
@@ -39,7 +42,9 @@ function signature(input: string): Buffer {
   return createHmac('sha256', getSecret()).update(input, 'ascii').digest();
 }
 
-export async function issueAccessToken(identity: SessionIdentity): Promise<string> {
+export async function issueAccessToken(
+  identity: Omit<SessionIdentity, 'sessionVersion'> & { sessionVersion?: number },
+): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
   const header = encode({ alg: 'HS256', typ: 'JWT' });
   const payload = encode({
@@ -48,6 +53,7 @@ export async function issueAccessToken(identity: SessionIdentity): Promise<strin
     iss: ISSUER,
     aud: AUDIENCE,
     jti: randomUUID(),
+    sv: identity.sessionVersion ?? 1,
     iat: now,
     exp: now + ACCESS_TOKEN_TTL_SECONDS,
   });
@@ -81,13 +87,18 @@ export async function verifyAccessToken(token: string): Promise<SessionIdentity 
       || payload.aud !== AUDIENCE
       || typeof payload.iat !== 'number'
       || typeof payload.exp !== 'number'
+      || typeof payload.sv !== 'number'
       || payload.iat > now + 60
       || payload.exp <= now
     ) {
       return null;
     }
 
-    return { userId: payload.sub, email: payload.email };
+    return {
+      userId: payload.sub,
+      email: payload.email,
+      sessionVersion: payload.sv,
+    };
   } catch (error) {
     if (error instanceof SessionConfigurationError) throw error;
     return null;

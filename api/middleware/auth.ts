@@ -4,6 +4,7 @@ import {
   type SessionIdentity,
   verifyAccessToken,
 } from '../security/session';
+import { getSql } from './db';
 
 export type AuthenticatedRequest = VercelRequest & { auth?: SessionIdentity };
 
@@ -30,6 +31,20 @@ export async function requireAuth(
       res.status(401).json({ error: 'Invalid or expired access token' });
       return null;
     }
+
+    // Reject tokens whose session_version no longer matches (password reset revokes).
+    const sql = getSql();
+    if (sql) {
+      const rows = await sql`
+        SELECT session_version FROM users WHERE id = ${identity.userId}
+      `;
+      const current = rows[0]?.session_version;
+      if (typeof current !== 'number' || current !== identity.sessionVersion) {
+        res.status(401).json({ error: 'Invalid or expired access token' });
+        return null;
+      }
+    }
+
     req.auth = identity;
     return identity;
   } catch (error) {
