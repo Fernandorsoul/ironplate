@@ -43,8 +43,9 @@ describe('password reset delivery security', () => {
     expect(body.html).toContain('&lt;b&gt;User&lt;/b&gt;');
     expect(body.html).not.toContain('<b>User</b>');
     expect(body.html).toContain(
-      `https://ironplate-phi.vercel.app/reset-password?token=${'a'.repeat(64)}`,
+      `https://ironplate-phi.vercel.app/reset-password#token=${'a'.repeat(64)}`,
     );
+    expect(body.html).not.toContain('reset-password?token=');
     expect(init.headers).toEqual(expect.objectContaining({ Authorization: 'Bearer test-key' }));
   });
 
