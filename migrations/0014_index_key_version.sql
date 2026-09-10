@@ -1,0 +1,1 @@
+ALTER TABLE "administrative_identifiers" ADD COLUMN "value_hash_key_version" text DEFAULT 'v1' NOT NULL;
