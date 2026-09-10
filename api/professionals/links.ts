@@ -75,8 +75,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!sql) return res.status(500).json({ error: 'Database not configured' });
 
   try {
-    if (req.method === 'GET' && typeof req.query.token === 'string') {
-      const token = req.query.token.trim();
+    const previewToken = req.method === 'POST'
+      ? (typeof req.body?.token === 'string' ? req.body.token : null)
+      : (typeof req.query.token === 'string' ? req.query.token : null);
+    const isPreview = req.method === 'GET' || (req.method === 'POST' && previewToken);
+    if (isPreview && previewToken) {
+      const token = previewToken.trim();
       if (!/^[a-f0-9]{64}$/i.test(token)) return res.status(404).json({ error: 'Invitation unavailable' });
       const rows = await sql`
         SELECT i.id, i.professional_id, i.professional_roles_json, i.purpose, i.scopes_json,

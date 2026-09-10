@@ -1,6 +1,6 @@
 {
-  "id": "5e67f43a-13c5-4679-8f1e-2f0822352960",
-  "prevId": "f75ec311-e8ee-44bd-8a1a-7dc826e5be92",
+  "id": "f75ec311-e8ee-44bd-8a1a-7dc826e5be92",
+  "prevId": "4315b4ad-5184-4c68-a04a-67173ce9d6eb",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -31,13 +31,6 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
-        },
-        "value_hash_key_version": {
-          "name": "value_hash_key_version",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'v1'"
         },
         "encrypted_value": {
           "name": "encrypted_value",
@@ -4240,6 +4233,13 @@
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
+        },
+        "session_version": {
+          "name": "session_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
         }
       },
       "indexes": {

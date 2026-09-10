@@ -1,6 +1,6 @@
 {
-  "id": "5e67f43a-13c5-4679-8f1e-2f0822352960",
-  "prevId": "f75ec311-e8ee-44bd-8a1a-7dc826e5be92",
+  "id": "4315b4ad-5184-4c68-a04a-67173ce9d6eb",
+  "prevId": "84a44d99-c810-4b35-8f4f-e605201a7965",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -31,13 +31,6 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
-        },
-        "value_hash_key_version": {
-          "name": "value_hash_key_version",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'v1'"
         },
         "encrypted_value": {
           "name": "encrypted_value",
@@ -2726,7 +2719,7 @@
           "name": "created_by",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "created_at": {
           "name": "created_at",
@@ -2804,7 +2797,7 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
+          "onDelete": "set null",
           "onUpdate": "no action"
         }
       },
@@ -3319,7 +3312,7 @@
           "name": "requested_by",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "status": {
           "name": "status",
@@ -3490,7 +3483,7 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
+          "onDelete": "set null",
           "onUpdate": "no action"
         },
         "professional_student_links_last_action_by_users_id_fk": {
@@ -3644,7 +3637,7 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         },
         "professional_training_executions_student_id_users_id_fk": {
@@ -3725,7 +3718,7 @@
           "name": "created_by",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "created_at": {
           "name": "created_at",
@@ -3803,7 +3796,7 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
+          "onDelete": "set null",
           "onUpdate": "no action"
         }
       },

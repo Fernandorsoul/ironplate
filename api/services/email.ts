@@ -31,7 +31,8 @@ export async function sendPasswordResetEmail(message: PasswordResetEmail): Promi
     const appUrl = new URL(configuredAppUrl);
     if (appUrl.protocol !== 'https:') throw new Error('APP_URL must use HTTPS');
     resetUrlValue = new URL('/reset-password', appUrl);
-    resetUrlValue.searchParams.set('token', message.token);
+    // Fragment is not sent to HTTP servers, so the token stays out of access logs.
+    resetUrlValue.hash = `token=${encodeURIComponent(message.token)}`;
   } catch {
     throw new EmailConfigurationError();
   }
