@@ -39,7 +39,9 @@ export async function requireAuth(
         SELECT session_version FROM users WHERE id = ${identity.userId}
       `;
       const current = rows[0]?.session_version;
-      if (typeof current !== 'number' || current !== identity.sessionVersion) {
+      const currentVersion = Number(current);
+      const tokenVersion = Number(identity.sessionVersion);
+      if (!Number.isFinite(currentVersion) || currentVersion !== tokenVersion) {
         res.status(401).json({ error: 'Invalid or expired access token' });
         return null;
       }

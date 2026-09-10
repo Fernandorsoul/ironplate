@@ -74,7 +74,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const accessToken = await issueAccessToken({
         userId: user.id,
         email: user.email,
-        sessionVersion: user.session_version ?? 1,
+        sessionVersion: Number(user.session_version ?? 1),
       });
       return res.status(200).json({ id: user.id, name: user.name, email: user.email, accessToken });
     } catch (error) {
