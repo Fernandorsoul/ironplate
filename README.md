@@ -94,6 +94,10 @@ Copie `.env.example` para `.env` e preencha os valores necessários. Nunca versi
 | `EXPO_PUBLIC_APP_URL` | Build nativo | Origem reconhecida ao abrir o link de recuperação |
 | `RESEND_API_KEY` | Recuperação de senha | Envio do email pelo Resend |
 | `RESET_EMAIL_FROM` | Recuperação de senha | Remetente de domínio verificado |
+| `UPSTASH_REDIS_REST_URL` | Produção | Rate limit distribuído (Upstash Redis REST) |
+| `UPSTASH_REDIS_REST_TOKEN` | Produção | Token REST do Upstash |
+| `ADMIN_IDENTIFIER_ENCRYPTION_KEY` | CPF administrativo | Chave AES-256-GCM (32 bytes) |
+| `ADMIN_IDENTIFIER_INDEX_KEY` | CPF administrativo | Segredo HMAC do índice de busca |
 
 ### 3. Comandos de desenvolvimento
 

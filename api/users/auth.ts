@@ -33,7 +33,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const { email, password } = parsed.data;
       const normalizedEmail = email.toLowerCase().trim();
-      if (enforceLoginLockout(req, res, normalizedEmail)) return;
+      if (await enforceLoginLockout(req, res, normalizedEmail)) return;
 
       const users = await sql`
         SELECT id, name, email, password_hash
@@ -42,7 +42,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       `;
 
       if (users.length === 0) {
-        recordLoginFailure(req, normalizedEmail);
+        await recordLoginFailure(req, normalizedEmail);
         return res.status(401).json({ error: 'Invalid credentials' });
       }
 
@@ -50,11 +50,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const verification = await verifyPassword(password, user.password_hash);
 
       if (!verification.valid) {
-        recordLoginFailure(req, normalizedEmail);
+        await recordLoginFailure(req, normalizedEmail);
         return res.status(401).json({ error: 'Invalid credentials' });
       }
 
-      clearLoginFailures(req, normalizedEmail);
+      await clearLoginFailures(req, normalizedEmail);
 
       if (verification.needsRehash) {
         const upgradedHash = await hashPassword(password);
