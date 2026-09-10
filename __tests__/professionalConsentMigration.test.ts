@@ -15,7 +15,7 @@ describe('granular consent migration', () => {
   });
 
   it('turns consent into ordered snapshots and expands legacy scopes', () => {
-    expect(migration).toContain('DROP INDEX "consent_records_link_unique"');
+    expect(migration).toContain('DROP INDEX IF EXISTS "consent_records_link_unique"');
     expect(migration).toContain('consent_records_link_created_idx');
     expect(migration).toContain("'nutrition_data', 'meals_adherence', 'meal_plans', 'weight', 'body_measurements'");
     expect(migration).toContain("'prescribed_training', 'training_execution', 'weight', 'body_measurements'");

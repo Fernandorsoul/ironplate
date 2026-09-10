@@ -42,9 +42,12 @@ CREATE TABLE IF NOT EXISTS consent_records (
   status TEXT NOT NULL DEFAULT 'requested',
   granted_at TIMESTAMPTZ,
   revoked_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT consent_records_link_unique UNIQUE (link_id)
 );
 CREATE INDEX IF NOT EXISTS consent_records_subject_idx ON consent_records(subject_user_id);
+-- Table may already exist without the unique (partial bootstrap); 0009 DROPs this name.
+CREATE UNIQUE INDEX IF NOT EXISTS consent_records_link_unique ON consent_records(link_id);
 
 CREATE TABLE IF NOT EXISTS administrative_identifiers (
   id TEXT PRIMARY KEY,
