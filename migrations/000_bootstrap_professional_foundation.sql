@@ -1,6 +1,6 @@
 -- Idempotent foundation tables required by later Drizzle migrations.
--- These originally lived only in the legacy 005_professional_foundation.sql
--- (outside the Drizzle journal); deploy failures happen when 0004 runs first.
+-- Originally only in legacy 005_professional_foundation.sql outside the journal.
+-- Do not put semicolons inside comments - the migrator splits statements on ';'.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'student';
 
 CREATE TABLE IF NOT EXISTS professional_profiles (
