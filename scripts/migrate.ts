@@ -8,6 +8,20 @@ import postgres from 'postgres';
  * Tables created only by the legacy 005 script (outside the Drizzle journal).
  * 0004+ reference them; without this bootstrap a clean database fails deploy.
  */
+function splitSqlStatements(sql: string): string[] {
+  const withoutLineComments = sql
+    .split('\n')
+    .map(line => {
+      const idx = line.indexOf('--');
+      return idx === -1 ? line : line.slice(0, idx);
+    })
+    .join('\n');
+  return withoutLineComments
+    .split(';')
+    .map(part => part.trim())
+    .filter(part => part.length > 0);
+}
+
 async function ensureFoundationSchema(client: postgres.Sql): Promise<void> {
   const bootstrapPath = path.join(
     process.cwd(),
@@ -15,11 +29,7 @@ async function ensureFoundationSchema(client: postgres.Sql): Promise<void> {
     '000_bootstrap_professional_foundation.sql',
   );
   const sql = readFileSync(bootstrapPath, 'utf8');
-  const statements = sql
-    .split(/;\s*(?:--> statement-breakpoint)?/)
-    .map(part => part.trim())
-    .filter(part => part.length > 0 && !part.startsWith('--'));
-  for (const statement of statements) {
+  for (const statement of splitSqlStatements(sql)) {
     await client.unsafe(statement);
   }
 }
