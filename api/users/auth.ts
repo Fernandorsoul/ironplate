@@ -8,7 +8,7 @@ import {
 import { applyCors } from '../middleware/cors';
 import { getSql } from '../middleware/db';
 import { loginSchema, validationError } from '../middleware/validation';
-import { hashPassword, verifyPassword } from '../security/password';
+import { hashPassword, verifyPasswordTimingEqualized } from '../security/password';
 import { issueAccessToken, SessionConfigurationError } from '../security/session';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -41,15 +41,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         WHERE email = ${normalizedEmail}
       `;
 
-      if (users.length === 0) {
-        await recordLoginFailure(req, normalizedEmail);
-        return res.status(401).json({ error: 'Invalid credentials' });
-      }
-
       const user = users[0];
-      const verification = await verifyPassword(password, user.password_hash);
+      const verification = await verifyPasswordTimingEqualized(
+        password,
+        user?.password_hash ?? null,
+      );
 
-      if (!verification.valid) {
+      if (!user || !verification.valid) {
         await recordLoginFailure(req, normalizedEmail);
         return res.status(401).json({ error: 'Invalid credentials' });
       }
