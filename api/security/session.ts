@@ -53,7 +53,7 @@ export async function issueAccessToken(
     iss: ISSUER,
     aud: AUDIENCE,
     jti: randomUUID(),
-    sv: identity.sessionVersion ?? 1,
+    sv: Number(identity.sessionVersion ?? 1),
     iat: now,
     exp: now + ACCESS_TOKEN_TTL_SECONDS,
   });

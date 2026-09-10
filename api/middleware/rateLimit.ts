@@ -149,6 +149,25 @@ export function rateLimit(config: RateLimitConfig) {
     res: VercelResponse,
     next: () => unknown | Promise<unknown>,
   ) => {
+    try {
+      return await runRateLimit(config, req, res, next);
+    } catch (error) {
+      // Store/Upstash outages must not take down login or the API.
+      console.error(JSON.stringify({
+        event: 'rate_limit_store_error',
+        message: error instanceof Error ? error.message : 'unknown',
+      }));
+      return await next();
+    }
+  };
+}
+
+async function runRateLimit(
+  config: RateLimitConfig,
+  req: VercelRequest,
+  res: VercelResponse,
+  next: () => unknown | Promise<unknown>,
+) {
     const now = Date.now();
     const maxBlockMs = config.maxBlockMs ?? 24 * 60 * 60 * 1000;
     const store = getRateLimitStore();
@@ -211,7 +230,6 @@ export function rateLimit(config: RateLimitConfig) {
     res.setHeader('X-RateLimit-Reset', Math.ceil(resetTime / 1000).toString());
 
     return await next();
-  };
 }
 
 export function cleanupRateLimitStore() {
