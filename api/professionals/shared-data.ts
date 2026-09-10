@@ -42,7 +42,19 @@ async function readScopedData(sql: any, professionalId: string, studentId: strin
       `;
     case 'body_measurements':
       return sql`
-        SELECT * FROM body_measurements
+        SELECT id, user_id, date, weight, height, body_fat, body_fat_method,
+               resistance, reactance, phase_angle,
+               muscle_mass, skeletal_muscle, water_percent, water_kg,
+               bone_mass, protein_percent, protein_mass, basal_metabolism, visceral_fat,
+               triceps, biceps, subscapular, suprailiac, abdominal, chest_skinfold,
+               axillary_mid, thigh_skinfold, calf_skinfold,
+               arm_relaxed_right, arm_relaxed_left, arm_flexed_right, arm_flexed_left,
+               forearm_right, forearm_left, wrist_right, wrist_left,
+               chest_circumference, waist_circumference, abdomen_circumference, hip_circumference,
+               thigh_proximal_right, thigh_proximal_left, thigh_mid_right, thigh_mid_left,
+               calf_right, calf_left, ankle_right, ankle_left,
+               lean_mass, fat_mass, bmi, waist_hip_ratio, notes, created_at
+        FROM body_measurements
         WHERE user_id = ${studentId}
         ORDER BY date DESC
       `;

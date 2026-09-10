@@ -19,6 +19,8 @@ import {
   professionalTrainingExecutionPostSchema,
   professionalTrainingPlanPostSchema,
   professionalTrainingPlanPutSchema,
+  bodyMeasurementPostSchema,
+  customFoodPostSchema,
 } from '../api/middleware/validation';
 
 const userId = '550e8400-e29b-41d4-a716-446655440000';
@@ -295,5 +297,98 @@ describe('API input validation', () => {
     expect(mealPlanPostSchema.safeParse(makePayload({ quantity: -1, unit: 'g' })).success).toBe(false);
     expect(mealPlanPostSchema.safeParse(makePayload({ quantity: Number.POSITIVE_INFINITY, unit: 'g' })).success).toBe(false);
     expect(mealPlanPostSchema.safeParse(makePayload({ quantity: 1, unit: 'g', extra: true })).success).toBe(false);
+  });
+
+  it('rejects unknown fields on meals, foods, workouts and meal plans', () => {
+    const macros = { calories: 100, protein: 10, carbs: 12, fat: 2 };
+    const food = { id: 'food-1', name: 'Alimento', category: 'teste', macros };
+    const meal = {
+      id: 'meal-1',
+      name: 'Refeição',
+      timing: 'regular',
+      foods: [{ food, grams: 100, macros }],
+      totalMacros: macros,
+    };
+    const plan = {
+      id: 'plan-1',
+      name: 'Plano',
+      goal: 'maintenance',
+      meals: [meal],
+      totalMacros: macros,
+      createdAt: '2026-08-29T12:00:00.000Z',
+    };
+
+    expect(mealPlanPostSchema.safeParse({ userId, plan }).success).toBe(true);
+    expect(mealPlanPostSchema.safeParse({
+      userId,
+      plan: { ...plan, injected: true },
+    }).success).toBe(false);
+    expect(mealPlanPostSchema.safeParse({
+      userId,
+      plan: { ...plan, meals: [{ ...meal, injected: true }] },
+    }).success).toBe(false);
+    expect(mealPlanPostSchema.safeParse({
+      userId,
+      plan: { ...plan, meals: [{ ...meal, foods: [{ food, grams: 100, macros, foodExtra: 1 }] }] },
+    }).success).toBe(false);
+    expect(customFoodPostSchema.safeParse({
+      userId,
+      food: { ...food, injected: true },
+    }).success).toBe(false);
+    expect(customFoodPostSchema.safeParse({
+      userId,
+      food: {
+        ...food,
+        portions: [{ unit: 'unidade', gramsPerUnit: 50, label: '1 unidade (~50g)' }],
+      },
+    }).success).toBe(true);
+    expect(dailyLogPostSchema.safeParse({
+      userId,
+      log: {
+        date: '2026-08-28',
+        meals: [],
+        workouts: [{
+          id: 'workout-1',
+          name: 'Treino',
+          type: 'strength',
+          duration: 60,
+          intensity: 'medium',
+          injected: true,
+        }],
+        totalMacros: macros,
+      },
+    }).success).toBe(false);
+    expect(mealPlanPostSchema.safeParse({
+      userId,
+      plan: {
+        ...plan,
+        supplements: [{ name: 'Creatina', dose: '5g', timing: 'diário', reason: 'força' }],
+      },
+    }).success).toBe(true);
+  });
+
+  it('accepts legitimate body measurement fields and rejects unknown keys', () => {
+    const base = {
+      userId,
+      measurement: {
+        date: '2026-09-08',
+        weight: 80,
+        height: 178,
+        bodyFat: 15,
+        bodyFatMethod: 'skinfold' as const,
+        triceps: 12,
+        waistCircumference: 82,
+        notes: 'Avaliação inicial',
+      },
+    };
+    expect(bodyMeasurementPostSchema.safeParse(base).success).toBe(true);
+    expect(bodyMeasurementPostSchema.safeParse({
+      userId,
+      measurement: { date: '2026-09-08', weight: 80, muscleMass: 40, bmi: 25.2 },
+    }).success).toBe(true);
+    expect(bodyMeasurementPostSchema.safeParse({
+      userId,
+      measurement: { date: '2026-09-08', weight: 80, injected: true },
+    }).success).toBe(false);
   });
 });

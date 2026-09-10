@@ -217,7 +217,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
       if (req.method === 'GET') {
         let rows = await sql`
-          SELECT * FROM professional_appointments
+          SELECT id, professional_id, student_id, appointment_type, starts_at, ends_at,
+                 time_zone, duration_minutes, status, hold_expires_at, proposed_slots_json,
+                 neutral_title, origin, created_at, updated_at
+          FROM professional_appointments
           WHERE professional_id = ${identity.userId} OR student_id = ${identity.userId}
           ORDER BY starts_at DESC
         `;
@@ -225,7 +228,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         for (const professionalId of professionalIds) await expireStaleRequests(sql, professionalId);
         if (professionalIds.length > 0) {
           rows = await sql`
-            SELECT * FROM professional_appointments
+            SELECT id, professional_id, student_id, appointment_type, starts_at, ends_at,
+                   time_zone, duration_minutes, status, hold_expires_at, proposed_slots_json,
+                   neutral_title, origin, created_at, updated_at
+            FROM professional_appointments
             WHERE professional_id = ${identity.userId} OR student_id = ${identity.userId}
             ORDER BY starts_at DESC
           `;

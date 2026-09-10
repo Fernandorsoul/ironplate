@@ -70,6 +70,7 @@ export async function generatePDF(data: PDFData): Promise<void> {
 <html>
 <head>
   <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:">
   <title>Avaliação Antropométrica - IronPlate</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -198,7 +199,7 @@ export async function generatePDF(data: PDFData): Promise<void> {
   </div>
 
   <div class="no-print" style="text-align:center;margin-top:20px;">
-    <button onclick="window.print()" style="background:#FF6B35;color:white;border:none;padding:12px 24px;font-size:14px;border-radius:6px;cursor:pointer;">
+    <button id="print-btn" type="button" style="background:#FF6B35;color:white;border:none;padding:12px 24px;font-size:14px;border-radius:6px;cursor:pointer;">
       Imprimir / Salvar PDF
     </button>
   </div>
@@ -210,8 +211,13 @@ export async function generatePDF(data: PDFData): Promise<void> {
       // Web: open print dialog in new window
       const printWindow = window.open('', '_blank');
       if (printWindow) {
+        printWindow.opener = null;
         printWindow.document.write(html);
         printWindow.document.close();
+        const printButton = printWindow.document.getElementById('print-btn');
+        if (printButton) {
+          printButton.addEventListener('click', () => printWindow.print());
+        }
       }
     } else {
       // Native Android/iOS: generate PDF file and share via system share sheet
