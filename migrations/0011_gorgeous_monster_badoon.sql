@@ -1,2 +1,2 @@
-DROP INDEX "administrative_identifiers_hash_idx";--> statement-breakpoint
-CREATE UNIQUE INDEX "administrative_identifiers_hash_idx" ON "administrative_identifiers" USING btree ("value_hash");
+DROP INDEX IF EXISTS "administrative_identifiers_hash_idx";--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "administrative_identifiers_hash_idx" ON "administrative_identifiers" USING btree ("value_hash");
