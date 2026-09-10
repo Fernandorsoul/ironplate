@@ -7,11 +7,13 @@ describe('professional availability migration', () => {
     'utf8',
   );
 
-  it('prevents buffered appointment overlap at the database level', () => {
+  it('prevents appointment overlap at the database level with an immutable range', () => {
     expect(migration).toContain('CREATE EXTENSION IF NOT EXISTS btree_gist');
     expect(migration).toContain('professional_appointments_no_overlap');
     expect(migration).toContain('EXCLUDE USING gist');
-    expect(migration).toContain('make_interval(mins => buffer_before_minutes)');
+    // 42P17: timestamptz +/- interval is STABLE and illegal in gist expressions.
+    expect(migration).toContain('tstzrange(starts_at, ends_at');
+    expect(migration).not.toContain('make_interval(mins => buffer_before_minutes)');
     expect(migration).toContain("status IN ('requested', 'confirmed', 'reschedule_proposed')");
   });
 
