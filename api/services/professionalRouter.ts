@@ -26,6 +26,13 @@ const identifierSearchRateLimit = rateLimit({
   identity: req => typeof (req as any).auth?.userId === 'string' ? (req as any).auth.userId : null,
 });
 
+const identifierWriteRateLimit = rateLimit({
+  maxRequests: 10,
+  windowMs: 60 * 60 * 1000,
+  message: 'Too many administrative identifier updates. Try again later.',
+  identity: req => typeof (req as any).auth?.userId === 'string' ? (req as any).auth.userId : null,
+});
+
 export async function handleProfessionalRoutes(req: VercelRequest, res: VercelResponse) {
   const operation = typeof req.query.operation === 'string' ? req.query.operation : 'profile';
   if (operation === 'profile') return profileHandler(req, res);
@@ -66,7 +73,9 @@ export async function handleProfessionalRoutes(req: VercelRequest, res: VercelRe
   const sql = getSql();
   if (!sql) return res.status(500).json({ error: 'Database not configured' });
   try {
-    await handleAdministrativeIdentifier(req, res, sql, identity.userId);
+    return await identifierWriteRateLimit(req, res, () => (
+      handleAdministrativeIdentifier(req, res, sql, identity.userId)
+    ));
   } catch (error) {
     console.error('Administrative identifier error:', error);
     if (error instanceof Error && error.message.includes('ADMIN_IDENTIFIER_')) {

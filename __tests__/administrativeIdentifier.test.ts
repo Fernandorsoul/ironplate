@@ -89,4 +89,23 @@ describe('administrative identifier service', () => {
     expect((sql.mock.calls[0][0] as TemplateStringsArray).join(' ')).toContain('DELETE FROM administrative_identifiers');
     expect(response.json).toHaveBeenCalledWith({ removed: true });
   });
+
+  it('returns a non-informative conflict when the lookup hash is already taken', async () => {
+    const conflict = Object.assign(new Error('duplicate key value violates unique constraint'), {
+      code: '23505',
+    });
+    const sql = jest.fn()
+      .mockResolvedValueOnce([{ id: 'link-1' }])
+      .mockResolvedValueOnce([])
+      .mockRejectedValueOnce(conflict);
+    const response = responseMock();
+    await handleAdministrativeIdentifier({
+      method: 'PUT',
+      body: { identifierType: 'cpf', value: cpf, purpose: 'Organizacao administrativa', confirmed: true },
+    } as any, response, sql, userId);
+    expect(response.status).toHaveBeenCalledWith(409);
+    expect(response.json).toHaveBeenCalledWith({ error: 'Unable to save administrative identifier' });
+    const payload = JSON.stringify(response.json.mock.calls);
+    expect(payload).not.toMatch(/unavailable|exists|another|taken|duplicate/i);
+  });
 });

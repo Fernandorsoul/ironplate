@@ -97,8 +97,11 @@ export async function handleAdministrativeIdentifier(
         purpose = EXCLUDED.purpose, authorized_at = NOW(), updated_at = NOW()
     `;
   } catch (error: any) {
+    // Unique violations can mean "already stored for this user" or "held by another
+    // account". A distinct message would let an authenticated caller enumerate which
+    // CPFs exist system-wide, so both cases share one non-informative response.
     if (error?.code === '23505') {
-      res.status(409).json({ error: 'Administrative identifier unavailable' });
+      res.status(409).json({ error: 'Unable to save administrative identifier' });
       return;
     }
     throw error;
