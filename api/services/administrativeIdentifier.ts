@@ -74,7 +74,9 @@ export async function handleAdministrativeIdentifier(
 
   const encrypted = encryptCpf(parsed.data.value);
   const valueHash = hashCpfForLookup(parsed.data.value);
+  // Store only the digits required to render the masked suffix (minimization).
   const lastFour = parsed.data.value.slice(-4);
+  const lastTwo = lastFour.slice(-2);
   const existing = await sql`
     SELECT id FROM administrative_identifiers
     WHERE user_id = ${userId} AND identifier_type = ${parsed.data.identifierType}
@@ -87,7 +89,7 @@ export async function handleAdministrativeIdentifier(
         encryption_tag, encryption_key_version, last_four, purpose, authorized_at, updated_at
       ) VALUES (
         ${id}, ${userId}, ${parsed.data.identifierType}, ${valueHash}, ${encrypted.encryptedValue},
-        ${encrypted.iv}, ${encrypted.tag}, ${encrypted.keyVersion}, ${lastFour},
+        ${encrypted.iv}, ${encrypted.tag}, ${encrypted.keyVersion}, ${lastTwo},
         ${parsed.data.purpose}, NOW(), NOW()
       )
       ON CONFLICT (user_id, identifier_type) DO UPDATE SET
@@ -114,7 +116,7 @@ export async function handleAdministrativeIdentifier(
     entityId: id,
     metadata: { identifierType: parsed.data.identifierType, purpose: parsed.data.purpose },
   });
-  res.status(200).json({ identifierType: parsed.data.identifierType, maskedValue: maskCpf(lastFour) });
+  res.status(200).json({ identifierType: parsed.data.identifierType, maskedValue: maskCpf(lastTwo) });
 }
 
 export async function handleAdministrativeIdentifierSearch(

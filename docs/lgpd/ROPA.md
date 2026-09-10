@@ -95,11 +95,21 @@ Os operadores Vercel e Neon possuem infraestrutura fora do Brasil. Eventuais tra
 
 | Item | Descrição |
 | --- | --- |
-| Dados tratados | CPF informado e confirmado pelo aluno; finalidade operacional; data de autorização; últimos dígitos para exibição mascarada |
+| Dados tratados | CPF informado e confirmado pelo aluno; finalidade operacional; data de autorização; apenas os **dois últimos dígitos** para exibição mascarada (minimização — a coluna legada `last_four` é preenchida só com o sufixo exibível) |
 | Finalidade | Organização administrativa e localização exata de aluno que já pertence à carteira ativa do profissional |
 | Base legal | Consentimento específico do titular e princípio da necessidade — Arts. 7º, I, e 6º, III, da LGPD |
 | Retenção | Enquanto necessário e autorizado. O aluno pode corrigir ou remover o CPF; exclusão da conta remove o dado e seu índice. A revogação do vínculo encerra imediatamente a pesquisa pelo profissional |
 | Medidas de segurança | AES-256-GCM em nível de aplicação; índice HMAC-SHA-256 com chave distinta; segredos apenas no servidor; respostas e exportações mascaradas; pesquisa somente por CPF completo dentro da carteira ativa; rate limit e auditoria sem CPF ou hash |
+
+### 2.8 Auditoria (audit_logs)
+
+| Item | Descrição |
+| --- | --- |
+| Dados tratados | Identificadores internos de ator e sujeito (UUID), ação, tipo e id da entidade, metadados operacionais (sem CPF, senha ou token em claro) |
+| Finalidade | Trilha de segurança e prova de consentimento/acesso profissional |
+| Base legal | Legítimo interesse e obrigação legal/regulatória de segurança — Arts. 7º, IX, e 46 da LGPD |
+| Retenção | Trilha mantida para segurança. Na exclusão da conta, `actor_user_id`, `subject_user_id` e `metadata_json` são **anonimizados** (nulos); a ação permanece sem vínculo ao titular |
+| Medidas de segurança | Logs sem segredos; exportação restrita ao próprio titular; rate limit e autenticação |
 
 ## 3. Direitos do titular (Art. 18 da LGPD)
 
@@ -123,5 +133,6 @@ Este ROPA deve ser revisado pelo Encarregado sempre que houver mudança relevant
 
 | Data | Alteração |
 | --- | --- |
+| 10/09/2026 | Anonimização de auditoria na exclusão da conta; minimização do sufixo do CPF |
 | 08/09/2026 | Inclusão de vínculos profissionais e consentimento granular |
 | 28/08/2026 | Versão inicial do ROPA |
