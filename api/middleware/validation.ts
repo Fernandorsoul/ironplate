@@ -252,16 +252,23 @@ const macrosSchema = z.object({
   fat: nonNegativeNumber,
 }).strict();
 
+const portionUnitSchema = z.enum([
+  'unidade', 'fatia', 'colher', 'xicara', 'ml', 'g', 'dente',
+]);
+
+const foodPortionDefSchema = z.object({
+  unit: portionUnitSchema,
+  gramsPerUnit: nonNegativeNumber.max(100_000),
+  label: z.string().trim().max(120).optional(),
+}).strict();
+
 const foodSchema = z.object({
   id: idSchema,
   name: z.string().trim().min(1).max(160),
   category: z.string().trim().max(100),
   macros: macrosSchema,
-}).passthrough();
-
-const portionUnitSchema = z.enum([
-  'unidade', 'fatia', 'colher', 'xicara', 'ml', 'g', 'dente',
-]);
+  portions: z.array(foodPortionDefSchema).max(20).optional(),
+}).strict();
 
 const foodPortionSchema = z.object({
   food: foodSchema,
@@ -278,7 +285,7 @@ const mealSchema = z.object({
   foods: z.array(foodPortionSchema).max(200),
   totalMacros: macrosSchema,
   time: z.string().trim().max(20).optional(),
-}).passthrough();
+}).strict();
 
 const workoutSchema = z.object({
   id: idSchema,
@@ -290,7 +297,7 @@ const workoutSchema = z.object({
   splitId: trainingSplitSchema.optional(),
   splitDayId: z.string().trim().min(1).max(80).optional(),
   muscleGroups: z.array(muscleGroupSchema).max(12).optional(),
-}).passthrough();
+}).strict();
 
 export const dailyLogPostSchema = z.object({
   userId: userIdSchema,
@@ -303,6 +310,14 @@ export const dailyLogPostSchema = z.object({
     totalMacros: macrosSchema,
     notes: z.string().max(5_000).optional(),
   }).strict(),
+}).strict();
+
+const supplementRecommendationSchema = z.object({
+  name: z.string().trim().min(1).max(160),
+  dose: z.string().trim().max(120),
+  timing: z.string().trim().max(120),
+  reason: z.string().trim().max(500),
+  caution: z.string().trim().max(500).optional(),
 }).strict();
 
 export const mealPlanPostSchema = z.object({
@@ -322,7 +337,8 @@ export const mealPlanPostSchema = z.object({
     totalMacros: macrosSchema,
     createdAt: z.string().max(64),
     isActive: z.boolean().optional(),
-  }).passthrough(),
+    supplements: z.array(supplementRecommendationSchema).max(30).optional(),
+  }).strict(),
 }).strict();
 
 const professionalNutritionPlanContentSchema = z.object({
@@ -684,12 +700,63 @@ export const customFoodPostSchema = z.object({
   food: foodSchema,
 }).strict();
 
+const optionalMeasurementNumber = z.number().finite().min(0).max(1_000_000).optional();
+
 export const bodyMeasurementPostSchema = z.object({
   userId: userIdSchema,
   measurement: z.object({
     date: dateSchema,
     weight: z.number().finite().min(0).max(500),
-  }).passthrough(),
+    height: optionalMeasurementNumber,
+    bodyFat: z.number().finite().min(0).max(100).optional(),
+    bodyFatMethod: z.enum(['visual', 'skinfold', 'bioimpedance']).optional(),
+    resistance: optionalMeasurementNumber,
+    reactance: optionalMeasurementNumber,
+    phaseAngle: optionalMeasurementNumber,
+    muscleMass: optionalMeasurementNumber,
+    skeletalMuscle: optionalMeasurementNumber,
+    waterPercent: optionalMeasurementNumber,
+    waterKg: optionalMeasurementNumber,
+    boneMass: optionalMeasurementNumber,
+    proteinPercent: optionalMeasurementNumber,
+    proteinMass: optionalMeasurementNumber,
+    basalMetabolism: optionalMeasurementNumber,
+    visceralFat: optionalMeasurementNumber,
+    triceps: optionalMeasurementNumber,
+    biceps: optionalMeasurementNumber,
+    subscapular: optionalMeasurementNumber,
+    suprailiac: optionalMeasurementNumber,
+    abdominal: optionalMeasurementNumber,
+    chestSkinfold: optionalMeasurementNumber,
+    axillaryMid: optionalMeasurementNumber,
+    thighSkinfold: optionalMeasurementNumber,
+    calfSkinfold: optionalMeasurementNumber,
+    armRelaxedRight: optionalMeasurementNumber,
+    armRelaxedLeft: optionalMeasurementNumber,
+    armFlexedRight: optionalMeasurementNumber,
+    armFlexedLeft: optionalMeasurementNumber,
+    forearmRight: optionalMeasurementNumber,
+    forearmLeft: optionalMeasurementNumber,
+    wristRight: optionalMeasurementNumber,
+    wristLeft: optionalMeasurementNumber,
+    chestCircumference: optionalMeasurementNumber,
+    waistCircumference: optionalMeasurementNumber,
+    abdomenCircumference: optionalMeasurementNumber,
+    hipCircumference: optionalMeasurementNumber,
+    thighProximalRight: optionalMeasurementNumber,
+    thighProximalLeft: optionalMeasurementNumber,
+    thighMidRight: optionalMeasurementNumber,
+    thighMidLeft: optionalMeasurementNumber,
+    calfRight: optionalMeasurementNumber,
+    calfLeft: optionalMeasurementNumber,
+    ankleRight: optionalMeasurementNumber,
+    ankleLeft: optionalMeasurementNumber,
+    leanMass: optionalMeasurementNumber,
+    fatMass: optionalMeasurementNumber,
+    bmi: optionalMeasurementNumber,
+    waistHipRatio: z.number().finite().min(0).max(10).optional(),
+    notes: z.string().max(2_000).optional(),
+  }).strict(),
 }).strict();
 
 export const limitSchema = z.coerce.number().int().min(1).max(100).default(30);

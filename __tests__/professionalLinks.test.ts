@@ -8,6 +8,9 @@ jest.mock('../api/middleware/db', () => ({ getSql: () => mockSql }));
 jest.mock('../api/middleware/auth', () => ({
   requireAuth: jest.fn().mockResolvedValue({ userId: '550e8400-e29b-41d4-a716-446655440000' }),
 }));
+jest.mock('../api/middleware/rateLimit', () => ({
+  generalRateLimit: async (_req: unknown, _res: unknown, next: () => unknown) => next(),
+}));
 jest.mock('../api/services/audit', () => ({
   writeAuditLog: (...args: unknown[]) => mockAudit(...args),
 }));

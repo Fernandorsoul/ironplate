@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { randomUUID } from 'crypto';
 import { applyCors } from '../middleware/cors';
 import { getSql } from '../middleware/db';
+import { generalRateLimit } from '../middleware/rateLimit';
 import { requireAuth } from '../middleware/auth';
 import {
   professionalLinkDecisionSchema,
@@ -74,6 +75,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const sql = getSql();
   if (!sql) return res.status(500).json({ error: 'Database not configured' });
 
+  await generalRateLimit(req, res, async () => {
   try {
     if (req.method === 'GET' && typeof req.query.token === 'string') {
       const token = req.query.token.trim();
@@ -357,4 +359,5 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.error('Professional links error:', error);
     return res.status(500).json({ error: 'Internal server error' });
   }
+  });
 }
