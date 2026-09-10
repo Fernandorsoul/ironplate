@@ -98,6 +98,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     await sql`DELETE FROM password_reset_tokens WHERE user_id = ${id}`;
     await sql`DELETE FROM administrative_identifiers WHERE user_id = ${id}`;
 
+    // Scrub audit rows that reference this account so metadata cannot re-identify
+    // the deleted user (LGPD Art. 18). Action strings are kept for security ops.
+    await sql`
+      UPDATE audit_logs
+      SET metadata_json = NULL, actor_user_id = NULL, subject_user_id = NULL
+      WHERE actor_user_id = ${id} OR subject_user_id = ${id}
+    `;
+
     // 7. Deletar logs diários
     await sql`DELETE FROM daily_logs WHERE user_id = ${id}`;
 
