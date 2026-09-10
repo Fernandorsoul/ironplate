@@ -2,6 +2,11 @@
 -- Originally only in legacy 005_professional_foundation.sql outside the journal.
 -- Do not put semicolons inside comments - the migrator splits statements on ';'.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'student';
+-- Legacy 004_goals_hydration.sql is outside the Drizzle journal; app queries need these.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS target_weight_kg DOUBLE PRECISION;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS hydration_goal_ml DOUBLE PRECISION;
+ALTER TABLE daily_logs ADD COLUMN IF NOT EXISTS water_ml DOUBLE PRECISION;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMPTZ;
 
 CREATE TABLE IF NOT EXISTS professional_profiles (
   id TEXT PRIMARY KEY,
