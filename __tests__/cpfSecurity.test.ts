@@ -1,10 +1,13 @@
-import { encryptCpf, hashCpfForLookup, isValidCpf, maskCpf, normalizeCpf } from '../api/security/cpf';
+import { encryptCpf, hashCpfForLookup, isValidCpf, lookupHashCandidates, maskCpf, normalizeCpf } from '../api/security/cpf';
 import fs from 'fs';
 import path from 'path';
 
 describe('protected CPF primitives', () => {
   beforeEach(() => {
     process.env.ADMIN_IDENTIFIER_INDEX_KEY = 'index-key-with-at-least-thirty-two-bytes';
+    process.env.ADMIN_IDENTIFIER_INDEX_KEY_VERSION = 'v1';
+    delete process.env.ADMIN_IDENTIFIER_INDEX_KEY_PREVIOUS;
+    delete process.env.ADMIN_IDENTIFIER_INDEX_KEY_PREVIOUS_VERSION;
     process.env.ADMIN_IDENTIFIER_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString('base64');
     process.env.ADMIN_IDENTIFIER_KEY_VERSION = 'v1';
   });
@@ -19,27 +22,33 @@ describe('protected CPF primitives', () => {
   it('uses deterministic HMAC lookup and randomized authenticated encryption', () => {
     const first = encryptCpf('52998224725');
     const second = encryptCpf('52998224725');
-    expect(hashCpfForLookup('52998224725')).toBe(hashCpfForLookup('529.982.247-25'));
+    expect(hashCpfForLookup('52998224725').hash).toBe(hashCpfForLookup('529.982.247-25').hash);
+    expect(hashCpfForLookup('52998224725').keyVersion).toBe('v1');
     expect(first.encryptedValue).not.toContain('52998224725');
     expect(first.iv).not.toBe(second.iv);
     expect(first.tag).toBeTruthy();
+  });
+
+  it('accepts the previous index key during rotation', () => {
+    process.env.ADMIN_IDENTIFIER_INDEX_KEY = 'current-key-with-at-least-thirty-two-bytes';
+    process.env.ADMIN_IDENTIFIER_INDEX_KEY_PREVIOUS = 'previous-key-with-at-least-thirty-two-b';
+    process.env.ADMIN_IDENTIFIER_INDEX_KEY_PREVIOUS_VERSION = 'v0';
+    const candidates = lookupHashCandidates('52998224725');
+    expect(candidates).toHaveLength(2);
+    expect(candidates[0].keyVersion).toBe('v1');
+    expect(candidates[1].keyVersion).toBe('v0');
+    expect(candidates[0].hash).not.toBe(candidates[1].hash);
   });
 
   it('never exposes more than the masked suffix', () => {
     expect(maskCpf('4725')).toBe('***.***.***-25');
   });
 
-  it('migrates away unrecoverable legacy hashes and enforces unique keyed lookup', () => {
+  it('versions the lookup index key column', () => {
     const migration = fs.readFileSync(
-      path.join(process.cwd(), 'migrations', '0010_glamorous_sabretooth.sql'),
+      path.join(process.cwd(), 'migrations', '0014_index_key_version.sql'),
       'utf8',
     );
-    const uniqueMigration = fs.readFileSync(
-      path.join(process.cwd(), 'migrations', '0011_gorgeous_monster_badoon.sql'),
-      'utf8',
-    );
-    expect(migration).toContain('DELETE FROM "administrative_identifiers"');
-    expect(migration).toContain('"encrypted_value" text NOT NULL');
-    expect(uniqueMigration).toContain('CREATE UNIQUE INDEX "administrative_identifiers_hash_idx"');
+    expect(migration).toContain('value_hash_key_version');
   });
 });

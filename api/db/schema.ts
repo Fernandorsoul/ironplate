@@ -527,6 +527,7 @@ export const administrativeIdentifiers = pgTable('administrative_identifiers', {
   userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   identifierType: text('identifier_type').notNull(),
   valueHash: text('value_hash').notNull(),
+  valueHashKeyVersion: text('value_hash_key_version').default('v1').notNull(),
   encryptedValue: text('encrypted_value').notNull(),
   encryptionIv: text('encryption_iv').notNull(),
   encryptionTag: text('encryption_tag').notNull(),

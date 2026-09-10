@@ -5,7 +5,7 @@ import {
   administrativeIdentifierSearchSchema,
   validationError,
 } from '../middleware/validation';
-import { encryptCpf, hashCpfForLookup, maskCpf } from '../security/cpf';
+import { encryptCpf, hashCpfForLookup, lookupHashCandidates, maskCpf } from '../security/cpf';
 import { writeAuditLog } from './audit';
 
 export async function handleAdministrativeIdentifier(
@@ -73,7 +73,7 @@ export async function handleAdministrativeIdentifier(
   }
 
   const encrypted = encryptCpf(parsed.data.value);
-  const valueHash = hashCpfForLookup(parsed.data.value);
+  const lookup = hashCpfForLookup(parsed.data.value);
   // Store only the digits required to render the masked suffix (minimization).
   const lastFour = parsed.data.value.slice(-4);
   const lastTwo = lastFour.slice(-2);
@@ -85,15 +85,18 @@ export async function handleAdministrativeIdentifier(
   try {
     await sql`
       INSERT INTO administrative_identifiers (
-        id, user_id, identifier_type, value_hash, encrypted_value, encryption_iv,
-        encryption_tag, encryption_key_version, last_four, purpose, authorized_at, updated_at
+        id, user_id, identifier_type, value_hash, value_hash_key_version,
+        encrypted_value, encryption_iv, encryption_tag, encryption_key_version,
+        last_four, purpose, authorized_at, updated_at
       ) VALUES (
-        ${id}, ${userId}, ${parsed.data.identifierType}, ${valueHash}, ${encrypted.encryptedValue},
-        ${encrypted.iv}, ${encrypted.tag}, ${encrypted.keyVersion}, ${lastTwo},
-        ${parsed.data.purpose}, NOW(), NOW()
+        ${id}, ${userId}, ${parsed.data.identifierType}, ${lookup.hash}, ${lookup.keyVersion},
+        ${encrypted.encryptedValue}, ${encrypted.iv}, ${encrypted.tag}, ${encrypted.keyVersion},
+        ${lastTwo}, ${parsed.data.purpose}, NOW(), NOW()
       )
       ON CONFLICT (user_id, identifier_type) DO UPDATE SET
-        value_hash = EXCLUDED.value_hash, encrypted_value = EXCLUDED.encrypted_value,
+        value_hash = EXCLUDED.value_hash,
+        value_hash_key_version = EXCLUDED.value_hash_key_version,
+        encrypted_value = EXCLUDED.encrypted_value,
         encryption_iv = EXCLUDED.encryption_iv, encryption_tag = EXCLUDED.encryption_tag,
         encryption_key_version = EXCLUDED.encryption_key_version, last_four = EXCLUDED.last_four,
         purpose = EXCLUDED.purpose, authorized_at = NOW(), updated_at = NOW()
@@ -130,6 +133,7 @@ export async function handleAdministrativeIdentifierSearch(
     validationError(res, parsed.error.issues);
     return;
   }
+  const candidates = lookupHashCandidates(parsed.data.value).map(item => item.hash);
   const rows = await sql`
     SELECT ai.id, ai.user_id, ai.last_four, u.name, l.id AS link_id
     FROM administrative_identifiers ai
@@ -140,7 +144,7 @@ export async function handleAdministrativeIdentifierSearch(
       SELECT status, scopes_json, expires_at FROM consent_records
       WHERE link_id = l.id ORDER BY created_at DESC, id DESC LIMIT 1
     ) c ON c.status = 'granted' AND c.scopes_json::jsonb ? 'basic_profile'
-    WHERE ai.identifier_type = 'cpf' AND ai.value_hash = ${hashCpfForLookup(parsed.data.value)}
+    WHERE ai.identifier_type = 'cpf' AND ai.value_hash = ANY(${candidates})
       AND (l.expires_at IS NULL OR l.expires_at > NOW())
       AND (c.expires_at IS NULL OR c.expires_at > NOW())
       AND EXISTS (
