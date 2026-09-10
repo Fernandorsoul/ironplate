@@ -237,8 +237,13 @@ export async function getProfessionalLinks(): Promise<ProfessionalLink[]> {
 }
 
 export async function getProfessionalInvitation(token: string): Promise<ProfessionalInvitationPreview> {
+  // POST keeps the invitation token out of URL access logs.
   const response = await apiFetch(
-    `/users/get?resource=professionals&operation=links&token=${encodeURIComponent(token)}`,
+    '/users/get?resource=professionals&operation=links',
+    {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    },
   );
   await expectOk(response);
   return await response.json() as ProfessionalInvitationPreview;

@@ -90,6 +90,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     await sql`DELETE FROM professional_nutrition_plans WHERE professional_id = ${id} OR student_id = ${id}`;
     await sql`DELETE FROM professional_exercises WHERE owner_professional_id = ${id}`;
 
+    // Explicit cleanup for tables that also cascade, so account deletion does not
+    // depend solely on FK order (requested_by/created_by previously blocked it).
+    await sql`DELETE FROM professional_student_links WHERE professional_id = ${id} OR student_id = ${id} OR requested_by = ${id}`;
+    await sql`DELETE FROM professional_credentials WHERE user_id = ${id}`;
+    await sql`DELETE FROM user_roles WHERE user_id = ${id}`;
+    await sql`DELETE FROM password_reset_tokens WHERE user_id = ${id}`;
+    await sql`DELETE FROM administrative_identifiers WHERE user_id = ${id}`;
+
     // Scrub audit rows that reference this account so metadata cannot re-identify
     // the deleted user (LGPD Art. 18). Action strings are kept for security ops.
     await sql`
