@@ -14,7 +14,7 @@ CREATE TABLE "professional_link_invitations" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-DROP INDEX "consent_records_link_unique";--> statement-breakpoint
+DROP INDEX IF EXISTS "consent_records_link_unique";--> statement-breakpoint
 ALTER TABLE "consent_records" ADD COLUMN "expires_at" timestamp with time zone;--> statement-breakpoint
 ALTER TABLE "consent_records" ADD COLUMN "changed_by" text;--> statement-breakpoint
 ALTER TABLE "professional_student_links" ADD COLUMN "requested_scopes_json" text DEFAULT '[]' NOT NULL;--> statement-breakpoint
