@@ -90,6 +90,23 @@ describe('administrative identifier service', () => {
     expect(response.json).toHaveBeenCalledWith({ removed: true });
   });
 
+  it('stores only the masked suffix digits, not four raw CPF digits', async () => {
+    const sql = jest.fn()
+      .mockResolvedValueOnce([{ id: 'link-1' }])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+    const response = responseMock();
+    await handleAdministrativeIdentifier({
+      method: 'PUT',
+      body: { identifierType: 'cpf', value: cpf, purpose: 'Organizacao administrativa', confirmed: true },
+    } as any, response, sql, userId);
+    const bound = sql.mock.calls.flatMap(call => call.slice(1)).map(String);
+    expect(bound).toContain('25');
+    expect(bound).not.toContain('4725');
+    expect(bound).not.toContain(cpf);
+    expect(response.json).toHaveBeenCalledWith({ identifierType: 'cpf', maskedValue: '***.***.***-25' });
+  });
+
   it('returns a non-informative conflict when the lookup hash is already taken', async () => {
     const conflict = Object.assign(new Error('duplicate key value violates unique constraint'), {
       code: '23505',

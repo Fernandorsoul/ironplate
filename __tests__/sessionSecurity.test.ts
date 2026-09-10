@@ -20,10 +20,25 @@ describe('JWT session authorization', () => {
   });
 
   it('issues a signed token and verifies its identity', async () => {
-    const identity = { userId: 'user-1', email: 'user@example.com' };
+    const identity = { userId: 'user-1', email: 'user@example.com', sessionVersion: 1 };
     const token = await issueAccessToken(identity);
     await expect(verifyAccessToken(token)).resolves.toEqual(identity);
     await expect(verifyAccessToken(`${token}tampered`)).resolves.toBeNull();
+  });
+
+  it('rejects tokens issued for a previous session version after password reset', async () => {
+    const stale = await issueAccessToken({
+      userId: 'user-1',
+      email: 'user@example.com',
+      sessionVersion: 1,
+    });
+    const fresh = await issueAccessToken({
+      userId: 'user-1',
+      email: 'user@example.com',
+      sessionVersion: 2,
+    });
+    await expect(verifyAccessToken(stale)).resolves.toMatchObject({ sessionVersion: 1 });
+    await expect(verifyAccessToken(fresh)).resolves.toMatchObject({ sessionVersion: 2 });
   });
 
   it('requires a bearer token and rejects access to another user', async () => {
@@ -34,6 +49,7 @@ describe('JWT session authorization', () => {
     await expect(requireAuth(req, res)).resolves.toEqual({
       userId: 'user-1',
       email: 'user@example.com',
+      sessionVersion: 1,
     });
     await expect(requireUserAccess(req, res, 'user-2')).resolves.toBeNull();
     expect(res.status).toHaveBeenCalledWith(403);

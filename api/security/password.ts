@@ -18,6 +18,26 @@ export interface PasswordVerification {
   needsRehash: boolean;
 }
 
+let dummyPasswordHash: Promise<string> | null = null;
+
+/**
+ * Same-cost scrypt verification used when the account does not exist, so
+ * response latency does not reveal whether an email is registered.
+ */
+export async function verifyPasswordTimingEqualized(
+  password: string,
+  storedHash: string | null,
+): Promise<PasswordVerification> {
+  if (storedHash) {
+    return verifyPassword(password, storedHash);
+  }
+  if (!dummyPasswordHash) {
+    dummyPasswordHash = hashPassword(randomBytes(16).toString('hex'));
+  }
+  await verifyPassword(password, await dummyPasswordHash);
+  return { valid: false, needsRehash: false };
+}
+
 async function deriveScryptKey(password: string, salt: string): Promise<Buffer> {
   return (await scryptAsync(password, salt, SCRYPT_KEY_BYTES)) as Buffer;
 }

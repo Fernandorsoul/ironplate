@@ -48,8 +48,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const accessToken = await issueAccessToken({ userId: id, email: normalizedEmail });
         return res.status(201).json({ id, name: normalizedName, email: normalizedEmail, accessToken });
       } catch (error: any) {
-        if (error.message?.includes('duplicate key') || error.message?.includes('unique')) {
-          return res.status(409).json({ error: 'Email already exists' });
+        // Unique email conflicts must not confirm that the address is registered.
+        if (error?.code === '23505' || error.message?.includes('duplicate key')) {
+          return res.status(409).json({ error: 'Unable to complete registration' });
         }
         throw error;
       }
