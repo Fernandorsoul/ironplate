@@ -92,6 +92,22 @@ describe('professional consent links', () => {
     expect(response.json).toHaveBeenCalledWith({ error: 'Invitation unavailable' });
   });
 
+  it('previews an invitation via POST body so the token stays out of the URL', async () => {
+    mockSql.mockResolvedValueOnce([]);
+    const response = responseMock();
+
+    await linksHandler({
+      method: 'POST',
+      headers: {},
+      query: {},
+      body: { token },
+    } as any, response);
+
+    expect(sqlStatement(0)).toContain('professional_link_invitations');
+    expect(JSON.stringify(mockSql.mock.calls[0])).not.toContain(`token=${token}`);
+    expect(response.status).toHaveBeenCalledWith(404);
+  });
+
   it('accepts an invitation atomically with only a subset of requested scopes', async () => {
     mockSql
       .mockResolvedValueOnce([{
