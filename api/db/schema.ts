@@ -273,7 +273,7 @@ export const professionalStudentLinks = pgTable('professional_student_links', {
   id: text('id').primaryKey(),
   professionalId: text('professional_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   studentId: text('student_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  requestedBy: text('requested_by').notNull().references(() => users.id),
+  requestedBy: text('requested_by').references(() => users.id, { onDelete: 'set null' }),
   status: text('status').default('invited').notNull(),
   purpose: text('purpose').notNull(),
   consentVersion: text('consent_version').notNull(),
@@ -322,7 +322,7 @@ export const professionalNutritionPlanVersions = pgTable('professional_nutrition
   totalFat: doublePrecision('total_fat').default(0).notNull(),
   changeSummary: text('change_summary'),
   status: text('status').default('draft').notNull(),
-  createdBy: text('created_by').notNull().references(() => users.id),
+  createdBy: text('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   publishedAt: timestamp('published_at', { withTimezone: true }),
 }, (table) => [
@@ -378,7 +378,7 @@ export const professionalTrainingPlanVersions = pgTable('professional_training_p
   sessionsJson: text('sessions_json').notNull(),
   changeSummary: text('change_summary'),
   status: text('status').default('draft').notNull(),
-  createdBy: text('created_by').notNull().references(() => users.id),
+  createdBy: text('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   publishedAt: timestamp('published_at', { withTimezone: true }),
 }, (table) => [
@@ -388,7 +388,7 @@ export const professionalTrainingPlanVersions = pgTable('professional_training_p
 
 export const professionalTrainingExecutions = pgTable('professional_training_executions', {
   id: text('id').primaryKey(),
-  planVersionId: text('plan_version_id').notNull().references(() => professionalTrainingPlanVersions.id),
+  planVersionId: text('plan_version_id').notNull().references(() => professionalTrainingPlanVersions.id, { onDelete: 'cascade' }),
   studentId: text('student_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   workoutId: text('workout_id').references(() => workouts.id, { onDelete: 'set null' }),
   sessionId: text('session_id').notNull(),
