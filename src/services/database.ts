@@ -26,7 +26,20 @@ import { clearSession, getAccessToken } from './session';
 export type { BodyMeasurement } from './measurementTypes';
 
 const configuredApiBase = process.env.EXPO_PUBLIC_API_BASE_URL?.replace(/\/$/, '') ?? '';
-const API_BASE = `${configuredApiBase}/api`;
+
+/**
+ * Web must call same-origin /api: Vercel aliases and unique deployment URLs
+ * (e.g. *.rs-oul.vercel.app) are not in CORS allowlists, and CSP connect-src
+ * is 'self'. Native builds still use EXPO_PUBLIC_API_BASE_URL.
+ */
+function resolveApiBase(): string {
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return `${window.location.origin}/api`;
+  }
+  return `${configuredApiBase}/api`;
+}
+
+const API_BASE = resolveApiBase();
 
 export interface AuthenticatedUser {
   id: string;
