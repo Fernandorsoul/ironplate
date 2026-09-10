@@ -8,7 +8,7 @@ import {
 import { applyCors } from '../middleware/cors';
 import { getSql } from '../middleware/db';
 import { loginSchema, validationError } from '../middleware/validation';
-import { hashPassword, verifyPassword } from '../security/password';
+import { hashPassword, verifyPasswordTimingEqualized } from '../security/password';
 import { issueAccessToken, SessionConfigurationError } from '../security/session';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -33,28 +33,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const { email, password } = parsed.data;
       const normalizedEmail = email.toLowerCase().trim();
-      if (enforceLoginLockout(req, res, normalizedEmail)) return;
+      if (await enforceLoginLockout(req, res, normalizedEmail)) return;
 
       const users = await sql`
-        SELECT id, name, email, password_hash
+        SELECT id, name, email, password_hash, session_version
         FROM users
         WHERE email = ${normalizedEmail}
       `;
 
-      if (users.length === 0) {
-        recordLoginFailure(req, normalizedEmail);
-        return res.status(401).json({ error: 'Invalid credentials' });
-      }
-
       const user = users[0];
-      const verification = await verifyPassword(password, user.password_hash);
+      const verification = await verifyPasswordTimingEqualized(
+        password,
+        user?.password_hash ?? null,
+      );
 
-      if (!verification.valid) {
-        recordLoginFailure(req, normalizedEmail);
+      if (!user || !verification.valid) {
+        await recordLoginFailure(req, normalizedEmail);
         return res.status(401).json({ error: 'Invalid credentials' });
       }
 
-      clearLoginFailures(req, normalizedEmail);
+      await clearLoginFailures(req, normalizedEmail);
 
       if (verification.needsRehash) {
         const upgradedHash = await hashPassword(password);
@@ -73,7 +71,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         console.error('Update last login error:', error);
       }
 
-      const accessToken = await issueAccessToken({ userId: user.id, email: user.email });
+      const accessToken = await issueAccessToken({
+        userId: user.id,
+        email: user.email,
+        sessionVersion: user.session_version ?? 1,
+      });
       return res.status(200).json({ id: user.id, name: user.name, email: user.email, accessToken });
     } catch (error) {
       if (error instanceof SessionConfigurationError) {
