@@ -4,6 +4,7 @@ import { applyCors } from '../middleware/cors';
 import { getSql } from '../middleware/db';
 import { rateLimit } from '../middleware/rateLimit';
 import { buildExportPayload, parseMealsJson } from '../services/exportData';
+import { maskCpf } from '../security/cpf';
 
 function parseMuscleGroups(value: unknown): string[] | undefined {
   if (typeof value !== 'string' || !value) return undefined;
@@ -61,6 +62,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         invitationRows,
         consentRows,
         auditRows,
+        administrativeIdentifierRows,
       ] = await Promise.all([
         sql`
           SELECT id, name, email, created_at, updated_at, last_login,
@@ -165,6 +167,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         sql`
           SELECT * FROM audit_logs
           WHERE actor_user_id = ${userId} OR subject_user_id = ${userId}
+          ORDER BY created_at
+        `,
+        sql`
+          SELECT identifier_type, last_four, purpose, authorized_at, created_at, updated_at
+          FROM administrative_identifiers WHERE user_id = ${userId}
           ORDER BY created_at
         `,
       ]);
@@ -308,6 +315,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         professionalLinkInvitations: invitationRows as any[],
         consentHistory: consentRows as any[],
         auditHistory: auditRows as any[],
+        administrativeIdentifiers: (administrativeIdentifierRows as Record<string, any>[]).map(identifier => ({
+          identifierType: identifier.identifier_type,
+          maskedValue: maskCpf(identifier.last_four),
+          purpose: identifier.purpose,
+          authorizedAt: identifier.authorized_at,
+          createdAt: identifier.created_at,
+          updatedAt: identifier.updated_at,
+        })),
       }));
     } catch (error) {
       console.error('Export user data error:', error);

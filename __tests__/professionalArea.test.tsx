@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-
 
 const mockGetProfessionalProfile = jest.fn();
 const mockCreateProfessionalInvitation = jest.fn();
+const mockSearchAdministrativeCpf = jest.fn();
 
 jest.mock('../src/context/AppContext', () => ({
   useApp: () => ({
@@ -14,6 +15,7 @@ jest.mock('../src/context/AppContext', () => ({
 jest.mock('../src/services/database', () => ({
   getProfessionalProfile: (...args: unknown[]) => mockGetProfessionalProfile(...args),
   createProfessionalInvitation: (...args: unknown[]) => mockCreateProfessionalInvitation(...args),
+  searchAdministrativeCpf: (...args: unknown[]) => mockSearchAdministrativeCpf(...args),
 }));
 jest.mock('react-native-qrcode-svg', () => ({
   __esModule: true,

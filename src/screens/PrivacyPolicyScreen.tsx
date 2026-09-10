@@ -77,6 +77,11 @@ export default function PrivacyPolicyScreen({ navigation }: any) {
         <Text style={styles.bullet}>• Com consentimento explícito e granular do aluno</Text>
         <Text style={styles.bullet}>• A revogação bloqueia imediatamente novos acessos aos dados originais</Text>
         <Text style={styles.bullet}>• Documentos produzidos pelo profissional podem seguir retenção legal específica</Text>
+        <Text style={styles.text}>
+          O CPF é opcional e usado somente para organização administrativa quando o aluno autoriza.
+          Ele fica cifrado no servidor, aparece apenas mascarado e não concede acesso, autentica ou
+          permite localizar pessoas fora da carteira profissional já vinculada.
+        </Text>
 
         <Text style={styles.sectionTitle}>8. Segurança</Text>
         <Text style={styles.text}>

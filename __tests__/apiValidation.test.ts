@@ -64,8 +64,14 @@ describe('API input validation', () => {
       credentialId: 'credential-existing-record',
       decision: 'suspend',
     }).success).toBe(true);
-    expect(administrativeIdentifierPostSchema.safeParse({ identifierType: 'cpf', value: '12345678901' }).success).toBe(true);
-    expect(administrativeIdentifierPostSchema.safeParse({ identifierType: 'cpf', value: '123' }).success).toBe(false);
+    expect(administrativeIdentifierPostSchema.safeParse({
+      identifierType: 'cpf', value: '529.982.247-25',
+      purpose: 'Organizacao administrativa do acompanhamento', confirmed: true,
+    }).success).toBe(true);
+    expect(administrativeIdentifierPostSchema.safeParse({
+      identifierType: 'cpf', value: '12345678901',
+      purpose: 'Organizacao administrativa do acompanhamento', confirmed: true,
+    }).success).toBe(false);
   });
 
   it('accepts cumulative credentials while enforcing role and council compatibility', () => {

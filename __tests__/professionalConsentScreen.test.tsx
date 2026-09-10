@@ -5,6 +5,9 @@ const mockGetInvitation = jest.fn();
 const mockGetLinks = jest.fn();
 const mockDecideInvitation = jest.fn();
 const mockUpdateConsent = jest.fn();
+const mockGetIdentifiers = jest.fn();
+const mockUpdateCpf = jest.fn();
+const mockRemoveCpf = jest.fn();
 
 jest.mock('../src/context/AppContext', () => ({
   useApp: () => ({ isAuthenticated: true }),
@@ -14,6 +17,9 @@ jest.mock('../src/services/database', () => ({
   getProfessionalLinks: (...args: unknown[]) => mockGetLinks(...args),
   decideProfessionalInvitation: (...args: unknown[]) => mockDecideInvitation(...args),
   updateProfessionalConsent: (...args: unknown[]) => mockUpdateConsent(...args),
+  getAdministrativeIdentifiers: (...args: unknown[]) => mockGetIdentifiers(...args),
+  updateAdministrativeCpf: (...args: unknown[]) => mockUpdateCpf(...args),
+  removeAdministrativeCpf: (...args: unknown[]) => mockRemoveCpf(...args),
 }));
 
 import ProfessionalConsentScreen from '../src/screens/ProfessionalConsentScreen';
@@ -26,6 +32,9 @@ describe('professional consent screen', () => {
     jest.clearAllMocks();
     mockDecideInvitation.mockResolvedValue(undefined);
     mockUpdateConsent.mockResolvedValue(undefined);
+    mockGetIdentifiers.mockResolvedValue([]);
+    mockUpdateCpf.mockResolvedValue({ maskedValue: '***.***.***-25' });
+    mockRemoveCpf.mockResolvedValue(undefined);
   });
 
   it('shows purpose, verified registration and lets the student accept fewer categories', async () => {

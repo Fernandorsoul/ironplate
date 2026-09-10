@@ -5,6 +5,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -14,6 +15,9 @@ import {
   decideProfessionalInvitation,
   getProfessionalInvitation,
   getProfessionalLinks,
+  getAdministrativeIdentifiers,
+  removeAdministrativeCpf,
+  updateAdministrativeCpf,
   updateProfessionalConsent,
 } from '../services/database';
 import type {
@@ -44,12 +48,43 @@ export default function ProfessionalConsentScreen({ navigation, route }: any) {
   const [isLoading, setIsLoading] = useState(isAuthenticated);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [cpf, setCpf] = useState('');
+  const [maskedCpf, setMaskedCpf] = useState<string | null>(null);
 
   const loadLinks = async () => {
-    const result = await getProfessionalLinks();
+    const [result, identifiers] = await Promise.all([
+      getProfessionalLinks(),
+      getAdministrativeIdentifiers(),
+    ]);
     const studentLinks = result.filter(link => link.viewerRole === 'student');
     setLinks(studentLinks);
     setLinkScopes(Object.fromEntries(studentLinks.map(link => [link.id, link.grantedScopes])));
+    setMaskedCpf(identifiers.find(identifier => identifier.identifierType === 'cpf')?.maskedValue ?? null);
+  };
+
+  const saveCpf = async () => {
+    setIsSaving(true);
+    try {
+      const result = await updateAdministrativeCpf(cpf, 'Organizacao administrativa do acompanhamento profissional');
+      setMaskedCpf(result.maskedValue);
+      setCpf('');
+      Alert.alert('CPF protegido', 'O dado foi cifrado e sera exibido apenas mascarado.');
+    } catch {
+      Alert.alert('CPF invalido', 'Confira os digitos ou tente novamente mais tarde.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const removeCpf = async () => {
+    setIsSaving(true);
+    try {
+      await removeAdministrativeCpf();
+      setMaskedCpf(null);
+      Alert.alert('CPF removido', 'O dado cifrado e o indice de pesquisa foram eliminados.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   useEffect(() => {
@@ -197,6 +232,33 @@ export default function ProfessionalConsentScreen({ navigation, route }: any) {
         </View>
       )}
 
+      {!token && links.some(link => link.status === 'active' && link.grantedScopes.includes('basic_profile')) && (
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>CPF administrativo opcional</Text>
+          <Text style={styles.notice}>
+            Use apenas se necessario para organizacao. O CPF nao concede acesso e aparece sempre mascarado.
+          </Text>
+          {maskedCpf && <Text style={styles.maskedCpf}>{maskedCpf}</Text>}
+          <TextInput
+            accessibilityLabel="CPF administrativo"
+            keyboardType="number-pad"
+            onChangeText={setCpf}
+            placeholder="000.000.000-00"
+            placeholderTextColor={COLORS.textMuted}
+            style={styles.cpfInput}
+            value={cpf}
+          />
+          <TouchableOpacity disabled={isSaving || cpf.length < 11} style={styles.primaryButton} onPress={saveCpf}>
+            <Text style={styles.primaryButtonText}>{maskedCpf ? 'Atualizar CPF' : 'Autorizar e proteger CPF'}</Text>
+          </TouchableOpacity>
+          {maskedCpf && (
+            <TouchableOpacity disabled={isSaving} style={styles.revokeButton} onPress={removeCpf}>
+              <Text style={styles.revokeText}>Remover CPF</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+
       {!token && links.map(link => (
         <View key={link.id} style={styles.card}>
           <View style={styles.statusRow}>
@@ -322,4 +384,15 @@ const styles = StyleSheet.create({
     padding: SPACING.md,
   },
   revokeText: { color: COLORS.error, fontSize: FONT_SIZE.md, fontWeight: '800' },
+  cpfInput: {
+    backgroundColor: COLORS.background,
+    borderColor: COLORS.borderLight,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+    color: COLORS.text,
+    fontSize: FONT_SIZE.md,
+    marginTop: SPACING.md,
+    padding: SPACING.md,
+  },
+  maskedCpf: { color: COLORS.calories, fontSize: FONT_SIZE.lg, fontWeight: '800', marginTop: SPACING.md },
 });

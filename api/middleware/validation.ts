@@ -1,5 +1,6 @@
 import type { VercelResponse } from '@vercel/node';
 import { z } from 'zod';
+import { isValidCpf, normalizeCpf } from '../security/cpf';
 
 /**
  * Zod validation schemas shared by the API routes (issue #8).
@@ -150,10 +151,23 @@ export const professionalLinkDecisionSchema = z.discriminatedUnion('decision', [
   }).strict(),
 ]);
 
-export const administrativeIdentifierPostSchema = z.object({
-  identifierType: z.literal('cpf'),
-  value: z.string().trim().regex(/^\d{11}$/, 'CPF must contain 11 digits'),
-}).strict();
+  const cpfSchema = z.string().trim()
+    .regex(/^(\d{11}|\d{3}\.\d{3}\.\d{3}-\d{2})$/, 'Invalid CPF format')
+    .refine(isValidCpf, 'Invalid CPF')
+    .transform(normalizeCpf);
+
+  export const administrativeIdentifierPostSchema = z.object({
+    identifierType: z.literal('cpf'),
+    value: cpfSchema,
+    purpose: z.string().trim().min(10).max(200),
+    confirmed: z.literal(true),
+  }).strict();
+
+  export const administrativeIdentifierSearchSchema = z.object({
+    identifierType: z.literal('cpf'),
+    value: cpfSchema,
+    purpose: z.string().trim().min(10).max(200),
+  }).strict();
 
 const sportSchema = z.enum([
   'bodybuilding', 'bjj', 'both', 'running', 'cycling', 'swimming', 'soccer',

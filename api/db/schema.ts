@@ -526,12 +526,18 @@ export const administrativeIdentifiers = pgTable('administrative_identifiers', {
   userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   identifierType: text('identifier_type').notNull(),
   valueHash: text('value_hash').notNull(),
+  encryptedValue: text('encrypted_value').notNull(),
+  encryptionIv: text('encryption_iv').notNull(),
+  encryptionTag: text('encryption_tag').notNull(),
+  encryptionKeyVersion: text('encryption_key_version').default('v1').notNull(),
   lastFour: text('last_four').notNull(),
+  purpose: text('purpose').notNull(),
+  authorizedAt: timestamp('authorized_at', { withTimezone: true }).defaultNow().notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
   uniqueIndex('administrative_identifiers_user_type_unique').on(table.userId, table.identifierType),
-  index('administrative_identifiers_hash_idx').on(table.valueHash),
+  uniqueIndex('administrative_identifiers_hash_idx').on(table.valueHash),
 ]);
 
 export const auditLogs = pgTable('audit_logs', {

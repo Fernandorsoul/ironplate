@@ -12,7 +12,11 @@ import {
 import QRCode from 'react-native-qrcode-svg';
 import { BORDER_RADIUS, COLORS, FONT_SIZE, SPACING } from '../constants/theme';
 import { useApp } from '../context/AppContext';
-import { createProfessionalInvitation, getProfessionalProfile } from '../services/database';
+import {
+  createProfessionalInvitation,
+  getProfessionalProfile,
+  searchAdministrativeCpf,
+} from '../services/database';
 import type {
   ProfessionalConsentScope,
   ProfessionalCredential,
@@ -62,6 +66,9 @@ export default function ProfessionalAreaScreen() {
   const [isCreatingInvite, setIsCreatingInvite] = useState(false);
   const [inviteError, setInviteError] = useState('');
   const [invitation, setInvitation] = useState<Awaited<ReturnType<typeof createProfessionalInvitation>> | null>(null);
+  const [cpfSearch, setCpfSearch] = useState('');
+  const [cpfMatch, setCpfMatch] = useState<Awaited<ReturnType<typeof searchAdministrativeCpf>>>(null);
+  const [cpfSearchMessage, setCpfSearchMessage] = useState('');
 
   useEffect(() => {
     let active = true;
@@ -130,6 +137,18 @@ export default function ProfessionalAreaScreen() {
       message: `Convite para acompanhamento no IronPlate: ${invitation.invitationUrl}`,
       url: invitation.invitationUrl,
     });
+  };
+
+  const searchCpf = async () => {
+    setCpfSearchMessage('');
+    try {
+      const match = await searchAdministrativeCpf(cpfSearch);
+      setCpfMatch(match);
+      setCpfSearchMessage(match ? '' : 'Nenhum aluno da sua carteira corresponde ao CPF informado.');
+    } catch {
+      setCpfMatch(null);
+      setCpfSearchMessage('Nao foi possivel realizar a busca. Confira o CPF ou aguarde.');
+    }
   };
 
   return (
@@ -251,6 +270,35 @@ export default function ProfessionalAreaScreen() {
         </View>
       )}
 
+      {!isLoading && verifiedCredentials.length > 0 && (
+        <View style={styles.inviteCard}>
+          <Text style={styles.inviteEyebrow}>CARTEIRA PROTEGIDA</Text>
+          <Text style={styles.inviteTitle}>Localizar por CPF completo</Text>
+          <Text style={styles.inviteText}>
+            A busca considera somente alunos com vinculo ativo e retorna o CPF mascarado.
+          </Text>
+          <TextInput
+            accessibilityLabel="Buscar CPF na carteira"
+            keyboardType="number-pad"
+            onChangeText={setCpfSearch}
+            placeholder="000.000.000-00"
+            placeholderTextColor={COLORS.textMuted}
+            style={styles.purposeInput}
+            value={cpfSearch}
+          />
+          <Pressable accessibilityRole="button" onPress={searchCpf} style={styles.primaryButton}>
+            <Text style={styles.primaryButtonText}>Buscar na minha carteira</Text>
+          </Pressable>
+          {cpfMatch && (
+            <View style={styles.searchResult}>
+              <Text style={styles.roleTitle}>{cpfMatch.displayName}</Text>
+              <Text style={styles.credentialValue}>{cpfMatch.maskedValue}</Text>
+            </View>
+          )}
+          {!!cpfSearchMessage && <Text style={styles.inviteMeta}>{cpfSearchMessage}</Text>}
+        </View>
+      )}
+
       <View style={styles.personalCard}>
         <Text style={styles.personalEyebrow}>CONTA CUMULATIVA</Text>
         <Text style={styles.personalTitle}>Sua area pessoal permanece independente</Text>
@@ -367,6 +415,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   secondaryButtonText: { color: COLORS.primary, fontSize: FONT_SIZE.md, fontWeight: '700' },
+  searchResult: { backgroundColor: COLORS.surfaceLight, borderRadius: BORDER_RADIUS.md, marginTop: SPACING.md, padding: SPACING.md, width: '100%' },
   personalCard: {
     backgroundColor: COLORS.surface,
     borderRadius: BORDER_RADIUS.lg,
