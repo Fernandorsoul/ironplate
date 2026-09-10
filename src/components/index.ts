@@ -10,3 +10,4 @@ export { HydrationCard } from './HydrationCard';
 export { DietAlternativesSection } from './DietAlternativesSection';
 export { LoginModal } from './LoginModal';
 export { RegisterModal } from './RegisterModal';
+export { BrandMark } from './BrandMark';
