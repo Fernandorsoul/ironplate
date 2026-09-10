@@ -10,11 +10,10 @@ CREATE TABLE IF NOT EXISTS professional_nutrition_plans (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   published_at TIMESTAMPTZ
-);
-CREATE INDEX IF NOT EXISTS professional_nutrition_plans_professional_idx ON professional_nutrition_plans(professional_id);
-CREATE INDEX IF NOT EXISTS professional_nutrition_plans_student_idx ON professional_nutrition_plans(student_id);
-CREATE INDEX IF NOT EXISTS professional_nutrition_plans_link_idx ON professional_nutrition_plans(link_id);
-
+);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS professional_nutrition_plans_professional_idx ON professional_nutrition_plans(professional_id);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS professional_nutrition_plans_student_idx ON professional_nutrition_plans(student_id);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS professional_nutrition_plans_link_idx ON professional_nutrition_plans(link_id);--> statement-breakpoint
 CREATE TABLE IF NOT EXISTS professional_nutrition_plan_versions (
   id TEXT PRIMARY KEY,
   plan_id TEXT NOT NULL REFERENCES professional_nutrition_plans(id) ON DELETE CASCADE,
@@ -30,5 +29,5 @@ CREATE TABLE IF NOT EXISTS professional_nutrition_plan_versions (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   published_at TIMESTAMPTZ,
   CONSTRAINT professional_nutrition_plan_versions_unique UNIQUE (plan_id, version)
-);
+);--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS professional_nutrition_plan_versions_plan_idx ON professional_nutrition_plan_versions(plan_id);
