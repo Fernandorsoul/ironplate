@@ -36,7 +36,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (await enforceLoginLockout(req, res, normalizedEmail)) return;
 
       const users = await sql`
-        SELECT id, name, email, password_hash
+        SELECT id, name, email, password_hash, session_version
         FROM users
         WHERE email = ${normalizedEmail}
       `;
@@ -73,7 +73,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         console.error('Update last login error:', error);
       }
 
-      const accessToken = await issueAccessToken({ userId: user.id, email: user.email });
+      const accessToken = await issueAccessToken({
+        userId: user.id,
+        email: user.email,
+        sessionVersion: user.session_version ?? 1,
+      });
       return res.status(200).json({ id: user.id, name: user.name, email: user.email, accessToken });
     } catch (error) {
       if (error instanceof SessionConfigurationError) {

@@ -115,7 +115,9 @@ export async function resetPasswordHandler(req: VercelRequest, res: VercelRespon
         ),
         updated_user AS (
           UPDATE users
-          SET password_hash = ${storedHash}, updated_at = NOW()
+          SET password_hash = ${storedHash},
+              session_version = COALESCE(session_version, 1) + 1,
+              updated_at = NOW()
           WHERE id IN (SELECT user_id FROM claimed_token)
           RETURNING id
         ),
