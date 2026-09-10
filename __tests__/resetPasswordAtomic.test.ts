@@ -42,6 +42,7 @@ describe('atomic password reset', () => {
     expect(statement).toContain('WITH claimed_token AS');
     expect(statement).toContain('AND expires_at > NOW()');
     expect(statement).toContain('UPDATE users');
+    expect(statement).toContain('session_version');
     expect(response.status).toHaveBeenCalledWith(200);
   });
 

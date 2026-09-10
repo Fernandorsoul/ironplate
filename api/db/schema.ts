@@ -28,6 +28,7 @@ export const users = pgTable('users', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   lastLogin: timestamp('last_login', { withTimezone: true }),
+  sessionVersion: integer('session_version').default(1).notNull(),
 }, (table) => [uniqueIndex('users_email_unique').on(table.email)]);
 
 export const dailyLogs = pgTable('daily_logs', {
