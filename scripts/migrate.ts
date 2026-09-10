@@ -50,26 +50,36 @@ async function main(): Promise<void> {
     await ensureFoundationSchema(client);
     await migrate(drizzle(client), { migrationsFolder: './migrations' });
   } catch (error: unknown) {
-    if (error && typeof error === 'object') {
-      const err = error as {
+    const dump = (err: unknown, depth = 0): void => {
+      if (!err || typeof err !== 'object' || depth > 4) return;
+      const e = err as {
         message?: string;
+        name?: string;
         query?: string;
         code?: string;
         detail?: string;
         hint?: string;
+        severity?: string;
+        cause?: unknown;
+        errors?: unknown[];
       };
-      if (err.query) {
-        console.error('Failed migration SQL:\n', err.query);
+      console.error(JSON.stringify({
+        event: 'db_migrate_error',
+        depth,
+        name: e.name,
+        message: e.message,
+        code: e.code,
+        severity: e.severity,
+        detail: e.detail,
+        hint: e.hint,
+        query: e.query?.slice(0, 2000),
+      }));
+      if (e.cause) dump(e.cause, depth + 1);
+      if (Array.isArray(e.errors)) {
+        for (const child of e.errors) dump(child, depth + 1);
       }
-      if (err.code || err.detail || err.hint) {
-        console.error(JSON.stringify({
-          event: 'db_migrate_failed',
-          code: err.code,
-          detail: err.detail,
-          hint: err.hint,
-        }));
-      }
-    }
+    };
+    dump(error);
     throw error;
   } finally {
     await client.end();
