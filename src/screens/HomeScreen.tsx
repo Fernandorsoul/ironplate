@@ -13,7 +13,7 @@ import {
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../constants/theme';
 import { isPhoneLayout, SMALL_PHONE_BREAKPOINT } from '../constants/layout';
 import { useApp } from '../context/AppContext';
-import { MacroCard, ActionButton, MealCard, ProfileAvatar } from '../components';
+import { MacroCard, ActionButton, MealCard, ProfileAvatar, HydrationCard } from '../components';
 import { useMacros } from '../hooks';
 import {
   calculateDailyEnergyExpenditure,
@@ -23,7 +23,7 @@ import {
 
 export default function HomeScreen({ navigation }: any) {
   const { width } = useWindowDimensions();
-  const { profile, targetMacros, todayLog, removeMealFromToday } = useApp();
+  const { profile, targetMacros, todayLog, removeMealFromToday, setTodayWater } = useApp();
   const { current, percentages } = useMacros(targetMacros, todayLog);
   const compactActions = isPhoneLayout(width);
   const isSmallPhone = width <= SMALL_PHONE_BREAKPOINT;
@@ -129,6 +129,12 @@ export default function HomeScreen({ navigation }: any) {
             <Text style={styles.expenditureDetail}>Treinos: +{dailyExpenditure.workoutExpenditure} kcal</Text>
           </View>
           <Text style={styles.estimateNote}>Estimativa baseada no tipo, intensidade e duração dos treinos.</Text>
+        </Animated.View>
+      )}
+
+      {profile && (
+        <Animated.View style={entranceStyle(2)}>
+          <HydrationCard profile={profile} currentMl={todayLog?.waterMl || 0} onChange={setTodayWater} />
         </Animated.View>
       )}
 

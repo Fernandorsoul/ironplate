@@ -35,15 +35,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const storedHash = await hashPassword(password);
 
       try {
-        await sql`
-          INSERT INTO users (id, name, email, password_hash)
-          VALUES (${id}, ${normalizedName}, ${normalizedEmail}, ${storedHash})
-        `;
+        await sql.transaction((txn: any) => [
+          txn`
+            INSERT INTO users (id, name, email, password_hash)
+            VALUES (${id}, ${normalizedName}, ${normalizedEmail}, ${storedHash})
+          `,
+          txn`
+            INSERT INTO user_roles (id, user_id, role, status)
+            VALUES (${randomUUID()}, ${id}, 'student', 'active')
+          `,
+        ]);
         const accessToken = await issueAccessToken({ userId: id, email: normalizedEmail });
         return res.status(201).json({ id, name: normalizedName, email: normalizedEmail, accessToken });
       } catch (error: any) {
-        if (error.message?.includes('duplicate key') || error.message?.includes('unique')) {
-          return res.status(409).json({ error: 'Email already exists' });
+        // Unique email conflicts must not confirm that the address is registered.
+        if (error?.code === '23505' || error.message?.includes('duplicate key')) {
+          return res.status(409).json({ error: 'Unable to complete registration' });
         }
         throw error;
       }

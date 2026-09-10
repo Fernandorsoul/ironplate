@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LoginModal } from '../components/LoginModal';
 import { RegisterModal } from '../components/RegisterModal';
+import { BrandMark } from '../components/BrandMark';
 import { BORDER_RADIUS, COLORS, FONT_SIZE, SPACING } from '../constants/theme';
 import type { RootStackScreenProps } from '../types/navigation';
 
@@ -177,10 +178,8 @@ export default function PublicHomeScreen({
               style={styles.logoRow}
               onPress={scrollToTop}
             >
-              <View style={styles.logoMark}>
-                <Ionicons name="barbell" size={20} color={COLORS.text} />
-              </View>
-              <Text style={styles.logoText}>IRONPLATE</Text>
+              <BrandMark size={36} />
+              <Text style={styles.logoText}>IronPlate</Text>
             </TouchableOpacity>
 
             {!isCompact && (
@@ -422,10 +421,8 @@ export default function PublicHomeScreen({
 
         <View style={styles.footer}>
           <View style={styles.logoRow}>
-            <View style={styles.logoMarkSmall}>
-              <Ionicons name="barbell" size={15} color={COLORS.text} />
-            </View>
-            <Text style={styles.footerLogoText}>IRONPLATE</Text>
+            <BrandMark size={28} />
+            <Text style={styles.footerLogoText}>IronPlate</Text>
           </View>
           <Text style={styles.footerText}>Nutrição, treino e evolução no mesmo ritmo.</Text>
           <TouchableOpacity onPress={() => navigation.navigate('PrivacyPolicy')}>
@@ -508,27 +505,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: SPACING.sm,
   },
-  logoMark: {
-    width: 38,
-    height: 38,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: BORDER_RADIUS.md,
-    backgroundColor: COLORS.primary,
-  },
-  logoMarkSmall: {
-    width: 30,
-    height: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: BORDER_RADIUS.sm,
-    backgroundColor: COLORS.primary,
-  },
   logoText: {
     color: COLORS.text,
     fontSize: FONT_SIZE.lg,
-    fontWeight: '900',
-    letterSpacing: 0.8,
+    fontWeight: '800',
+    letterSpacing: -0.3,
   },
   navigationLinks: {
     flexDirection: 'row',

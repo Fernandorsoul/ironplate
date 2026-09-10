@@ -93,6 +93,10 @@ describe('Nutrition Calculations', () => {
   });
 
   describe('calculateTargetCalories', () => {
+    it('applies a moderate deficit for general weight loss', () => {
+      const weightLoss = { ...maleProfile, goal: 'weight_loss' as const };
+      expect(calculateTargetCalories(weightLoss)).toBe(Math.round(calculateTDEE(weightLoss) * 0.85));
+    });
     it('returns TDEE for maintenance', () => {
       const maintenance = { ...maleProfile, goal: 'maintenance' as const };
       expect(calculateTargetCalories(maintenance)).toBe(calculateTDEE(maintenance));

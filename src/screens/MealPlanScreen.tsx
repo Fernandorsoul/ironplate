@@ -74,6 +74,8 @@ export default function MealPlanScreen({ navigation }: any) {
         return { label: 'Pré-Competição', desc: '8-4 sem (-25%)', icon: '🔴', color: '#FF6B6B' };
       case 'bulking':
         return { label: 'Bulking', desc: 'Ganhar massa (+15%)', icon: '💪', color: '#00B894' };
+      case 'weight_loss':
+        return { label: 'Emagrecimento', desc: 'Perda gradual (-15%)', icon: '🎯', color: '#74B9FF' };
       case 'maintenance':
         return { label: 'Manutenção', desc: 'Manter peso', icon: '⚖️', color: '#00CEC9' };
     }
@@ -159,7 +161,7 @@ export default function MealPlanScreen({ navigation }: any) {
 
         <Text style={styles.subsectionTitle}>Perda de Gordura</Text>
         <View style={styles.goalRow}>
-          {(['cutting_conservative', 'cutting_preparation', 'cutting_precontest'] as Goal[]).map(goal => {
+          {(['weight_loss', 'cutting_conservative', 'cutting_preparation', 'cutting_precontest'] as Goal[]).map(goal => {
             const info = getGoalInfo(goal);
             const isSelected = selectedGoal === goal;
             return (
@@ -225,7 +227,8 @@ export default function MealPlanScreen({ navigation }: any) {
               </View>
             </View>
             <Text style={styles.previewNote}>
-              {selectedGoal === 'cutting_conservative' ? 'Déficit de 15% - Perda gradual (0.3-0.5%/sem)' :
+              {selectedGoal === 'weight_loss' ? 'Déficit de 15% - Perda gradual com foco em aderência' :
+               selectedGoal === 'cutting_conservative' ? 'Déficit de 15% - Perda gradual (0.3-0.5%/sem)' :
                selectedGoal === 'cutting_preparation' ? 'Déficit de 20% - Perda moderada (0.5-0.7%/sem)' :
                selectedGoal === 'cutting_precontest' ? 'Déficit de 25% - Perda agressiva (0.7-1.0%/sem)' :
                selectedGoal === 'bulking' ? 'Superávit de 15% - Ganho controlado' :

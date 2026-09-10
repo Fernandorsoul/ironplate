@@ -1,7 +1,15 @@
 // IronPlate Types
 
 export type ActivityLevel = 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active';
-export type Goal = 'bulking' | 'cutting_conservative' | 'cutting_preparation' | 'cutting_precontest' | 'maintenance';
+export type UserRole = 'student' | 'nutritionist' | 'fitness_professional' | 'admin_verifier';
+export type LegacyUserRole = 'student' | 'professional' | 'admin';
+export type Goal =
+  | 'bulking'
+  | 'weight_loss'
+  | 'cutting_conservative'
+  | 'cutting_preparation'
+  | 'cutting_precontest'
+  | 'maintenance';
 export type Sport =
   | 'bodybuilding'
   | 'bjj'
@@ -59,6 +67,10 @@ export interface UserProfile {
   phone?: string;
   birthDate?: string; // YYYY-MM-DD
   photoUri?: string;
+  targetWeightKg?: number;
+  hydrationGoalMl?: number;
+  role?: LegacyUserRole;
+  roles?: UserRole[];
   age: number;
   weight: number; // kg
   height: number; // cm
@@ -117,6 +129,94 @@ export interface MealPlan {
   supplements?: SupplementRecommendation[];
 }
 
+export interface ProfessionalNutritionPlan {
+  id: string;
+  professionalId: string;
+  studentId: string;
+  title: string;
+  objective?: string;
+  status: 'draft' | 'published' | 'archived';
+  version: number;
+  meals: Meal[];
+  totalMacros: Macros;
+  changeSummary?: string;
+  createdAt: string;
+  updatedAt: string;
+  publishedAt?: string;
+}
+
+export interface ProfessionalCredential {
+  id: string;
+  professionalRole: 'nutritionist' | 'fitness_professional';
+  registrationType: 'CRN' | 'CREF';
+  registrationNumber: string;
+  registrationRegion: string;
+  status: 'pending' | 'verified' | 'rejected' | 'suspended';
+  verifiedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProfessionalProfile {
+  id: string;
+  displayName: string;
+  bio?: string;
+  status: 'pending' | 'approved' | 'rejected';
+  credentials: ProfessionalCredential[];
+  roles: Array<{ role: UserRole; status: string }>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ProfessionalConsentScope =
+  | 'basic_profile'
+  | 'nutrition_data'
+  | 'meals_adherence'
+  | 'meal_plans'
+  | 'weight'
+  | 'body_measurements'
+  | 'prescribed_training'
+  | 'training_execution'
+  | 'scheduling';
+
+export interface ProfessionalLink {
+  id: string;
+  professionalId: string;
+  studentId: string;
+  viewerRole: 'student' | 'professional';
+  professionalName: string;
+  professionalRoles: Array<'nutritionist' | 'fitness_professional'>;
+  registrations: string[];
+  status: 'invited' | 'active' | 'revoked' | 'declined' | 'expired';
+  purpose: string;
+  requestedScopes: ProfessionalConsentScope[];
+  grantedScopes: ProfessionalConsentScope[];
+  consentStatus: 'requested' | 'granted' | 'revoked' | 'declined' | 'expired';
+  consentVersion: string;
+  activatedAt?: string;
+  expiresAt?: string;
+  revokedAt?: string;
+  lastChangedAt: string;
+}
+
+export interface ProfessionalInvitationPreview {
+  professionalId: string;
+  professionalName: string;
+  professionalRoles: Array<'nutritionist' | 'fitness_professional'>;
+  registrations: Array<{
+    role: 'nutritionist' | 'fitness_professional';
+    type: 'CRN' | 'CREF';
+    number: string;
+    region: string;
+  }>;
+  purpose: string;
+  scopes: ProfessionalConsentScope[];
+  consentVersion: string;
+  durationDays: number;
+  expiresAt: string;
+  revocationNotice: string;
+}
+
 export interface SupplementRecommendation {
   name: string;
   dose: string;
@@ -137,11 +237,209 @@ export interface Workout {
   muscleGroups?: MuscleGroup[];
 }
 
+export interface ProfessionalExercise {
+  id: string;
+  visibility: 'global' | 'private';
+  name: string;
+  description: string;
+  muscleGroups: MuscleGroup[];
+  equipment?: string;
+  modality: string;
+  instructions: string;
+  mediaUrl?: string;
+  sourceAttribution?: string;
+  safetyNotes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TrainingPrescriptionItem {
+  id: string;
+  exerciseId: string;
+  order: number;
+  sets?: number;
+  repetitions?: string;
+  durationSeconds?: number;
+  load?: number;
+  loadUnit?: 'kg' | 'lb' | 'bodyweight' | 'band' | 'other';
+  restSeconds?: number;
+  targetRpe?: number;
+  targetRir?: number;
+  tempo?: string;
+  notes?: string;
+  alternativeExerciseId?: string;
+  progressionCriteria?: string;
+}
+
+export interface TrainingPrescriptionSession {
+  id: string;
+  name: string;
+  order: number;
+  items: TrainingPrescriptionItem[];
+}
+
+export interface ProfessionalTrainingPlan {
+  id: string;
+  professionalId: string;
+  studentId: string;
+  title: string;
+  objective?: string;
+  startsOn?: string;
+  endsOn?: string;
+  status: 'draft' | 'published' | 'archived';
+  version: number;
+  versionId: string;
+  sessions: TrainingPrescriptionSession[];
+  changeSummary?: string;
+  createdAt: string;
+  updatedAt: string;
+  publishedAt?: string;
+}
+
+export interface ProfessionalTrainingExecution {
+  id: string;
+  planId: string;
+  version: number;
+  sessionId: string;
+  studentId: string;
+  workoutId?: string;
+  status: 'in_progress' | 'completed';
+  results: Array<{
+    itemId: string;
+    sets: Array<{
+      setNumber: number;
+      repetitions?: number;
+      durationSeconds?: number;
+      load?: number;
+      loadUnit?: TrainingPrescriptionItem['loadUnit'];
+      rpe?: number;
+      notes?: string;
+    }>;
+    notes?: string;
+  }>;
+  perceivedExertion?: number;
+  feedback?: string;
+  performedAt: string;
+  createdAt: string;
+}
+
+export type ProfessionalAppointmentType =
+  | 'nutrition_consultation'
+  | 'nutrition_assessment'
+  | 'fitness_session'
+  | 'fitness_assessment';
+
+export interface ProfessionalAvailabilityRule {
+  id: string;
+  appointmentType: ProfessionalAppointmentType;
+  weekday: number;
+  startTime: string;
+  endTime: string;
+  timeZone: string;
+  durationMinutes: number;
+  slotIntervalMinutes: number;
+  bufferBeforeMinutes: number;
+  bufferAfterMinutes: number;
+  minimumNoticeMinutes: number;
+  maximumBookingDays: number;
+  requestHoldMinutes: number;
+  effectiveFrom: string;
+  effectiveUntil?: string;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProfessionalScheduleBlockout {
+  id: string;
+  recurrence: 'single' | 'weekly';
+  startsAt?: string;
+  endsAt?: string;
+  weekday?: number;
+  startTime?: string;
+  endTime?: string;
+  timeZone: string;
+  effectiveFrom?: string;
+  effectiveUntil?: string;
+  reasonCategory: 'vacation' | 'holiday' | 'conference' | 'personal' | 'other';
+  privateReason?: string;
+  status: 'active' | 'cancelled';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProfessionalBookableSlot {
+  ruleId: string;
+  appointmentType: ProfessionalAppointmentType;
+  startsAt: string;
+  endsAt: string;
+  timeZone: string;
+  durationMinutes: number;
+}
+
+export interface ProfessionalScheduleImpact {
+  appointmentId: string;
+  status: 'requested' | 'confirmed';
+  startsAt: string;
+  endsAt: string;
+  allowedActions: Array<'keep' | 'decline' | 'cancel' | 'reschedule'>;
+}
+
+export type ProfessionalAppointmentStatus =
+  | 'requested'
+  | 'confirmed'
+  | 'declined'
+  | 'reschedule_proposed'
+  | 'cancelled_by_student'
+  | 'cancelled_by_professional'
+  | 'completed'
+  | 'no_show'
+  | 'expired';
+
+export interface ProfessionalAppointmentEvent {
+  id: string;
+  eventType: string;
+  fromStatus?: ProfessionalAppointmentStatus;
+  toStatus?: ProfessionalAppointmentStatus;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface ProfessionalAppointment {
+  id: string;
+  professionalId: string;
+  studentId: string;
+  appointmentType: ProfessionalAppointmentType;
+  startsAt: string;
+  endsAt: string;
+  timeZone: string;
+  durationMinutes: number;
+  status: ProfessionalAppointmentStatus;
+  holdExpiresAt?: string;
+  proposedSlots?: string[];
+  neutralTitle: string;
+  origin: 'student_request' | 'professional_reschedule';
+  events: ProfessionalAppointmentEvent[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProfessionalNotification {
+  id: string;
+  appointmentId?: string;
+  notificationType: string;
+  title: string;
+  body: string;
+  readAt?: string;
+  createdAt: string;
+}
+
 export interface DailyLog {
   date: string;
   meals: Meal[];
   workouts: Workout[];
   weight?: number;
+  waterMl?: number;
   totalMacros: Macros;
   notes?: string;
 }

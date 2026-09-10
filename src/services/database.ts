@@ -1,4 +1,25 @@
-import { DailyLog, Food, MealPlan, UserProfile } from '../types';
+import {
+  DailyLog,
+  Food,
+  MealPlan,
+  ProfessionalExercise,
+  ProfessionalAppointmentType,
+  ProfessionalAppointment,
+  ProfessionalAvailabilityRule,
+  ProfessionalBookableSlot,
+  ProfessionalNutritionPlan,
+  ProfessionalScheduleBlockout,
+  ProfessionalScheduleImpact,
+  ProfessionalNotification,
+  ProfessionalConsentScope,
+  ProfessionalInvitationPreview,
+  ProfessionalLink,
+  ProfessionalProfile,
+  ProfessionalTrainingExecution,
+  ProfessionalTrainingPlan,
+  TrainingPrescriptionSession,
+  UserProfile,
+} from '../types';
 import type { BodyMeasurement } from './measurementTypes';
 import { clearSession, getAccessToken } from './session';
 
@@ -174,6 +195,439 @@ export async function activateMealPlan(userId: string, planId: string): Promise<
   const response = await apiFetch('/users/meal-plans', {
     method: 'PUT',
     body: JSON.stringify({ userId, planId }),
+  });
+  await expectOk(response);
+}
+
+export async function getProfessionalNutritionPlans(): Promise<ProfessionalNutritionPlan[]> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=nutrition-plans');
+  await expectOk(response);
+  return await response.json() as ProfessionalNutritionPlan[];
+}
+
+export async function getProfessionalProfile(): Promise<ProfessionalProfile | null> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=profile');
+  if (response.status === 404) return null;
+  await expectOk(response);
+  return await response.json() as ProfessionalProfile;
+}
+
+export async function submitProfessionalProfile(input: {
+  displayName: string;
+  bio?: string;
+  credentials: Array<{
+    professionalRole: 'nutritionist' | 'fitness_professional';
+    registrationType: 'CRN' | 'CREF';
+    registrationNumber: string;
+    registrationRegion: string;
+  }>;
+}): Promise<{ id: string; status: 'pending' }> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=profile', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+  await expectOk(response);
+  return await response.json() as { id: string; status: 'pending' };
+}
+
+export async function getProfessionalLinks(): Promise<ProfessionalLink[]> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=links');
+  await expectOk(response);
+  return await response.json() as ProfessionalLink[];
+}
+
+export async function getProfessionalInvitation(token: string): Promise<ProfessionalInvitationPreview> {
+  // POST keeps the invitation token out of URL access logs.
+  const response = await apiFetch(
+    '/users/get?resource=professionals&operation=links',
+    {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    },
+  );
+  await expectOk(response);
+  return await response.json() as ProfessionalInvitationPreview;
+}
+
+export async function createProfessionalInvitation(input: {
+  purpose: string;
+  scopes: ProfessionalConsentScope[];
+  professionalRoles: Array<'nutritionist' | 'fitness_professional'>;
+  consentVersion: string;
+  expiresInHours?: number;
+  durationDays?: number;
+}): Promise<{ id: string; token: string; invitationUrl: string; qrPayload: string; expiresAt: string }> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=links', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+  await expectOk(response);
+  return await response.json() as {
+    id: string;
+    token: string;
+    invitationUrl: string;
+    qrPayload: string;
+    expiresAt: string;
+  };
+}
+
+export async function decideProfessionalInvitation(
+  token: string,
+  decision: 'accept' | 'decline',
+  scopes?: ProfessionalConsentScope[],
+): Promise<void> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=links', {
+    method: 'PUT',
+    body: JSON.stringify({ token, decision, ...(scopes ? { scopes } : {}) }),
+  });
+  await expectOk(response);
+}
+
+export async function updateProfessionalConsent(
+  linkId: string,
+  decision: 'limit' | 'revoke',
+  scopes?: ProfessionalConsentScope[],
+): Promise<void> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=links', {
+    method: 'PUT',
+    body: JSON.stringify({ linkId, decision, ...(scopes ? { scopes } : {}) }),
+  });
+  await expectOk(response);
+}
+
+export async function getConsentedStudentData(
+  studentId: string,
+  scope: ProfessionalConsentScope,
+): Promise<unknown[]> {
+  const query = new URLSearchParams({ studentId, scope });
+  const response = await apiFetch(
+    `/users/get?resource=professionals&operation=shared-data&${query.toString()}`,
+  );
+  await expectOk(response);
+  const payload = await response.json() as { data: unknown[] };
+  return payload.data;
+}
+
+export async function getAdministrativeIdentifiers(): Promise<Array<{
+  identifierType: 'cpf'; maskedValue: string; purpose: string; authorizedAt: string;
+}>> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=identifier');
+  await expectOk(response);
+  return await response.json();
+}
+
+export async function updateAdministrativeCpf(value: string, purpose: string): Promise<{ maskedValue: string }> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=identifier', {
+    method: 'PUT',
+    body: JSON.stringify({ identifierType: 'cpf', value, purpose, confirmed: true }),
+  });
+  await expectOk(response);
+  return await response.json();
+}
+
+export async function removeAdministrativeCpf(): Promise<void> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=identifier', { method: 'DELETE' });
+  await expectOk(response);
+}
+
+export async function searchAdministrativeCpf(value: string): Promise<{
+  studentId: string; displayName: string; maskedValue: string;
+} | null> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=identifier-search', {
+    method: 'POST',
+    body: JSON.stringify({
+      identifierType: 'cpf',
+      value,
+      purpose: 'Conferencia administrativa da carteira profissional',
+    }),
+  });
+  await expectOk(response);
+  const payload = await response.json() as { match: { studentId: string; displayName: string; maskedValue: string } | null };
+  return payload.match;
+}
+
+export async function createProfessionalNutritionPlan(input: {
+  studentId: string;
+  title: string;
+  objective?: string;
+  meals: MealPlan['meals'];
+  totalMacros: MealPlan['totalMacros'];
+  changeSummary?: string;
+}): Promise<{ id: string; version: number; status: 'draft' }> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=nutrition-plans', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+  await expectOk(response);
+  return await response.json() as { id: string; version: number; status: 'draft' };
+}
+
+export async function updateProfessionalNutritionPlan(input: {
+  planId: string;
+  action: 'update' | 'publish' | 'archive';
+  title?: string;
+  objective?: string;
+  meals?: MealPlan['meals'];
+  totalMacros?: MealPlan['totalMacros'];
+  changeSummary?: string;
+}): Promise<{ id: string; version?: number; status: ProfessionalNutritionPlan['status'] }> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=nutrition-plans', {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  });
+  await expectOk(response);
+  return await response.json() as { id: string; version?: number; status: ProfessionalNutritionPlan['status'] };
+}
+
+export async function getProfessionalExercises(): Promise<ProfessionalExercise[]> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=exercises');
+  await expectOk(response);
+  return await response.json() as ProfessionalExercise[];
+}
+
+export async function createProfessionalExercise(
+  input: Omit<ProfessionalExercise, 'id' | 'visibility' | 'createdAt' | 'updatedAt'>,
+): Promise<{ id: string; visibility: 'private' }> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=exercises', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+  await expectOk(response);
+  return await response.json() as { id: string; visibility: 'private' };
+}
+
+export async function updateProfessionalExercise(
+  input: Omit<ProfessionalExercise, 'id' | 'visibility' | 'createdAt' | 'updatedAt'> & { exerciseId: string },
+): Promise<{ id: string; visibility: 'private' }> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=exercises', {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  });
+  await expectOk(response);
+  return await response.json() as { id: string; visibility: 'private' };
+}
+
+export async function getProfessionalTrainingPlans(): Promise<ProfessionalTrainingPlan[]> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=training-plans');
+  await expectOk(response);
+  return await response.json() as ProfessionalTrainingPlan[];
+}
+
+export async function createProfessionalTrainingPlan(input: {
+  studentId: string;
+  title: string;
+  objective?: string;
+  startsOn?: string;
+  endsOn?: string;
+  sessions: TrainingPrescriptionSession[];
+  changeSummary?: string;
+}): Promise<{ id: string; version: number; status: 'draft' }> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=training-plans', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+  await expectOk(response);
+  return await response.json() as { id: string; version: number; status: 'draft' };
+}
+
+export async function updateProfessionalTrainingPlan(input: {
+  planId: string;
+  action: 'update' | 'publish' | 'archive';
+  title?: string;
+  objective?: string;
+  startsOn?: string;
+  endsOn?: string;
+  sessions?: TrainingPrescriptionSession[];
+  changeSummary?: string;
+}): Promise<{ id: string; version?: number; status: ProfessionalTrainingPlan['status'] }> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=training-plans', {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  });
+  await expectOk(response);
+  return await response.json() as { id: string; version?: number; status: ProfessionalTrainingPlan['status'] };
+}
+
+export async function getProfessionalTrainingExecutions(): Promise<ProfessionalTrainingExecution[]> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=training-executions');
+  await expectOk(response);
+  return await response.json() as ProfessionalTrainingExecution[];
+}
+
+export async function recordProfessionalTrainingExecution(input: {
+  planId: string;
+  version: number;
+  sessionId: string;
+  workoutId?: string;
+  status?: ProfessionalTrainingExecution['status'];
+  results: ProfessionalTrainingExecution['results'];
+  perceivedExertion?: number;
+  feedback?: string;
+  performedAt: string;
+}): Promise<{ id: string; status: ProfessionalTrainingExecution['status'] }> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=training-executions', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+  await expectOk(response);
+  return await response.json() as { id: string; status: ProfessionalTrainingExecution['status'] };
+}
+
+type AvailabilityRuleInput = Omit<
+  ProfessionalAvailabilityRule,
+  'id' | 'active' | 'createdAt' | 'updatedAt'
+>;
+
+type ScheduleBlockoutInput = Omit<
+  ProfessionalScheduleBlockout,
+  'id' | 'status' | 'createdAt' | 'updatedAt'
+>;
+
+export interface ScheduleImpactDecision {
+  appointmentId: string;
+  action: 'keep' | 'decline' | 'cancel' | 'reschedule';
+  proposedSlots?: string[];
+}
+
+export async function getProfessionalAvailability(): Promise<{
+  rules: ProfessionalAvailabilityRule[];
+  blockouts: ProfessionalScheduleBlockout[];
+}> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=availability');
+  await expectOk(response);
+  return await response.json() as {
+    rules: ProfessionalAvailabilityRule[];
+    blockouts: ProfessionalScheduleBlockout[];
+  };
+}
+
+export async function getProfessionalBookableSlots(input: {
+  professionalId: string;
+  appointmentType: ProfessionalAppointmentType;
+  from: string;
+  to: string;
+}): Promise<ProfessionalBookableSlot[]> {
+  const query = new URLSearchParams({ mode: 'slots', ...input });
+  const response = await apiFetch(
+    `/users/get?resource=professionals&operation=availability&${query.toString()}`,
+  );
+  await expectOk(response);
+  return await response.json() as ProfessionalBookableSlot[];
+}
+
+export async function createProfessionalAvailabilityRule(
+  rule: AvailabilityRuleInput,
+): Promise<{ id: string; active: true }> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=availability', {
+    method: 'POST',
+    body: JSON.stringify({ resource: 'rule', rule }),
+  });
+  await expectOk(response);
+  return await response.json() as { id: string; active: true };
+}
+
+export async function updateProfessionalAvailabilityRule(input: {
+  ruleId: string;
+  action: 'update' | 'deactivate' | 'reactivate';
+  rule?: AvailabilityRuleInput;
+}): Promise<void> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=availability', {
+    method: 'PUT',
+    body: JSON.stringify({ resource: 'rule', ...input }),
+  });
+  await expectOk(response);
+}
+
+export async function previewProfessionalBlockout(
+  blockout: ScheduleBlockoutInput,
+): Promise<ProfessionalScheduleImpact[]> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=availability', {
+    method: 'POST',
+    body: JSON.stringify({ resource: 'blockout', blockout, preview: true }),
+  });
+  await expectOk(response);
+  const result = await response.json() as { impacts: ProfessionalScheduleImpact[] };
+  return result.impacts;
+}
+
+export async function createProfessionalBlockout(input: {
+  blockout: ScheduleBlockoutInput;
+  impactDecisions?: ScheduleImpactDecision[];
+}): Promise<{ id: string; status: 'active'; impactedAppointments: number }> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=availability', {
+    method: 'POST',
+    body: JSON.stringify({ resource: 'blockout', ...input }),
+  });
+  await expectOk(response);
+  return await response.json() as { id: string; status: 'active'; impactedAppointments: number };
+}
+
+export async function updateProfessionalBlockout(input: {
+  blockoutId: string;
+  action: 'update' | 'cancel' | 'cancel_future';
+  blockout?: ScheduleBlockoutInput;
+  effectiveUntil?: string;
+  preview?: boolean;
+  impactDecisions?: ScheduleImpactDecision[];
+}): Promise<{ impacts?: ProfessionalScheduleImpact[] }> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=availability', {
+    method: 'PUT',
+    body: JSON.stringify({ resource: 'blockout', ...input }),
+  });
+  await expectOk(response);
+  return await response.json() as { impacts?: ProfessionalScheduleImpact[] };
+}
+
+export async function getProfessionalAppointments(): Promise<ProfessionalAppointment[]> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=appointments');
+  await expectOk(response);
+  return await response.json() as ProfessionalAppointment[];
+}
+
+export async function requestProfessionalAppointment(input: {
+  professionalId: string;
+  appointmentType: ProfessionalAppointmentType;
+  startsAt: string;
+  timeZone: string;
+}): Promise<Pick<ProfessionalAppointment, 'id' | 'status' | 'startsAt' | 'endsAt' | 'holdExpiresAt'>> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=appointments', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+  await expectOk(response);
+  return await response.json() as Pick<
+    ProfessionalAppointment,
+    'id' | 'status' | 'startsAt' | 'endsAt' | 'holdExpiresAt'
+  >;
+}
+
+export async function updateProfessionalAppointment(input: {
+  appointmentId: string;
+  action: 'confirm' | 'decline' | 'propose_reschedule' | 'accept_reschedule'
+    | 'decline_reschedule' | 'cancel' | 'complete' | 'no_show';
+  message?: string;
+  proposedSlots?: string[];
+  acceptedStartsAt?: string;
+  timeZone?: string;
+}): Promise<Pick<ProfessionalAppointment, 'id' | 'status'>> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=appointments', {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  });
+  await expectOk(response);
+  return await response.json() as Pick<ProfessionalAppointment, 'id' | 'status'>;
+}
+
+export async function getProfessionalNotifications(): Promise<ProfessionalNotification[]> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=notifications');
+  await expectOk(response);
+  return await response.json() as ProfessionalNotification[];
+}
+
+export async function markProfessionalNotificationRead(notificationId: string): Promise<void> {
+  const response = await apiFetch('/users/get?resource=professionals&operation=notifications', {
+    method: 'PUT',
+    body: JSON.stringify({ notificationId, action: 'read' }),
   });
   await expectOk(response);
 }

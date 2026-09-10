@@ -4,6 +4,7 @@ import { applyCors } from '../middleware/cors';
 import { getSql } from '../middleware/db';
 import { rateLimit } from '../middleware/rateLimit';
 import { buildExportPayload, parseMealsJson } from '../services/exportData';
+import { maskCpf } from '../security/cpf';
 
 function parseMuscleGroups(value: unknown): string[] | undefined {
   if (typeof value !== 'string' || !value) return undefined;
@@ -36,13 +37,40 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   await exportRateLimit(req, res, async () => {
     try {
       const userId = identity.userId;
-      const [users, logRows, mealRows, foodRows, workoutRows, weightRows, measurementRows, customFoodRows, planRows] = await Promise.all([
+      const [
+        users,
+        logRows,
+        mealRows,
+        foodRows,
+        workoutRows,
+        weightRows,
+        measurementRows,
+        customFoodRows,
+        planRows,
+        professionalNutritionRows,
+        professionalExerciseRows,
+        professionalTrainingRows,
+        professionalExecutionRows,
+        availabilityRuleRows,
+        scheduleBlockoutRows,
+        appointmentRows,
+        appointmentEventRows,
+        notificationRows,
+        roleRows,
+        credentialRows,
+        professionalLinkRows,
+        invitationRows,
+        consentRows,
+        auditRows,
+        administrativeIdentifierRows,
+      ] = await Promise.all([
         sql`
           SELECT id, name, email, created_at, updated_at, last_login,
-                 age, weight, height, gender, activity_level, goal, sport, photo_uri
+                 role, age, weight, height, gender, activity_level, goal, sport, photo_uri,
+                 target_weight_kg, hydration_goal_ml
           FROM users WHERE id = ${userId}
         `,
-        sql`SELECT id, date, weight, notes FROM daily_logs WHERE user_id = ${userId} ORDER BY date ASC`,
+        sql`SELECT id, date, weight, water_ml, notes FROM daily_logs WHERE user_id = ${userId} ORDER BY date ASC`,
         sql`SELECT * FROM meals WHERE user_id = ${userId} ORDER BY daily_log_id, id`,
         sql`
           SELECT mf.* FROM meal_foods mf
@@ -60,6 +88,92 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         sql`SELECT * FROM body_measurements WHERE user_id = ${userId} ORDER BY date ASC`,
         sql`SELECT * FROM custom_foods WHERE user_id = ${userId} ORDER BY name ASC`,
         sql`SELECT * FROM meal_plans WHERE user_id = ${userId} ORDER BY created_at DESC`,
+        sql`
+          SELECT p.*, v.version, v.meals_json, v.change_summary, v.status AS version_status,
+                 v.created_at AS version_created_at, v.published_at AS version_published_at
+          FROM professional_nutrition_plans p
+          JOIN professional_nutrition_plan_versions v ON v.plan_id = p.id
+          WHERE p.professional_id = ${userId} OR p.student_id = ${userId}
+          ORDER BY p.created_at, v.version
+        `,
+        sql`
+          SELECT * FROM professional_exercises
+          WHERE owner_professional_id = ${userId}
+          ORDER BY created_at
+        `,
+        sql`
+          SELECT p.*, v.id AS version_id, v.version, v.sessions_json, v.change_summary,
+                 v.status AS version_status, v.created_at AS version_created_at,
+                 v.published_at AS version_published_at
+          FROM professional_training_plans p
+          JOIN professional_training_plan_versions v ON v.plan_id = p.id
+          WHERE p.professional_id = ${userId} OR p.student_id = ${userId}
+          ORDER BY p.created_at, v.version
+        `,
+        sql`
+          SELECT e.*, p.id AS plan_id, p.professional_id, v.version
+          FROM professional_training_executions e
+          JOIN professional_training_plan_versions v ON v.id = e.plan_version_id
+          JOIN professional_training_plans p ON p.id = v.plan_id
+          WHERE e.student_id = ${userId} OR p.professional_id = ${userId}
+          ORDER BY e.performed_at
+        `,
+        sql`
+          SELECT * FROM professional_availability_rules
+          WHERE professional_id = ${userId}
+          ORDER BY created_at
+        `,
+        sql`
+          SELECT * FROM professional_schedule_blockouts
+          WHERE professional_id = ${userId}
+          ORDER BY created_at
+        `,
+        sql`
+          SELECT * FROM professional_appointments
+          WHERE professional_id = ${userId} OR student_id = ${userId}
+          ORDER BY starts_at
+        `,
+        sql`
+          SELECT e.* FROM professional_appointment_events e
+          JOIN professional_appointments a ON a.id = e.appointment_id
+          WHERE a.professional_id = ${userId} OR a.student_id = ${userId}
+          ORDER BY e.created_at
+        `,
+        sql`
+          SELECT * FROM professional_notifications
+          WHERE recipient_user_id = ${userId} OR actor_user_id = ${userId}
+          ORDER BY created_at
+        `,
+        sql`SELECT * FROM user_roles WHERE user_id = ${userId} ORDER BY created_at`,
+        sql`SELECT * FROM professional_credentials WHERE user_id = ${userId} ORDER BY created_at`,
+        sql`
+          SELECT * FROM professional_student_links
+          WHERE professional_id = ${userId} OR student_id = ${userId}
+          ORDER BY created_at
+        `,
+        sql`
+          SELECT id, professional_id, professional_roles_json, purpose, scopes_json,
+                 consent_version, duration_days, status, expires_at, accepted_by, used_at, created_at
+          FROM professional_link_invitations
+          WHERE professional_id = ${userId} OR accepted_by = ${userId}
+          ORDER BY created_at
+        `,
+        sql`
+          SELECT c.* FROM consent_records c
+          JOIN professional_student_links l ON l.id = c.link_id
+          WHERE c.subject_user_id = ${userId} OR l.professional_id = ${userId}
+          ORDER BY c.created_at
+        `,
+        sql`
+          SELECT * FROM audit_logs
+          WHERE actor_user_id = ${userId} OR subject_user_id = ${userId}
+          ORDER BY created_at
+        `,
+        sql`
+          SELECT identifier_type, last_four, purpose, authorized_at, created_at, updated_at
+          FROM administrative_identifiers WHERE user_id = ${userId}
+          ORDER BY created_at
+        `,
       ]);
 
       if (users.length === 0) return res.status(404).json({ error: 'User not found' });
@@ -122,6 +236,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return {
           date: log.date,
           weight: log.weight || undefined,
+          waterMl: log.water_ml || undefined,
           notes: log.notes || undefined,
           meals,
           workouts: workoutsByLog.get(log.id) || [],
@@ -145,6 +260,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         },
         profile: {
           age: row.age || 0,
+          role: row.role || 'student',
           weight: row.weight || 0,
           height: row.height || 0,
           gender: row.gender || 'male',
@@ -152,6 +268,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           goal: row.goal || 'maintenance',
           sport: row.sport || 'bodybuilding',
           photoUri: row.photo_uri || undefined,
+          targetWeightKg: row.target_weight_kg || undefined,
+          hydrationGoalMl: row.hydration_goal_ml || undefined,
+          roles: roleRows as any[],
+          professionalCredentials: credentialRows as any[],
         },
         dailyLogs,
         weightHistory: weightRows as any[],
@@ -161,6 +281,47 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           ...plan,
           meals: parseMealsJson(plan.meals_json),
           meals_json: undefined,
+        })),
+        professionalNutritionPlans: (professionalNutritionRows as any[]).map(plan => ({
+          ...plan,
+          meals: parseMealsJson(plan.meals_json),
+          meals_json: undefined,
+        })),
+        professionalExercises: professionalExerciseRows as any[],
+        professionalTrainingPlans: (professionalTrainingRows as any[]).map(plan => ({
+          ...plan,
+          sessions: parseMealsJson(plan.sessions_json),
+          sessions_json: undefined,
+        })),
+        professionalTrainingExecutions: (professionalExecutionRows as any[]).map(execution => ({
+          ...execution,
+          results: parseMealsJson(execution.results_json),
+          results_json: undefined,
+        })),
+        professionalAvailabilityRules: availabilityRuleRows as any[],
+        professionalScheduleBlockouts: scheduleBlockoutRows as any[],
+        professionalAppointments: (appointmentRows as any[]).map(appointment => ({
+          ...appointment,
+          proposedSlots: parseMealsJson(appointment.proposed_slots_json),
+          proposed_slots_json: undefined,
+        })),
+        professionalAppointmentEvents: (appointmentEventRows as any[]).map(event => ({
+          ...event,
+          metadata: event.metadata_json ? JSON.parse(event.metadata_json) : undefined,
+          metadata_json: undefined,
+        })),
+        professionalNotifications: notificationRows as any[],
+        professionalLinks: professionalLinkRows as any[],
+        professionalLinkInvitations: invitationRows as any[],
+        consentHistory: consentRows as any[],
+        auditHistory: auditRows as any[],
+        administrativeIdentifiers: (administrativeIdentifierRows as Record<string, any>[]).map(identifier => ({
+          identifierType: identifier.identifier_type,
+          maskedValue: maskCpf(identifier.last_four),
+          purpose: identifier.purpose,
+          authorizedAt: identifier.authorized_at,
+          createdAt: identifier.created_at,
+          updatedAt: identifier.updated_at,
         })),
       }));
     } catch (error) {

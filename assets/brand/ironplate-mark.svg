@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-label="IronPlate">
+  <rect width="1024" height="1024" fill="#1A1A2E"/>
+  <circle cx="512" cy="512" r="340" fill="#FF6B35"/>
+  <circle cx="512" cy="512" r="280" fill="#16213E"/>
+  <circle cx="512" cy="512" r="268" fill="none" stroke="#E55A2B" stroke-width="8"/>
+  <circle cx="512" cy="202" r="36" fill="#1A1A2E"/>
+  <circle cx="512" cy="822" r="36" fill="#1A1A2E"/>
+  <circle cx="202" cy="512" r="36" fill="#1A1A2E"/>
+  <circle cx="822" cy="512" r="36" fill="#1A1A2E"/>
+  <circle cx="512" cy="512" r="92" fill="#1A1A2E"/>
+  <circle cx="512" cy="512" r="92" fill="none" stroke="#FF6B35" stroke-width="16"/>
+  <rect x="488" y="360" width="48" height="304" rx="12" fill="#FF6B35"/>
+  <rect x="430" y="360" width="164" height="36" rx="10" fill="#B2BEC3"/>
+  <rect x="430" y="628" width="164" height="36" rx="10" fill="#B2BEC3"/>
+</svg>

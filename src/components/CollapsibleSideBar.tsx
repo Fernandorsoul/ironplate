@@ -10,6 +10,7 @@ const ITEMS = {
   MealPlan: { label: 'Cardápio', icon: 'restaurant-outline' },
   Weight: { label: 'Peso', icon: 'scale-outline' },
   Workout: { label: 'Treino', icon: 'barbell-outline' },
+  Professional: { label: 'Profissional', icon: 'briefcase-outline' },
 } as const;
 
 type ResponsiveTabBarProps = BottomTabBarProps & { compact?: boolean };

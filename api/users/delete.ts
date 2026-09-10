@@ -58,9 +58,58 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     await sql`DELETE FROM meal_plans WHERE user_id = ${id}`;
 
     // 6. Deletar logs diários
+    await sql`
+      DELETE FROM professional_training_executions
+      WHERE student_id = ${id}
+         OR plan_version_id IN (
+           SELECT v.id
+           FROM professional_training_plan_versions v
+           JOIN professional_training_plans p ON p.id = v.plan_id
+           WHERE p.professional_id = ${id}
+         )
+    `;
+    await sql`
+      DELETE FROM professional_notifications
+      WHERE recipient_user_id = ${id} OR actor_user_id = ${id}
+         OR appointment_id IN (
+           SELECT id FROM professional_appointments
+           WHERE professional_id = ${id} OR student_id = ${id}
+         )
+    `;
+    await sql`
+      DELETE FROM professional_appointment_events
+      WHERE appointment_id IN (
+        SELECT id FROM professional_appointments
+        WHERE professional_id = ${id} OR student_id = ${id}
+      )
+    `;
+    await sql`DELETE FROM professional_appointments WHERE professional_id = ${id} OR student_id = ${id}`;
+    await sql`DELETE FROM professional_schedule_blockouts WHERE professional_id = ${id}`;
+    await sql`DELETE FROM professional_availability_rules WHERE professional_id = ${id}`;
+    await sql`DELETE FROM professional_training_plans WHERE professional_id = ${id} OR student_id = ${id}`;
+    await sql`DELETE FROM professional_nutrition_plans WHERE professional_id = ${id} OR student_id = ${id}`;
+    await sql`DELETE FROM professional_exercises WHERE owner_professional_id = ${id}`;
+
+    // Explicit cleanup for tables that also cascade, so account deletion does not
+    // depend solely on FK order (requested_by/created_by previously blocked it).
+    await sql`DELETE FROM professional_student_links WHERE professional_id = ${id} OR student_id = ${id} OR requested_by = ${id}`;
+    await sql`DELETE FROM professional_credentials WHERE user_id = ${id}`;
+    await sql`DELETE FROM user_roles WHERE user_id = ${id}`;
+    await sql`DELETE FROM password_reset_tokens WHERE user_id = ${id}`;
+    await sql`DELETE FROM administrative_identifiers WHERE user_id = ${id}`;
+
+    // Scrub audit rows that reference this account so metadata cannot re-identify
+    // the deleted user (LGPD Art. 18). Action strings are kept for security ops.
+    await sql`
+      UPDATE audit_logs
+      SET metadata_json = NULL, actor_user_id = NULL, subject_user_id = NULL
+      WHERE actor_user_id = ${id} OR subject_user_id = ${id}
+    `;
+
+    // 7. Deletar logs diários
     await sql`DELETE FROM daily_logs WHERE user_id = ${id}`;
 
-    // 7. Deletar o usuário
+    // 8. Deletar o usuário
     await sql`DELETE FROM users WHERE id = ${id}`;
 
     return res.status(200).json({

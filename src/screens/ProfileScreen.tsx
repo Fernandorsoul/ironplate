@@ -4,6 +4,7 @@ import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../constants/theme';
 import { useApp } from '../context/AppContext';
 import { exportUserData } from '../services/database';
 import { ProfileAvatar } from '../components';
+import { getGoalLabel } from '../constants/goals';
 
 function buildExportFileName(date: Date): string {
   return `ironplate-export-${date.toISOString().slice(0, 10)}.json`;
@@ -110,7 +111,7 @@ export default function ProfileScreen({ navigation }: any) {
             />
             <Text style={styles.profileName}>{profile.name}</Text>
             <Text style={styles.profileSport}>{profile.sport}</Text>
-            <Text style={styles.profileGoal}>{profile.goal}</Text>
+            <Text style={styles.profileGoal}>{getGoalLabel(profile.goal)}</Text>
             <TouchableOpacity style={styles.editProfileButton} onPress={() => navigation.navigate('EditProfile')}>
               <Text style={styles.editProfileText}>Editar perfil e foto</Text>
             </TouchableOpacity>
@@ -118,6 +119,10 @@ export default function ProfileScreen({ navigation }: any) {
 
           <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('BodyMeasurements')}>
             <Text style={styles.menuText}>Medidas Corporais</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('ProfessionalConsent')}>
+            <Text style={styles.menuText}>Profissionais e consentimentos</Text>
           </TouchableOpacity>
 
           <View style={styles.cardsContainer}>

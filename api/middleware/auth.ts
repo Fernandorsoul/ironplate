@@ -4,6 +4,7 @@ import {
   type SessionIdentity,
   verifyAccessToken,
 } from '../security/session';
+import { getSql } from './db';
 
 export type AuthenticatedRequest = VercelRequest & { auth?: SessionIdentity };
 
@@ -30,6 +31,20 @@ export async function requireAuth(
       res.status(401).json({ error: 'Invalid or expired access token' });
       return null;
     }
+
+    // Reject tokens whose session_version no longer matches (password reset revokes).
+    const sql = getSql();
+    if (sql) {
+      const rows = await sql`
+        SELECT session_version FROM users WHERE id = ${identity.userId}
+      `;
+      const current = rows[0]?.session_version;
+      if (typeof current !== 'number' || current !== identity.sessionVersion) {
+        res.status(401).json({ error: 'Invalid or expired access token' });
+        return null;
+      }
+    }
+
     req.auth = identity;
     return identity;
   } catch (error) {
@@ -50,6 +65,29 @@ export async function requireUserAccess(
   if (!identity) return null;
   if (identity.userId !== requestedUserId) {
     res.status(403).json({ error: 'Access denied' });
+    return null;
+  }
+  return identity;
+}
+
+export async function requireRole(
+  req: AuthenticatedRequest,
+  res: VercelResponse,
+  sql: any,
+  roles: readonly string[],
+): Promise<SessionIdentity | null> {
+  const identity = req.auth || await requireAuth(req, res);
+  if (!identity) return null;
+  const rows = await sql`
+    SELECT role FROM user_roles
+    WHERE user_id = ${identity.userId} AND role = ANY(${roles}) AND status = 'active'
+    UNION ALL
+    SELECT 'admin_verifier' AS role FROM users
+    WHERE id = ${identity.userId} AND role = 'admin' AND 'admin_verifier' = ANY(${roles})
+    LIMIT 1
+  `;
+  if (rows.length === 0) {
+    res.status(403).json({ error: 'Insufficient role' });
     return null;
   }
   return identity;
