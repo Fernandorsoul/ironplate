@@ -7,6 +7,7 @@ Alterações funcionais relevantes do IronPlate. A data representa a integraçã
 ### Adicionado
 
 - Seção de novidades da home pública alimentada automaticamente pelas GitHub Releases publicadas.
+- Home pública exibe apenas as 4 atualizações de release mais recentes.
 - Script `scripts/sync-release-news.mjs` (`npm run sync:release-news`) que gera `src/constants/releaseNewsGenerated.ts` a partir da API do GitHub.
 - Workflow de deploy e builds EAS rodam a sincronização antes de compilar, para que cada release sempre apareça em Novidades.
 - Configurações de build Android para ampla compatibilidade (minSdk 24, New Architecture desabilitada, permissões BLE por versão do sistema).
