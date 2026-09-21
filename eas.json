@@ -5,6 +5,10 @@
   "build": {
     "production": {
       "environment": "production",
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://ironplate-phi.vercel.app",
+        "EXPO_PUBLIC_APP_URL": "https://ironplate-phi.vercel.app"
+      },
       "android": {
         "buildType": "app-bundle",
         "distribution": "store"
@@ -15,6 +19,10 @@
     },
     "preview": {
       "environment": "preview",
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://ironplate-phi.vercel.app",
+        "EXPO_PUBLIC_APP_URL": "https://ironplate-phi.vercel.app"
+      },
       "android": {
         "buildType": "apk"
       },
@@ -24,6 +32,10 @@
     },
     "development": {
       "environment": "development",
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://ironplate-phi.vercel.app",
+        "EXPO_PUBLIC_APP_URL": "https://ironplate-phi.vercel.app"
+      },
       "developmentClient": true,
       "distribution": "internal"
     }

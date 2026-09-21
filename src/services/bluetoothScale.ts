@@ -524,21 +524,43 @@ function mergeReadouts(a: ScaleReadout, b: Partial<ScaleReadout>): ScaleReadout 
 async function requestBluetoothPermission(): Promise<boolean> {
   if (Platform.OS === 'web') throw new Error('Bluetooth de balança não disponível no navegador.');
 
-  if (Platform.OS === 'android' && Number(Platform.Version) < 31) {
-    return (await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION))
-      === PermissionsAndroid.RESULTS.GRANTED;
-  }
-
   if (Platform.OS === 'android') {
-    const result = await PermissionsAndroid.requestMultiple([
-      PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
-      PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
-      PermissionsAndroid.PERMISSIONS.BLUETOOTH_ADVERTISE,
-    ]);
-    return (
-      result[PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN] === PermissionsAndroid.RESULTS.GRANTED &&
-      result[PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT] === PermissionsAndroid.RESULTS.GRANTED
-    );
+    const androidVersion = Number(Platform.Version);
+    
+    // Android 12+ (API 31+): Request BLUETOOTH_SCAN and BLUETOOTH_CONNECT
+    if (androidVersion >= 31) {
+      try {
+        const result = await PermissionsAndroid.requestMultiple([
+          PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
+          PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
+        ]);
+        return (
+          result[PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN] === PermissionsAndroid.RESULTS.GRANTED &&
+          result[PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT] === PermissionsAndroid.RESULTS.GRANTED
+        );
+      } catch (error) {
+        console.warn('[BLE] Permission request failed on Android 12+:', error);
+        return false;
+      }
+    }
+    
+    // Android 6-11 (API 23-30): Request ACCESS_FINE_LOCATION
+    // Location permission is required for BLE scanning on older Android versions
+    try {
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+        {
+          title: 'Permissão de Localização',
+          message: 'O acesso à localização é necessário para encontrar balanças Bluetooth próximas.',
+          buttonPositive: 'Permitir',
+          buttonNegative: 'Cancelar',
+        }
+      );
+      return granted === PermissionsAndroid.RESULTS.GRANTED;
+    } catch (error) {
+      console.warn('[BLE] Location permission request failed:', error);
+      return false;
+    }
   }
 
   // iOS — permission is granted implicitly on iOS 13+ when using CoreBluetooth
@@ -576,7 +598,15 @@ export async function connectToWeightScale(
 
   onStatus('Inicializando scanner Bluetooth…');
 
-  manager = new BleManager();
+  try {
+    manager = new BleManager();
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+    if (errorMessage.includes('BLE') || errorMessage.includes('bluetooth') || errorMessage.includes('Bluetooth')) {
+      throw new Error('Seu dispositivo não suporta Bluetooth Low Energy (BLE). Verifique se o Bluetooth está ativado nas configurações.');
+    }
+    throw new Error(`Falha ao inicializar Bluetooth: ${errorMessage}`);
+  }
 
   // Collect all characteristics from a connected device and try to parse them
   // Also set up notify monitoring for real-time weight updates while standing on scale
@@ -725,7 +755,20 @@ export async function connectToWeightScale(
     null,
     async (error, device) => {
       if (stopRequested) return;
-      if (error) return;           // erros de escaneo sao normais
+      if (error) {
+        // Handle specific BLE errors with user-friendly messages
+        const errorCode = (error as any).errorCode;
+        if (errorCode === 101 || errorCode === 102) {
+          onStatus('❌ Bluetooth não está ativado. Ative o Bluetooth nas configurações do dispositivo.');
+        } else if (errorCode === 103) {
+          onStatus('❌ Bluetooth não suportado neste dispositivo.');
+        } else if (errorCode === 601) {
+          onStatus('❌ Permissão de Bluetooth negada. Permita o acesso nas configurações do app.');
+        } else {
+          onStatus(`❌ Erro ao escanear: ${error.message}`);
+        }
+        return;
+      }
       if (!device) return;
 
       onStatus(`🔍 Dispositivo encontrado: ${device.name || 'Desconhecido'} (ID: ${device.id.substring(0,8)}...)`);
@@ -755,9 +798,10 @@ export async function connectToWeightScale(
       }
       
       // Conectar E listar TODOS os serviços
-      onStatus(`📡 Dispositivo encontrado: ${device.name || 'Yoda'} — descobrindo serviços…`);
+      onStatus(`📡 Dispositivo encontrado: ${device.name || 'Balança'} — conectando…`);
       try {
         const connected: Device = await device.connect();
+        onStatus('✅ Conectado! Descobrindo serviços…');
         await connected.discoverAllServicesAndCharacteristics();
         
         const allServices = await connected.services();
@@ -791,7 +835,18 @@ export async function connectToWeightScale(
         }
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : 'Erro desconhecido';
-        onStatus(`❌ Falha ao conectar: ${msg}`);
+        // Provide user-friendly error messages
+        if (msg.includes('timeout') || msg.includes('Timeout')) {
+          onStatus('❌ Tempo limite excedido. A balança pode estar fora de alcance ou desligada.');
+        } else if (msg.includes('disconnect') || msg.includes('Disconnect')) {
+          onStatus('❌ Conexão perdida. Tente novamente ficando mais perto da balança.');
+        } else if (msg.includes('not found') || msg.includes('Not found')) {
+          onStatus('❌ Dispositivo não encontrado. Verifique se a balança está ligada e próxima.');
+        } else if (msg.includes('GATT') || msg.includes('gatt')) {
+          onStatus('❌ Erro de comunicação com a balança. Tente desligar e ligar novamente.');
+        } else {
+          onStatus(`❌ Falha ao conectar: ${msg}`);
+        }
       }
     },
   );
