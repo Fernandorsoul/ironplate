@@ -29,7 +29,7 @@ Vercel production
 Na `dev`:
 
 - finalize os PRs que fazem parte da versão;
-- atualize `CHANGELOG.md` e a seção pública de novidades quando necessário;
+- atualize `CHANGELOG.md` com o resumo funcional (as cards de Novidades da home pública são geradas automaticamente a partir da GitHub Release no deploy e em builds EAS via `npm run sync:release-news`);
 - confirme migrations, variáveis novas e compatibilidade de clientes antigos;
 - execute os testes e builds proporcionais à mudança.
 
@@ -109,10 +109,11 @@ Após a publicação, o workflow:
 1. baixa o commit da tag;
 2. confirma que ele pertence à `master`;
 3. instala Node.js 22.13 e as dependências;
-4. aplica migrations usando `DATABASE_URL_UNPOOLED`;
-5. carrega a configuração de produção da Vercel;
-6. executa `vercel build --prod`;
-7. publica o artefato com `vercel deploy --prebuilt --prod`.
+4. sincroniza as Novidades da home pública com as GitHub Releases (`scripts/sync-release-news.mjs`);
+5. aplica migrations usando `DATABASE_URL_UNPOOLED`;
+6. carrega a configuração de produção da Vercel;
+7. executa `vercel build --prod`;
+8. publica o artefato com `vercel deploy --prebuilt --prod`.
 
 O `vercel.json` desabilita deploy automático por integração Git. O workflow de release é a fonte de verdade do deploy de produção.
 
