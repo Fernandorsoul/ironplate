@@ -79,6 +79,8 @@
     "db:migrate": "tsx scripts/migrate.ts",
     "db:diagnose": "tsx scripts/diagnose-migrate.ts",
     "password-reset:check": "tsx scripts/check-password-reset-readiness.ts",
+    "sync:release-news": "node scripts/sync-release-news.mjs",
+    "eas-build-post-install": "node scripts/sync-release-news.mjs",
     "lint": "eslint api src App.tsx index.ts scripts/*.ts --report-unused-disable-directives",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.api.json --noEmit"
   },

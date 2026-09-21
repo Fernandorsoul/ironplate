@@ -4,6 +4,15 @@ Alterações funcionais relevantes do IronPlate. A data representa a integraçã
 
 ## Não lançado
 
+### Adicionado
+
+- Seção de novidades da home pública alimentada automaticamente pelas GitHub Releases publicadas.
+- Script `scripts/sync-release-news.mjs` (`npm run sync:release-news`) que gera `src/constants/releaseNewsGenerated.ts` a partir da API do GitHub.
+- Workflow de deploy e builds EAS rodam a sincronização antes de compilar, para que cada release sempre apareça em Novidades.
+- Configurações de build Android para ampla compatibilidade (minSdk 24, New Architecture desabilitada, permissões BLE por versão do sistema).
+- Variáveis `EXPO_PUBLIC_*` fixadas em todos os perfis do `eas.json` para o APK usar o mesmo backend/Neon da web.
+- `DATABASE_SETUP.md` documentando o fluxo APK → Vercel API → Neon.
+
 ### Interface
 
 - Grade de Ações rápidas corrigida para duas colunas no celular e quatro em telas maiores.
