@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react-nativ
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { RegisterModal } from '../src/components/RegisterModal';
 import PublicHomeScreen from '../src/screens/PublicHomeScreen';
+import { RELEASE_NEWS, RELEASE_NEWS_LIMIT } from '../src/constants/releaseNews';
 
 const mockRegister = jest.fn();
 const mockLogin = jest.fn();
@@ -60,7 +61,7 @@ describe('authentication modals', () => {
     expect(onLogin).toHaveBeenCalledTimes(1);
   });
 
-  it('shows recent releases and opens registration from the public home', async () => {
+  it('shows the four most recent release updates and opens registration from the public home', async () => {
     const navigation = {
       navigate: jest.fn(),
       setParams: jest.fn(),
@@ -74,7 +75,10 @@ describe('authentication modals', () => {
     );
 
     expect(screen.getByText('NOVIDADES DO IRONPLATE')).toBeTruthy();
-    expect(screen.getByText('Dietas esportivas agora passam por validação completa')).toBeTruthy();
+    expect(RELEASE_NEWS.length).toBeGreaterThan(0);
+    expect(RELEASE_NEWS.length).toBeLessThanOrEqual(RELEASE_NEWS_LIMIT);
+    expect(RELEASE_NEWS_LIMIT).toBe(4);
+    expect(screen.getByText(RELEASE_NEWS[0].title)).toBeTruthy();
 
     await fireEvent.press(screen.getAllByText('Começar agora')[0]);
 

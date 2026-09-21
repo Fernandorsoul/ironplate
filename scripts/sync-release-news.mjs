@@ -196,7 +196,8 @@ ${body}
 async function main() {
   try {
     const releases = await fetchReleases();
-    const cards = releases.slice(0, 6).map((release, index) => toCard(release, index));
+    // A home pública exibe apenas as 4 últimas releases.
+    const cards = releases.slice(0, 4).map((release, index) => toCard(release, index));
     const outputPath = writeGeneratedFile(cards);
     console.log(
       `release-news: ${cards.length} release(s) de ${REPO} gravadas em ${path.relative(process.cwd(), outputPath)}`,
