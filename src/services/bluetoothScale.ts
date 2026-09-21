@@ -603,9 +603,9 @@ export async function connectToWeightScale(
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
     if (errorMessage.includes('BLE') || errorMessage.includes('bluetooth') || errorMessage.includes('Bluetooth')) {
-      throw new Error('Seu dispositivo não suporta Bluetooth Low Energy (BLE). Verifique se o Bluetooth está ativado nas configurações.');
+      throw new Error('Seu dispositivo não suporta Bluetooth Low Energy (BLE). Verifique se o Bluetooth está ativado nas configurações.', { cause: error });
     }
-    throw new Error(`Falha ao inicializar Bluetooth: ${errorMessage}`);
+    throw new Error(`Falha ao inicializar Bluetooth: ${errorMessage}`, { cause: error });
   }
 
   // Collect all characteristics from a connected device and try to parse them
